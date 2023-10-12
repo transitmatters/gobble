@@ -1,11 +1,14 @@
 import EventSource from "eventsource";
-import * as output from "./output.js";
+import * as io from "./io.js";
 import * as gtfs from "./gtfs.js";
+import { TripID, TripState } from "./types.js";
 
 const API_KEY = process.env.MBTA_V3_API_KEY;
 
 const URL = "https://api-v3.mbta.com/vehicles?filter[route]=66";
 // const URL = "https://api-v3.mbta.com/vehicles";
+
+const MAX_UPDATE_AGE_MS = 180 * 1000; // 3 minutes
 
 
 async function main() {
@@ -18,51 +21,56 @@ async function main() {
 
   console.log("Connecting to", URL);
 
-  const es = new EventSource(URL, {
+  const eventSource = new EventSource(URL, {
     headers: {
       "Accept": "text/event-stream",
       "x-api-key": API_KEY,
     }
   });
 
-  const current_stop_state: Map<string, string> = new Map();
+  const current_stop_state: Map<TripID, TripState> = await io.read_state() ?? new Map();
 
-  es.addEventListener("error", (e) => {
+  eventSource.addEventListener("error", (e) => {
     throw new Error(e.message);
   });
 
-  es.addEventListener("update", async (e) => {
+  eventSource.addEventListener("update", async (e) => {
     try {
       const update = JSON.parse(e.data);
       const current_stop_sequence = update.attributes.current_stop_sequence;
       const direction_id = update.attributes.direction_id;
       const route_id = update.relationships.route.data.id;
+      const stop_id = update.relationships.stop.data.id;
       const trip_id = update.relationships.trip.data.id;
       const vehicle_label = update.attributes.label;
 
-      const stop_id_prev = current_stop_state.get(trip_id);
-      const stop_id_now = update.relationships.stop.data.id;
+      const updated_at = new Date(update.attributes.updated_at);
+      const iso = updated_at.toISOString();
 
-      if (stop_id_prev !== stop_id_now && stop_id_prev !== undefined) {
-        const stop_name_prev = stop_id_to_name.get(stop_id_prev);
-        const ts = new Date(update.attributes.updated_at);
-        const iso = ts.toISOString();
-        const service_date: string = iso.substring(0, 10);
+      const prev = current_stop_state.get(trip_id);
+
+      if (
+        prev !== undefined &&
+        prev.stop_id !== stop_id &&
+        updated_at.getTime() - prev.updated_at.getTime() <= MAX_UPDATE_AGE_MS
+      ) {
+        const stop_name_prev = stop_id_to_name.get(prev.stop_id);
+        const service_date = iso.substring(0, 10);
 
         console.log(`[${iso}] Writing event: route=${route_id} trip_id=${trip_id} DEP stop=${stop_name_prev}`);
         try {
-          await output.write(
+          await io.write_event(
             {
               service_date,
               route_id,
               trip_id,
               direction_id,
-              stop_id: stop_id_prev,
+              stop_id: prev.stop_id,
               stop_sequence: current_stop_sequence,
               vehicle_id: "0", // TODO??
               vehicle_label,
               event_type: "DEP",
-              event_time: ts,
+              event_time: updated_at,
               scheduled_headway: 0, // TODO
               scheduled_tt: 0 // TODO
             }
@@ -72,7 +80,11 @@ async function main() {
           console.error("Couldn't write to disk: " + err);
         }
       }
-      current_stop_state.set(trip_id, stop_id_now);
+      current_stop_state.set(trip_id, {
+        stop_id,
+        updated_at
+      });
+      await io.write_state(current_stop_state);
     }
     catch (err) {
       console.error("Error processing update" + err.message);

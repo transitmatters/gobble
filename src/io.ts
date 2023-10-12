@@ -1,8 +1,9 @@
 import * as path from "node:path";
 import * as fs from "node:fs/promises";
-import { Event, CSVEvent } from "./types.js";
+import { CSVEvent, Event, TripID, TripState } from "./types.js";
 
 const CSV_FILENAME = "events.csv";
+const STATE_FILENAME = "state.json";
 const OUTPUT_DIR = "output";
 
 function dir_path(route_id: string, direction_id: number, stop_id: string, ts: Date) {
@@ -19,7 +20,7 @@ function dir_path(route_id: string, direction_id: number, stop_id: string, ts: D
   );
 }
 
-async function write(event: Event) {
+async function write_event(event: Event) {
   const writable: CSVEvent = {
     ...event,
     event_time: event.event_time.toISOString()
@@ -32,5 +33,26 @@ async function write(event: Event) {
   return fs.writeFile(pathname, csv_line, { flag: "a+" });
 }
 
+async function read_state() {
+  try {
+    const pathname = path.join(OUTPUT_DIR, STATE_FILENAME);
+    return new Map(JSON.parse((await fs.readFile(pathname)).toString()));
+  }
+  catch(err) {
+    console.error("Error reading state from disk:", err.message);
+  }
 
-export { write };
+  return undefined;
+}
+
+async function write_state(state: Map<TripID, TripState>) {
+  const pathname = path.join(OUTPUT_DIR, STATE_FILENAME);
+  await fs.mkdir(OUTPUT_DIR, { recursive: true })
+  return fs.writeFile(
+    pathname,
+    JSON.stringify(Array.from(state), null, 2)
+  );
+}
+
+
+export { write_event, read_state, write_state };
