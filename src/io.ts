@@ -39,7 +39,9 @@ async function read_state() {
     return new Map(JSON.parse((await fs.readFile(pathname)).toString()));
   }
   catch(err) {
-    console.error("Error reading state from disk:", err.message);
+    if(err.code !== "ENOENT") {
+      console.error("Error reading state from disk:", err.message);
+    }
   }
 
   return undefined;
