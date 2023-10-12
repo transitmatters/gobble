@@ -1,5 +1,7 @@
 # gobble
 
+![Screenshot in action](docs/screenshot.png)
+
 ## Requirements to develop locally
 
 - node
