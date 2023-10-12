@@ -12,3 +12,7 @@ export interface Event {
   scheduled_headway: number;
   scheduled_tt: number;
 }
+
+export interface CSVEvent extends Omit<Event, "event_time"> {
+  event_time: string;
+}

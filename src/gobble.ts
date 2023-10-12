@@ -34,15 +34,18 @@ async function main() {
   es.addEventListener("update", async (e) => {
     try {
       const update = JSON.parse(e.data);
-      const trip_id = update.relationships.trip.data.id;
+      const current_stop_sequence = update.attributes.current_stop_sequence;
+      const direction_id = update.attributes.direction_id;
       const route_id = update.relationships.route.data.id;
+      const trip_id = update.relationships.trip.data.id;
+      const vehicle_label = update.attributes.label;
 
       const stop_id_prev = current_stop_state.get(trip_id);
       const stop_id_now = update.relationships.stop.data.id;
 
       if (stop_id_prev !== stop_id_now && stop_id_prev !== undefined) {
         const stop_name_prev = stop_id_to_name.get(stop_id_prev);
-        const ts = new Date();
+        const ts = new Date(update.attributes.updated_at);
         const iso = ts.toISOString();
         const service_date: string = iso.substring(0, 10);
 
@@ -53,11 +56,11 @@ async function main() {
               service_date,
               route_id,
               trip_id,
-              direction_id: 0, // TODO
+              direction_id,
               stop_id: stop_id_prev,
-              stop_sequence: 0, // TODO
-              vehicle_id: "0", // TODO
-              vehicle_label: "0", // TODO
+              stop_sequence: current_stop_sequence,
+              vehicle_id: "0", // TODO??
+              vehicle_label,
               event_type: "DEP",
               event_time: ts,
               scheduled_headway: 0, // TODO
