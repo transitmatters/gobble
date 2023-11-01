@@ -1,0 +1,60 @@
+{
+  "Resources": {
+    "GBLEInstance": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": "ami-070650c005cce4203",
+        "InstanceType": "t4g.micro",
+        "KeyName": "transitmatters-gobble",
+        "SecurityGroupIds": [
+          {
+            "Ref": "GBLESecurityGroup"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "gobble.labs.transitmatters.org"
+          }
+        ],
+        "BlockDeviceMappings": [
+          {
+            "DeviceName": "/dev/sda1",
+            "Ebs": {
+              "VolumeSize": 32,
+              "VolumeType": "gp2"
+            }
+          }
+        ]
+      }
+    },
+    "GBLESecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupName": {
+          "Fn::Sub": "GBLE-securitygroup"
+        },
+        "GroupDescription": "Allow SSH inbound and outbound traffic",
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 22,
+            "ToPort": 22,
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "InstanceHostname": {
+      "Description": "GBLE's public hostname",
+      "Value": {
+        "Fn::GetAtt": [
+          "GBLEInstance",
+          "PublicDnsName"
+        ]
+      }
+    }
+  }
+}
