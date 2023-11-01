@@ -33,10 +33,17 @@ async function write_event(event: Event) {
   return fs.writeFile(pathname, csv_line, { flag: "a+" });
 }
 
+function json_decode(key, value) {
+  if(key === "updated_at") {
+    return new Date(value);
+  }
+  return value;
+}
+
 async function read_state() {
   try {
     const pathname = path.join(OUTPUT_DIR, STATE_FILENAME);
-    return new Map(JSON.parse((await fs.readFile(pathname)).toString()));
+    return new Map(JSON.parse((await fs.readFile(pathname)).toString(), json_decode));
   }
   catch(err) {
     if(err.code !== "ENOENT") {

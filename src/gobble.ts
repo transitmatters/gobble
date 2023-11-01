@@ -5,7 +5,7 @@ import { TripID, TripState } from "./types.js";
 
 const API_KEY = process.env.MBTA_V3_API_KEY;
 
-const URL = "https://api-v3.mbta.com/vehicles?filter[route]=CR-Fitchburg";
+const URL = "https://api-v3.mbta.com/vehicles?filter[route]=77";
 // const URL = "https://api-v3.mbta.com/vehicles";
 
 const MAX_UPDATE_AGE_MS = 180 * 1000; // 3 minutes

@@ -40,7 +40,7 @@ const GTFS_LOADER_CONFIG = {
         "trips_properties_definitions",
         "trips_properties",
         "trips",
-        // "stops",
+        // "stops", // We actually want this one, so it's excluded from the exclude list! :-)
       ]
     }
   ],
