@@ -13,6 +13,7 @@
   "author": "TransitMatters",
   "license": "MIT",
   "dependencies": {
+    "config": "3.3.9",
     "eventsource": "2.0.2",
     "gtfs": "4.5.0"
   },

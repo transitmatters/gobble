@@ -1,0 +1,46 @@
+name: deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+      - name: Set up Node 18.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - name: Check if package-lock.json is up to date
+        run: |
+          npx --yes package-lock-utd@1.1.0
+      - name: Generate AWS profile
+        run: |
+          mkdir ~/.aws
+          cat >> ~/.aws/credentials << EOF
+          [transitmatters]
+          aws_access_key_id = ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key = ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          EOF
+          cat >> ./devops/local.json << EOF
+          {
+            "mbta": {
+              "v3_api_key": "${{ secrets.MBTA_V3_API_KEY }}"
+            }
+          }
+          EOF
+      - name: Write SSH key
+        run: |
+          mkdir ~/.ssh
+          cat >> ~/.ssh/transitmatters-gobble.pem << EOF
+          ${{ secrets.SSH_PRIVATE_KEY }}
+          EOF
+          chmod 0600 ~/.ssh/transitmatters-gobble.pem
+      - name: Run deploy shell script
+        run: |
+          npm ci
+          cd devops && bash ./deploy.sh -p -c

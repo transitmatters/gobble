@@ -30,6 +30,11 @@
         dest: /home/ubuntu/gobble
         force: yes
 
+    - name: copy config file
+      copy:
+        src: local.json
+        dest: /home/ubuntu/gobble/config/local.json
+
     - name: copy systemd service file
       become: yes
       become_user: root

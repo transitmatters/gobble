@@ -1,9 +1,10 @@
+import * as config from "config";
 import EventSource from "eventsource";
 import * as io from "./io.js";
 import * as gtfs from "./gtfs.js";
 import { TripID, TripState } from "./types.js";
 
-const API_KEY = process.env.MBTA_V3_API_KEY;
+const API_KEY = config.get("mbta.v3_api_key");
 
 const URL = "https://api-v3.mbta.com/vehicles?filter[route]=77";
 // const URL = "https://api-v3.mbta.com/vehicles";
