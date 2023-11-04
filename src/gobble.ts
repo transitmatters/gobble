@@ -53,7 +53,7 @@ async function main() {
         updated_at.getTime() - prev.updated_at.getTime() <= MAX_UPDATE_AGE_MS
       ) {
         const stop_name_prev = stop_id_to_name.get(prev.stop_id);
-        const service_date = util.service_date_str(updated_at);
+        const service_date = util.service_date_iso8601(updated_at);
 
         console.log(`[${iso}] Writing event: route=${route_id} trip_id=${trip_id} DEP stop=${stop_name_prev}`);
         try {
