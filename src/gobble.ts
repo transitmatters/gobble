@@ -1,4 +1,4 @@
-import * as config from "config";
+import config from "config";
 import EventSource from "eventsource";
 import * as io from "./io.js";
 import * as gtfs from "./gtfs.js";

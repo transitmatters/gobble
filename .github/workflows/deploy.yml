@@ -30,6 +30,9 @@ jobs:
           {
             "mbta": {
               "v3_api_key": "${{ secrets.MBTA_V3_API_KEY }}"
+            },
+            "gtfs": {
+              "dir": "/home/ubuntu/MBTA_GTFS"
             }
           }
           EOF

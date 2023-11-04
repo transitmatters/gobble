@@ -52,6 +52,12 @@
       args:
         chdir: /home/ubuntu/gobble
 
+    - name: Download and unzip MBTA static GTFS
+      unarchive:
+        src: https://cdn.mbta.com/MBTA_GTFS.zip
+        dest: /home/ubuntu/MBTA_GTFS
+        remote_src: yes
+
     - name: restart service
       become: yes
       become_user: root

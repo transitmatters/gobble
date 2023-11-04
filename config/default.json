@@ -1,5 +1,8 @@
 {
   "mbta": {
     "v3_api_key": null
+  },
+  "gtfs": {
+    "dir": null
   }
 }

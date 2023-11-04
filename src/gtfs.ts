@@ -1,6 +1,7 @@
+import config from "config";
 import { importGtfs, getStops } from "gtfs";
 
-const GTFS_UNZIPPED_PATH = process.env.MBTA_GTFS_UNZIPPED;
+const GTFS_UNZIPPED_PATH = config.get("gtfs.dir");
 const GTFS_LOADER_CONFIG = {
   "agencies": [
     {
