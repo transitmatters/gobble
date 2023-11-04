@@ -3,14 +3,11 @@ import EventSource from "eventsource";
 import * as io from "./io.js";
 import * as gtfs from "./gtfs.js";
 import { TripID, TripState } from "./types.js";
+import * as util from "./util.js";
 
 const API_KEY = config.get("mbta.v3_api_key");
-
-const URL = "https://api-v3.mbta.com/vehicles?filter[route]=77";
-// const URL = "https://api-v3.mbta.com/vehicles";
-
 const MAX_UPDATE_AGE_MS = 180 * 1000; // 3 minutes
-
+const URL = "https://api-v3.mbta.com/vehicles?filter[route]=66";
 
 async function main() {
   if (API_KEY === undefined) {
@@ -56,7 +53,7 @@ async function main() {
         updated_at.getTime() - prev.updated_at.getTime() <= MAX_UPDATE_AGE_MS
       ) {
         const stop_name_prev = stop_id_to_name.get(prev.stop_id);
-        const service_date = iso.substring(0, 10);
+        const service_date = util.service_date_str(updated_at);
 
         console.log(`[${iso}] Writing event: route=${route_id} trip_id=${trip_id} DEP stop=${stop_name_prev}`);
         try {

@@ -15,9 +15,11 @@
   "dependencies": {
     "config": "3.3.9",
     "eventsource": "2.0.2",
-    "gtfs": "4.5.0"
+    "gtfs": "4.5.0",
+    "luxon": "3.4.3"
   },
   "devDependencies": {
+    "@types/luxon": "^3.3.3",
     "@typescript-eslint/eslint-plugin": "^6.7.5",
     "@typescript-eslint/parser": "^6.7.5",
     "eslint": "^8.51.0",
