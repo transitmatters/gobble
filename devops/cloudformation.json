@@ -14,7 +14,7 @@
         "Tags": [
           {
             "Key": "Name",
-            "Value": "gobble.labs.transitmatters.org"
+            "Value": "gobble"
           }
         ],
         "BlockDeviceMappings": [
