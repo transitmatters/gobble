@@ -3,7 +3,7 @@
     "GBLEInstance": {
       "Type": "AWS::EC2::Instance",
       "Properties": {
-        "ImageId": "ami-0e783882a19958fff",
+        "ImageId": "ami-0feba2720136a0493",
         "InstanceType": "t4g.nano",
         "KeyName": "transitmatters-gobble",
         "SecurityGroupIds": [
