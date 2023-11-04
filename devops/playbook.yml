@@ -4,6 +4,11 @@
   remote_user: ubuntu
   become_user: ubuntu
   tasks:
+    - name: Install utilities
+      ansible.builtin.apt:
+        pkg:
+        - unzip
+
     - name: Add nodejs apt key
       become: yes
       become_user: root
