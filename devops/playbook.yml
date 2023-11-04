@@ -5,6 +5,8 @@
   become_user: ubuntu
   tasks:
     - name: Install utilities
+      become: yes
+      become_user: root
       ansible.builtin.apt:
         pkg:
         - unzip
