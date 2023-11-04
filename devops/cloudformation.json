@@ -4,7 +4,7 @@
       "Type": "AWS::EC2::Instance",
       "Properties": {
         "ImageId": "ami-0feba2720136a0493",
-        "InstanceType": "t4g.nano",
+        "InstanceType": "t4g.micro",
         "KeyName": "transitmatters-gobble",
         "SecurityGroupIds": [
           {
