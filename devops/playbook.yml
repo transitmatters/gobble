@@ -55,7 +55,7 @@
     - name: Download and unzip MBTA static GTFS
       unarchive:
         src: https://cdn.mbta.com/MBTA_GTFS.zip
-        dest: /home/ubuntu/MBTA_GTFS
+        dest: /home/ubuntu
         remote_src: yes
 
     - name: restart service
