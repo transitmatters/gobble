@@ -59,10 +59,15 @@
       args:
         chdir: /home/ubuntu/gobble
 
+    - name: Create directory for MBTA static GTFS
+      ansible.builtin.file:
+        path: /home/ubuntu/MBTA_GTFS
+        state: directory
+
     - name: Download and unzip MBTA static GTFS
       unarchive:
         src: https://cdn.mbta.com/MBTA_GTFS.zip
-        dest: /home/ubuntu
+        dest: /home/ubuntu/MBTA_GTFS
         remote_src: yes
 
     - name: restart service
