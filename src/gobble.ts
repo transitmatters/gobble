@@ -1,8 +1,9 @@
+import { Mutex } from "async-mutex";
 import config from "config";
 import EventSource from "eventsource";
-import * as io from "./io.js";
-import * as gtfs from "./gtfs.js";
 import { TripID, TripState } from "./types.js";
+import * as gtfs from "./gtfs.js";
+import * as io from "./io.js";
 import * as util from "./util.js";
 
 const API_KEY = config.get("mbta.v3_api_key");
@@ -36,13 +37,20 @@ async function main() {
     }
   });
 
+  const mutex = new Mutex();
+
   const current_stop_state: Map<TripID, TripState> = await io.read_state() ?? new Map();
 
   eventSource.addEventListener("error", (e) => {
     throw new Error(e.message);
   });
 
-  eventSource.addEventListener("update", async (e) => {
+  eventSource.addEventListener("update", async (e) => {    
+    // Because updates can come at any time- we have to prevent a second update from
+    // getting processed while the first is being written to disk
+    // THIS CAN HAPPEN EVEN THOUGH NODE IS SINGLE-THREADED.
+    const release = await mutex.acquire();
+
     try {
       prune_state(current_stop_state);
 
@@ -100,13 +108,16 @@ async function main() {
         current_stop_state.set(trip_id, {
           stop_sequence: current_stop_sequence,
           stop_id,
-          updated_at
+          updated_at,
         });
       }
       await io.write_state(current_stop_state);
     }
     catch (err) {
       console.error("Error processing update: " + err.message + ". Payload: " + e.data);
+    }
+    finally {
+      release();
     }
   });
 }
