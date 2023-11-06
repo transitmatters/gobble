@@ -6,7 +6,6 @@ import { TripID, TripState } from "./types.js";
 import * as util from "./util.js";
 
 const API_KEY = config.get("mbta.v3_api_key");
-const MAX_UPDATE_AGE_MS = 180 * 1000; // 3 minutes
 const URL = "https://api-v3.mbta.com/vehicles?filter[route]=66";
 
 function prune_state(state: Map<TripID, TripState>) {
@@ -70,8 +69,7 @@ async function main() {
 
       if (
         prev.stop_id !== stop_id &&
-        prev.stop_sequence < current_stop_sequence &&
-        updated_at.getTime() - prev.updated_at.getTime() <= MAX_UPDATE_AGE_MS
+        prev.stop_sequence < current_stop_sequence
       ) {
         const stop_name_prev = stop_id_to_name.get(prev.stop_id);
         const service_date = util.service_date_iso8601(updated_at);
