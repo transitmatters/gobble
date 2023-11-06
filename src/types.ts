@@ -20,7 +20,6 @@ export interface CSVEvent extends Omit<Event, "event_time"> {
 export type TripID = string;
 
 export interface TripState {
-  stop_sequence: number;
   stop_id: string;
   updated_at: Date;
 }
