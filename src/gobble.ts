@@ -6,7 +6,7 @@ import { TripID, TripState } from "./types.js";
 import * as util from "./util.js";
 
 const API_KEY = config.get("mbta.v3_api_key");
-const MAX_UPDATE_AGE_MS = 180 * 1000; // 3 minutes
+const MAX_UPDATE_AGE_MS = 60 * 1000 * 5; // 5 minutes
 const URL = "https://api-v3.mbta.com/vehicles?filter[route]=66";
 
 async function main() {
@@ -50,6 +50,7 @@ async function main() {
       if (
         prev !== undefined &&
         prev.stop_id !== stop_id &&
+        prev.stop_sequence < current_stop_sequence &&
         updated_at.getTime() - prev.updated_at.getTime() <= MAX_UPDATE_AGE_MS
       ) {
         const stop_name_prev = stop_id_to_name.get(prev.stop_id);
@@ -73,16 +74,17 @@ async function main() {
               scheduled_tt: 0 // TODO
             }
           );
+          current_stop_state.set(trip_id, {
+            stop_id,
+            stop_sequence: current_stop_sequence,
+            updated_at
+          });
+          await io.write_state(current_stop_state);
         }
         catch (err) {
           console.error("Couldn't write to disk: " + err);
         }
       }
-      current_stop_state.set(trip_id, {
-        stop_id,
-        updated_at
-      });
-      await io.write_state(current_stop_state);
     }
     catch (err) {
       console.error("Error processing update" + err.message);
