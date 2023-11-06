@@ -21,5 +21,6 @@ export type TripID = string;
 
 export interface TripState {
   stop_id: string;
+  stop_sequence: number;
   updated_at: Date;
 }

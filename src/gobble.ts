@@ -45,11 +45,19 @@ async function main() {
       const updated_at = new Date(update.attributes.updated_at);
       const iso = updated_at.toISOString();
 
-      const prev = current_stop_state.get(trip_id);
+      let prev: TripState|undefined = current_stop_state.get(trip_id);
+      if(prev === undefined) {
+        prev = {
+          stop_sequence: current_stop_sequence,
+          stop_id,
+          updated_at,
+        };
+        current_stop_state.set(trip_id, prev);
+      }
 
       if (
-        prev !== undefined &&
         prev.stop_id !== stop_id &&
+        prev.stop_sequence < current_stop_sequence &&
         updated_at.getTime() - prev.updated_at.getTime() <= MAX_UPDATE_AGE_MS
       ) {
         const stop_name_prev = stop_id_to_name.get(prev.stop_id);
@@ -75,17 +83,19 @@ async function main() {
           );
         }
         catch (err) {
-          console.error("Couldn't write to disk: " + err);
+          console.error("Couldn't write event to disk: " + err);
         }
+
+        current_stop_state.set(trip_id, {
+          stop_sequence: current_stop_sequence,
+          stop_id,
+          updated_at
+        });
       }
-      current_stop_state.set(trip_id, {
-        stop_id,
-        updated_at
-      });
       await io.write_state(current_stop_state);
     }
     catch (err) {
-      console.error("Error processing update" + err.message);
+      console.error("Error processing update: " + err.message + ". Payload: " + e.data);
     }
   });
 }
