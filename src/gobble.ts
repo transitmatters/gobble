@@ -45,6 +45,8 @@ async function main() {
 
   eventSource.addEventListener("update", async (e) => {
     try {
+      prune_state(current_stop_state);
+
       const update = JSON.parse(e.data);
       const current_stop_sequence = update.attributes.current_stop_sequence;
       const direction_id = update.attributes.direction_id;
@@ -103,8 +105,6 @@ async function main() {
           updated_at
         });
       }
-
-      prune_state(current_stop_state);
       await io.write_state(current_stop_state);
     }
     catch (err) {
