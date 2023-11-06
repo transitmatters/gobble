@@ -9,6 +9,17 @@ const API_KEY = config.get("mbta.v3_api_key");
 const MAX_UPDATE_AGE_MS = 180 * 1000; // 3 minutes
 const URL = "https://api-v3.mbta.com/vehicles?filter[route]=66";
 
+function prune_state(state: Map<TripID, TripState>) {
+  const today_service_date = util.service_date_iso8601(new Date());
+  for(const [trip_id, trip_state] of state) {
+    const trip_service_date = util.service_date_iso8601(trip_state.updated_at);
+    if(today_service_date > trip_service_date) {
+      state.delete(trip_id);
+      console.log(`Pruned trip state for ${trip_id}; its service date was ${trip_service_date} (today is ${today_service_date})`);
+    }
+  }
+}
+
 async function main() {
   if (API_KEY === undefined) {
     throw new Error("Missing MBTA V3 API key; is MBTA_V3_API_KEY set?")
@@ -92,6 +103,8 @@ async function main() {
           updated_at
         });
       }
+
+      prune_state(current_stop_state);
       await io.write_state(current_stop_state);
     }
     catch (err) {
