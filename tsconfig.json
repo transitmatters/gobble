@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
-    "target": "es6",
-    "lib": ["esnext"],
+    "lib": ["es2023"],
+    "module": "node16",
+    "moduleResolution": "nodenext",
+    "target": "es2022",
     "allowJs": false,
     "skipLibCheck": true,
     "strict": false,
@@ -9,19 +11,9 @@
     "forceConsistentCasingInFileNames": true,
     "incremental": true,
     "esModuleInterop": true,
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "outDir": "build",
-    "plugins": [
-      {
-        "name": "next"
-      },
-      {
-        "name": "typescript-plugin-css-modules"
-      }
-    ]
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules"]
