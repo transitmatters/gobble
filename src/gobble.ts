@@ -5,10 +5,9 @@ import { TripID, TripState } from "./types.js";
 import * as gtfs from "./gtfs.js";
 import * as io from "./io.js";
 import * as util from "./util.js";
-import { STOPS } from "./constants.js";
 
 const API_KEY = config.get("mbta.v3_api_key");
-const URL = "https://api-v3.mbta.com/vehicles?filter[route]=1";
+const URL = "https://api-v3.mbta.com/vehicles?filter[route]=66";
 
 function prune_state(state: Map<TripID, TripState>) {
   const today_service_date = util.service_date_iso8601(new Date());
@@ -78,8 +77,7 @@ async function main() {
 
       if (
         prev.stop_id !== stop_id &&
-        prev.stop_sequence < current_stop_sequence &&
-        STOPS.get(route_id)?.has(prev.stop_id)
+        prev.stop_sequence < current_stop_sequence
       ) {
         const stop_name_prev = stop_id_to_name.get(prev.stop_id);
         const service_date = util.service_date_iso8601(updated_at);
@@ -99,7 +97,7 @@ async function main() {
               event_type: "DEP",
               event_time: updated_at,
               scheduled_headway: 0, // TODO
-              scheduled_tt: 0, // TODO
+              scheduled_tt: 0 // TODO
             }
           );
         }
