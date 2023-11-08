@@ -5,9 +5,10 @@ import { TripID, TripState } from "./types.js";
 import * as gtfs from "./gtfs.js";
 import * as io from "./io.js";
 import * as util from "./util.js";
+import { STOPS } from "./constants.js";
 
 const API_KEY = config.get("mbta.v3_api_key");
-const URL = "https://api-v3.mbta.com/vehicles?filter[route]=66";
+const URL = "https://api-v3.mbta.com/vehicles?filter[route]=1";
 
 function prune_state(state: Map<TripID, TripState>) {
   const today_service_date = util.service_date_iso8601(new Date());
@@ -82,27 +83,29 @@ async function main() {
         const stop_name_prev = stop_id_to_name.get(prev.stop_id);
         const service_date = util.service_date_iso8601(updated_at);
 
-        console.log(`[${iso}] Writing event: route=${route_id} trip_id=${trip_id} DEP stop=${stop_name_prev}`);
-        try {
-          await io.write_event(
-            {
-              service_date,
-              route_id,
-              trip_id,
-              direction_id,
-              stop_id: prev.stop_id,
-              stop_sequence: current_stop_sequence,
-              vehicle_id: "0", // TODO??
-              vehicle_label,
-              event_type: "DEP",
-              event_time: updated_at,
-              scheduled_headway: 0, // TODO
-              scheduled_tt: 0 // TODO
-            }
-          );
-        }
-        catch (err) {
-          console.error("Couldn't write event to disk: " + err);
+        if(STOPS.get(route_id)?.has(prev.stop_id)) {
+          console.log(`[${iso}] Event: route=${route_id} trip_id=${trip_id} DEP stop=${stop_name_prev}`);
+          try {
+            await io.write_event(
+              {
+                service_date,
+                route_id,
+                trip_id,
+                direction_id,
+                stop_id: prev.stop_id,
+                stop_sequence: current_stop_sequence,
+                vehicle_id: "0", // TODO??
+                vehicle_label,
+                event_type: "DEP",
+                event_time: updated_at,
+                scheduled_headway: 0, // TODO
+                scheduled_tt: 0 // TODO
+              }
+            );
+          }
+          catch (err) {
+            console.error("Couldn't write event to disk: " + err);
+          }
         }
 
         current_stop_state.set(trip_id, {
