@@ -8,9 +8,7 @@
 
 ## Development Instructions
 
-1. Add `MBTA_V3_API_KEY` and `MBTA_GTFS_UNZIPPED` to your shell environment:
-   - `export MBTA_V3_API_KEY='KEY'` in ~/.bashrc or ~/.zshrc
-   - `export MBTA_GTFS_UNZIPPED='/path/to/gtfs'` in ~/.bashrc or ~/.zshrc
+1. Duplicate `config/default.json` into `config/local.json`, and change the nulls out with the MBTA V3 API key and path to your local unarchived GTFS directory.
 1. In the root directory, run `npm install` to install dependencies
 1. Run `npm run build && npm start` to start.
 1. Output will be in `output/` in your current working directory. Good luck!
