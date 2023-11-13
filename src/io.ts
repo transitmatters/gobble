@@ -2,10 +2,7 @@ import * as path from "node:path";
 import * as fs from "node:fs/promises";
 import { output_dir_path } from "./util.js";
 import { CSVEvent, Event, TripID, TripState } from "./types.js";
-
-const CSV_FILENAME = "events.csv";
-const STATE_FILENAME = "state.json";
-const OUTPUT_DIR = "output";
+import { CSV_FILENAME, OUTPUT_DIR, STATE_FILENAME } from "./constants.js";
 
 async function write_event(event: Event) {
   const writable: CSVEvent = {
@@ -21,7 +18,7 @@ async function write_event(event: Event) {
   return fs.writeFile(pathname, csv_line, { flag: "a+" });
 }
 
-function json_decode(key, value) {
+function json_decode(key: string, value) {
   if(key === "updated_at") {
     return new Date(value);
   }

@@ -6,6 +6,7 @@ import * as gtfs from "./gtfs.js";
 import * as io from "./io.js";
 import * as util from "./util.js";
 import { STOPS } from "./constants.js";
+import { Event } from "./types.js";
 
 const API_KEY = config.get("mbta.v3_api_key");
 const URL = "https://api-v3.mbta.com/vehicles?filter[route]=1";
@@ -86,22 +87,22 @@ async function main() {
         if(STOPS.get(route_id)?.has(prev.stop_id)) {
           console.log(`[${iso}] Event: route=${route_id} trip_id=${trip_id} DEP stop=${stop_name_prev}`);
           try {
-            await io.write_event(
-              {
-                service_date,
-                route_id,
-                trip_id,
-                direction_id,
-                stop_id: prev.stop_id,
-                stop_sequence: current_stop_sequence,
-                vehicle_id: "0", // TODO??
-                vehicle_label,
-                event_type: "DEP",
-                event_time: updated_at,
-                scheduled_headway: 0, // TODO
-                scheduled_tt: 0 // TODO
-              }
-            );
+            const event: Event = {
+              service_date,
+              route_id,
+              trip_id,
+              direction_id,
+              stop_id: prev.stop_id,
+              stop_sequence: current_stop_sequence,
+              vehicle_id: "0", // TODO??
+              vehicle_label,
+              event_type: "DEP",
+              event_time: updated_at,
+              scheduled_headway: 0, // TODO
+              scheduled_tt: 0 // TODO
+            }
+            await io.write_event(event);
+            
           }
           catch (err) {
             console.error("Couldn't write event to disk: " + err);

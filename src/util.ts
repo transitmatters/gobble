@@ -15,7 +15,7 @@ function output_dir_path(output_dir: string, route_id: string, direction_id: num
   );
 }
 
-function service_date(date_js) {
+function service_date(date_js: Date) {
   const date = DateTime.fromJSDate(date_js).setZone(EASTERN_TIME);
   if(date.hour >= 4 && date.hour <= 23) {
     return date.startOf("day");

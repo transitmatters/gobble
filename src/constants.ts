@@ -1,4 +1,4 @@
-const STOPS = new Map([
+export const STOPS = new Map([
   ["1", new Set([
     "102",
     "10590",
@@ -21,4 +21,9 @@ const STOPS = new Map([
   ],
   )]]);
 
-export { STOPS };
+export const S3_BUCKET = "tm-mbta-performance";
+
+export const CSV_FILENAME = "events.csv";
+export const GZIP_CSV_FILENAME = "events.csv.gz";
+export const STATE_FILENAME = "state.json";
+export const OUTPUT_DIR = "output";
