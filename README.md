@@ -4,18 +4,17 @@
 
 ## Requirements to develop locally
 
-- node
+- Python 3.12
+- poetry
 
 ## Development Instructions
 
-1. Duplicate `config/default.json` into `config/local.json`, and change the nulls out with the MBTA V3 API key and path to your local unarchived GTFS directory.
-1. In the root directory, run `npm install` to install dependencies
-1. Run `npm run build && npm start` to start.
-1. Output will be in `output/` in your current working directory. Good luck!
+1. Duplicate `config/template.json` into `config/local.json`, and change the null out with your MBTA V3 API key.
+1. In the root directory, run `poetry install` to install dependencies
+1. Run `poetry run python3 src/gobble.py` to start.
+1. Output will be in `data/` in your current working directory. Good luck!
 
 ### Linting
-
-To lint, run `npm run lint` in the root directory.
 
 
 ## Support TransitMatters
