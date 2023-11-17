@@ -1,19 +1,13 @@
-# dependencies
-node_modules
-
 # production
 build
+data
 output
+
+# python
+__pycache__
 
 # misc
 .DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.eslintcache
 
-*.tsbuildinfo
-
-# node-config
+# config
 config/local.json

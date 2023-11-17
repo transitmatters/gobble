@@ -1,5 +1,5 @@
-const STOPS = new Map([
-  ["1", new Set([
+STOPS = {
+  "1": {
     "102",
     "10590",
     "108",
@@ -18,7 +18,5 @@ const STOPS = new Map([
     "72",
     "75",
     "79",
-  ],
-  )]]);
-
-export { STOPS };
+  }
+}

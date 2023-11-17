@@ -4,38 +4,14 @@
   remote_user: ubuntu
   become_user: ubuntu
   tasks:
-    - name: Install utilities
-      become: yes
-      become_user: root
-      ansible.builtin.apt:
-        pkg:
-        - unzip
-
-    - name: Add nodejs apt key
-      become: yes
-      become_user: root
-      apt_key:
-        url: https://deb.nodesource.com/gpgkey/nodesource.gpg.key
-        state: present
-
-    - name: Add nodejs 18.x ppa for apt repo
-      become: yes
-      become_user: root
-      apt_repository:
-        repo: deb https://deb.nodesource.com/node_18.x focal main
-        update_cache: yes
-
-    - name: Install nodejs
-      become: yes
-      become_user: root
-      ansible.builtin.apt:
-        name: nodejs
-
     - name: get latest github repo
       git:
         repo: https://github.com/transitmatters/gobble.git
         dest: /home/ubuntu/gobble
         force: yes
+
+    - name: install poetry
+      shell: curl -sSL https://install.python-poetry.org | python3 -
 
     - name: copy config file
       copy:
@@ -50,25 +26,9 @@
         dest: /etc/systemd/system/gobble.service
 
     - name: install app dependencies
-      shell: npm ci
+      shell: /home/ubuntu/.local/bin/poetry install
       args:
         chdir: /home/ubuntu/gobble
-
-    - name: build application
-      shell: npm run build
-      args:
-        chdir: /home/ubuntu/gobble
-
-    - name: Create directory for MBTA static GTFS
-      ansible.builtin.file:
-        path: /home/ubuntu/MBTA_GTFS
-        state: directory
-
-    - name: Download and unzip MBTA static GTFS
-      unarchive:
-        src: https://cdn.mbta.com/MBTA_GTFS.zip
-        dest: /home/ubuntu/MBTA_GTFS
-        remote_src: yes
 
     - name: restart service
       become: yes
