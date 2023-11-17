@@ -11,6 +11,10 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.12
       - name: Generate AWS profile
         run: |
           mkdir ~/.aws
@@ -35,5 +39,5 @@ jobs:
           chmod 0600 ~/.ssh/transitmatters-gobble.pem
       - name: Run deploy shell script
         run: |
-          npm ci
+          curl -sSL https://install.python-poetry.org | python3 -
           cd devops && bash ./deploy.sh -p -c
