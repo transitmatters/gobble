@@ -122,17 +122,6 @@ files = [
 ]
 
 [[package]]
-name = "json-api-doc"
-version = "0.15.0"
-description = "JSON API to document parser"
-optional = false
-python-versions = "*"
-files = [
-    {file = "json-api-doc-0.15.0.tar.gz", hash = "sha256:1cbbf34d04b7768bf0de187363333a1c96294588e778f722a98ef60765458a9c"},
-    {file = "json_api_doc-0.15.0-py2.py3-none-any.whl", hash = "sha256:4a9abc840c8706b17057be8e99958821a133040e891bdb5beac0abe045ab6b1d"},
-]
-
-[[package]]
 name = "numpy"
 version = "1.26.2"
 description = "Fundamental package for array computing in Python"
@@ -212,7 +201,11 @@ files = [
 ]
 
 [package.dependencies]
-numpy = {version = ">=1.26.0,<2", markers = "python_version >= \"3.12\""}
+numpy = [
+    {version = ">=1.22.4,<2", markers = "python_version < \"3.11\""},
+    {version = ">=1.23.2,<2", markers = "python_version == \"3.11\""},
+    {version = ">=1.26.0,<2", markers = "python_version >= \"3.12\""},
+]
 python-dateutil = ">=2.8.2"
 pytz = ">=2020.1"
 tzdata = ">=2022.1"
@@ -338,5 +331,5 @@ zstd = ["zstandard (>=0.18.0)"]
 
 [metadata]
 lock-version = "2.0"
-python-versions = "^3.12"
-content-hash = "dffae6545c6cd0626a5143dc548812323c2c1bc07e061c62b235c7b23cae8f0c"
+python-versions = ">=3.10"
+content-hash = "c45ebe2c491eb8d5c62be7ecebdafd58ab8bda6fbf45ad0904de44edef9a5d37"
