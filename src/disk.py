@@ -31,7 +31,7 @@ def write_event(event):
   dirname.mkdir(parents=True, exist_ok=True)
   pathname = dirname / CSV_FILENAME
   with pathname.open("a") as fd:
-    writer = csv.DictWriter(fd, fieldnames=CSV_FIELDS)
+    writer = csv.DictWriter(fd, fieldnames=CSV_FIELDS, extrasaction="ignore")
     writer.writerow(event)
 
 
