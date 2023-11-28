@@ -11,7 +11,6 @@ import gtfs
 import disk
 import util
 
-
 API_KEY = CONFIG["mbta"]["v3_api_key"]
 HEADERS = {
   "X-API-KEY": API_KEY,
@@ -91,5 +90,4 @@ def main():
     # write the state out here
     disk.write_state(current_stop_state)
     
-
 main()

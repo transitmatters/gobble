@@ -3,7 +3,6 @@ import pandas as pd
 import pathlib
 import shutil
 import urllib.request
-import pdb
 import warnings
 
 MAIN_DIR = pathlib.Path("./data/gtfs_archives/")
@@ -90,6 +89,7 @@ def read_gtfs(date: datetime.date):
 
     return trips, stop_times, stops
 
+
 def add_gtfs_headways(events_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops: pd.DataFrame):
     """
     This will calculate scheduled headway and traveltime information
@@ -121,7 +121,7 @@ def add_gtfs_headways(events_df: pd.DataFrame, all_trips: pd.DataFrame, all_stop
         # calculate gtfs headways
         gtfs_stops = gtfs_stops.sort_values(by="arrival_time")
         headways = gtfs_stops.groupby(RTE_DIR_STOP).arrival_time.diff()
-        # the first stop of a trip doesnt technically have a real scheduled headway, so we set to 0
+        # the first stop of a trip doesnt technically have a real scheduled headway, so we set to -1
         headways = headways.fillna(datetime.timedelta(seconds=-1))
         gtfs_stops["scheduled_headway"] = headways.dt.seconds
 
