@@ -89,5 +89,5 @@ def main():
     
     # write the state out here
     disk.write_state(current_stop_state)
-    
+
 main()
