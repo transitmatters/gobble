@@ -121,8 +121,8 @@ def add_gtfs_headways(events_df: pd.DataFrame, all_trips: pd.DataFrame, all_stop
         # calculate gtfs headways
         gtfs_stops = gtfs_stops.sort_values(by="arrival_time")
         headways = gtfs_stops.groupby(RTE_DIR_STOP).arrival_time.diff()
-        # the first stop of a trip doesnt technically have a real scheduled headway, so we set to -1
-        headways = headways.fillna(datetime.timedelta(seconds=-1))
+        # the first stop of a trip doesnt technically have a real scheduled headway, so we set to empty string
+        headways = headways.fillna("")
         gtfs_stops["scheduled_headway"] = headways.dt.seconds
 
         # calculate gtfs traveltimes
