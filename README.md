@@ -1,4 +1,5 @@
 # gobble
+![lint](https://github.com/transitmatters/mbta-slow-zone-bot/workflows/lint/badge.svg?branch=main)
 
 ![Screenshot in action](docs/screenshot.png)
 
