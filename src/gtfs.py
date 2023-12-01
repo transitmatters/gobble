@@ -3,6 +3,7 @@ import pandas as pd
 import pathlib
 import shutil
 import urllib.request
+import warnings
 
 MAIN_DIR = pathlib.Path("./data/gtfs_archives/")
 MAIN_DIR.mkdir(parents=True, exist_ok=True)
@@ -89,7 +90,7 @@ def read_gtfs(date: datetime.date):
     return trips, stop_times, stops
 
 
-def add_gtfs_headways(events_df: pd.DataFrame, all_trips, all_stops):
+def add_gtfs_headways(events_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops: pd.DataFrame):
     """
     This will calculate scheduled headway and traveltime information
     from gtfs for the routes we care about, and then match our actual
@@ -104,8 +105,11 @@ def add_gtfs_headways(events_df: pd.DataFrame, all_trips, all_stops):
     RTE_DIR_STOP = ["route_id", "direction_id", "stop_id"]
 
     results = []
+    # NB: event times are converted to pd timestamps in this fuction for pandas merge manipulation,
+    # but will be converted back into datetime.datetime for serialization purposes. careful!
+    events_df.event_time = events_df["event_time"].dt.tz_localize(None)
 
-    # wa have to do this day-by-day because gtfs changes so often
+    # we have to do this day-by-day because gtfs changes so often
     for service_date, days_events in events_df.groupby("service_date"):
         # filter out the trips of interest
         relevant_trips = all_trips[all_trips.route_id.isin(days_events.route_id)]
@@ -117,6 +121,8 @@ def add_gtfs_headways(events_df: pd.DataFrame, all_trips, all_stops):
         # calculate gtfs headways
         gtfs_stops = gtfs_stops.sort_values(by="arrival_time")
         headways = gtfs_stops.groupby(RTE_DIR_STOP).arrival_time.diff()
+        # the first stop of a trip doesnt technically have a real scheduled headway, so we set to empty string
+        headways = headways.fillna("")
         gtfs_stops["scheduled_headway"] = headways.dt.seconds
 
         # calculate gtfs traveltimes
@@ -125,8 +131,8 @@ def add_gtfs_headways(events_df: pd.DataFrame, all_trips, all_stops):
 
         # assign each actual timepoint a scheduled headway
         # merge_asof 'backward' matches the previous scheduled value of 'arrival_time'
-        days_events["arrival_time"] = days_events.event_time - service_date
-        final = pd.merge_asof(
+        days_events["arrival_time"] = days_events.event_time - pd.Timestamp(service_date).tz_localize(None)
+        augmented_events = pd.merge_asof(
             days_events.sort_values(by="arrival_time"),
             gtfs_stops[RTE_DIR_STOP + ["arrival_time", "scheduled_headway"]],
             on="arrival_time",
@@ -149,9 +155,9 @@ def add_gtfs_headways(events_df: pd.DataFrame, all_trips, all_stops):
         trip_id_map = trip_id_map.set_index("trip_id").trip_id_scheduled
 
         # use the scheduled trip matching to get the scheduled traveltime
-        final["scheduled_trip_id"] = final.trip_id.map(trip_id_map)
-        final = pd.merge(
-            final,
+        augmented_events["scheduled_trip_id"] = augmented_events.trip_id.map(trip_id_map)
+        augmented_events = pd.merge(
+            augmented_events,
             gtfs_stops[RTE_DIR_STOP + ["trip_id", "scheduled_tt"]],
             how="left",
             left_on=RTE_DIR_STOP + ["scheduled_trip_id"],
@@ -160,6 +166,14 @@ def add_gtfs_headways(events_df: pd.DataFrame, all_trips, all_stops):
         )
 
         # finally, put all the days together
-        results.append(final)
+        results.append(augmented_events)
 
-    return pd.concat(results)
+    results_df = pd.concat(results)
+    # convert to event_time python datetime for serialization purposes outside of this fuction
+    # TODO: do we also do this with arrival_time? its not written to disk
+    # future warning: returning a series is actually the correct future behavior of to_pydatetime(), can drop the
+    # context manager later
+    with warnings.catch_warnings():
+        warnings.simplefilter(action='ignore', category=FutureWarning)
+        results_df["event_time"] = pd.Series(results_df["event_time"].dt.to_pydatetime(), dtype="object")
+    return results_df

@@ -52,6 +52,9 @@ def main():
       "stop_id": stop_id,
       "updated_at": updated_at,
     })
+    # current_stop_state updated_at is isofmt str, not datetime.
+    if isinstance(prev["updated_at"], str): 
+        prev["updated_at"] = datetime.fromisoformat(prev["updated_at"])
 
     if prev["stop_id"] != stop_id and prev["stop_sequence"] < current_stop_sequence:
       stop_name_prev = get_stop_name(stops, prev["stop_id"])
@@ -72,13 +75,11 @@ def main():
           "vehicle_label": vehicle_label,
           "event_type": "DEP",
           "event_time": updated_at,
-          "scheduled_headway": 0, # TODO
-          "scheduled_tt": 0, # TODO
         }], index=[0])
-        # df.event_time = df.event_time.dt.tz_localize(None)
-        # gtfs.add_gtfs_headways(df, scheduled_trips, scheduled_stop_times)
 
-        disk.write_event(df.to_dict("records")[0])
+        headway_adjusted_df = gtfs.add_gtfs_headways(df, scheduled_trips, scheduled_stop_times)
+        event = headway_adjusted_df.to_dict("records")[0]
+        disk.write_event(event)
 
     current_stop_state[trip_id] = {
       "stop_sequence": current_stop_sequence,
@@ -88,6 +89,5 @@ def main():
     
     # write the state out here
     disk.write_state(current_stop_state)
-
 
 main()
