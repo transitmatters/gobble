@@ -174,6 +174,6 @@ def add_gtfs_headways(events_df: pd.DataFrame, all_trips: pd.DataFrame, all_stop
     # future warning: returning a series is actually the correct future behavior of to_pydatetime(), can drop the
     # context manager later
     with warnings.catch_warnings():
-        warnings.simplefilter(action='ignore', category=FutureWarning)
+        warnings.simplefilter(action="ignore", category=FutureWarning)
         results_df["event_time"] = pd.Series(results_df["event_time"].dt.to_pydatetime(), dtype="object")
     return results_df
