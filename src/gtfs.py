@@ -8,7 +8,15 @@ import warnings
 MAIN_DIR = pathlib.Path("./data/gtfs_archives/")
 MAIN_DIR.mkdir(parents=True, exist_ok=True)
 
-ARCHIVES = pd.read_csv("https://cdn.mbta.com/archive/archived_feeds.txt")
+GTFS_ARCHIVES_PREFIX = pathlib.Path("https://cdn.mbta.com/archive/")
+GTFS_ARCHIVES_FILENAME = "archived_feeds.txt"
+
+
+def _download_gtfs_archives_list():
+    """Downloads list of GTFS archive urls. This file will get overwritten."""
+    archives_df = pd.read_csv(GTFS_ARCHIVES_PREFIX / GTFS_ARCHIVES_FILENAME)
+    archives_df.to_csv(MAIN_DIR / GTFS_ARCHIVES_FILENAME)
+    return archives_df
 
 
 def to_dateint(date):
@@ -21,7 +29,18 @@ def get_gtfs_archive(dateint: int):
     Determine which GTFS archive corresponds to the date.
     Returns that archive folder, downloading if it doesn't yet exist.
     """
-    matches = ARCHIVES[(ARCHIVES.feed_start_date <= dateint) & (ARCHIVES.feed_end_date >= dateint)]
+    matches = pd.DataFrame()
+    if (MAIN_DIR / GTFS_ARCHIVES_FILENAME).exists():
+        archives_df = pd.read_csv(MAIN_DIR / GTFS_ARCHIVES_FILENAME)
+        matches = archives_df[(archives_df.feed_start_date <= dateint) & (archives_df.feed_end_date >= dateint)]
+
+    # if there are no matches or we havent downloaded the url list yet,
+    # fetch (or refetch) the archives and seek matches
+    if len(matches) == 0:
+        print("No matches found in existing GTFS archives. Fetching latest archives and trying again...")
+        archives_df = _download_gtfs_archives_list()
+        matches = archives_df[(archives_df.feed_start_date <= dateint) & (archives_df.feed_end_date >= dateint)]
+
     archive_url = matches.iloc[0].archive_url
 
     archive_name = pathlib.Path(archive_url).stem
@@ -174,6 +193,6 @@ def add_gtfs_headways(events_df: pd.DataFrame, all_trips: pd.DataFrame, all_stop
     # future warning: returning a series is actually the correct future behavior of to_pydatetime(), can drop the
     # context manager later
     with warnings.catch_warnings():
-        warnings.simplefilter(action='ignore', category=FutureWarning)
+        warnings.simplefilter(action="ignore", category=FutureWarning)
         results_df["event_time"] = pd.Series(results_df["event_time"].dt.to_pydatetime(), dtype="object")
     return results_df
