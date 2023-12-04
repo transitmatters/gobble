@@ -37,7 +37,7 @@ def get_gtfs_archive(dateint: int):
     # if there are no matches or we havent downloaded the url list yet,
     # fetch (or refetch) the archives and seek matches
     if len(matches) == 0:
-        print("No matches found in existing GTFS archives. Fetching latest archives and trying again...")
+        print("No matches found in existing GTFS archives. Fetching latest archives.")
         archives_df = _download_gtfs_archives_list()
         matches = archives_df[(archives_df.feed_start_date <= dateint) & (archives_df.feed_end_date >= dateint)]
 
