@@ -25,7 +25,8 @@ def main():
 
     # Download the gtfs bundle before we proceed so we don't have to wait
     print("Downloading GTFS bundle if necessary...")
-    scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(util.service_date(datetime.now()))
+    gtfs_service_date = util.service_date(datetime.now())
+    scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date)
 
     print(f"Connecting to {URL}...")
     client = sseclient.SSEClient(requests.get(URL, headers=HEADERS, stream=True))
@@ -58,6 +59,12 @@ def main():
         if prev["stop_id"] != stop_id and prev["stop_sequence"] < current_stop_sequence:
             stop_name_prev = get_stop_name(stops, prev["stop_id"])
             service_date = util.service_date(updated_at)
+
+            # refresh the gtfs data bundle if the day has incremented
+            if gtfs_service_date != service_date:
+                print(f"Refreshing GTFS bundle from {gtfs_service_date} to {service_date}...")
+                gtfs_service_date = service_date
+                scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date)
 
             if prev["stop_id"] in STOPS[route_id] or True:
                 print(f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} DEP stop={stop_name_prev}")
