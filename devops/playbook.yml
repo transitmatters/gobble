@@ -34,3 +34,9 @@
       become: yes
       become_user: root
       shell: systemctl restart gobble
+
+    - name: upload events to s3
+      ansible.builtin.cron:
+        name: upload todays events to s3
+        minute: "0, 30"
+        job: "poetry run python3 src/s3_upload.py"
