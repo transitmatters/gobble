@@ -3,18 +3,19 @@ import pandas as pd
 import pathlib
 import shutil
 import urllib.request
+from urllib.parse import urljoin
 import warnings
 
 MAIN_DIR = pathlib.Path("./data/gtfs_archives/")
 MAIN_DIR.mkdir(parents=True, exist_ok=True)
 
-GTFS_ARCHIVES_PREFIX = pathlib.Path("https://cdn.mbta.com/archive/")
+GTFS_ARCHIVES_PREFIX = "https://cdn.mbta.com/archive/"
 GTFS_ARCHIVES_FILENAME = "archived_feeds.txt"
 
 
 def _download_gtfs_archives_list():
     """Downloads list of GTFS archive urls. This file will get overwritten."""
-    archives_df = pd.read_csv(GTFS_ARCHIVES_PREFIX / GTFS_ARCHIVES_FILENAME)
+    archives_df = pd.read_csv(urljoin(GTFS_ARCHIVES_PREFIX, GTFS_ARCHIVES_FILENAME))
     archives_df.to_csv(MAIN_DIR / GTFS_ARCHIVES_FILENAME)
     return archives_df
 
