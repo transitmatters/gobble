@@ -9,6 +9,12 @@ export AWS_PAGER=""
 
 STACK_NAME="gobble"
 
+# Ensure required secrets are set
+if [[ -z "$DD_API_KEY"  ]]; then
+    echo "Must provide DD_API_KEY in environment to deploy" 1>&2
+    exit 1
+fi
+
 echo "Deploying Gobble..."
 echo "View stack log here: https://$AWS_REGION.console.aws.amazon.com/cloudformation/home?region=$AWS_REGION"
 
@@ -21,4 +27,5 @@ INSTANCE_HOSTNAME=$(aws cloudformation describe-stacks --stack-name $STACK_NAME 
 
 # Run the playbook! :-)
 export ANSIBLE_HOST_KEY_CHECKING=False # If it's a new host, ssh known_hosts not having the key fingerprint will cause an error. Silence it
+ansible-galaxy collection install datadog.dd
 ansible-playbook -v -i $INSTANCE_HOSTNAME, -u ubuntu --private-key ~/.ssh/transitmatters-gobble.pem playbook.yml
