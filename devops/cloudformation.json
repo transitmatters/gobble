@@ -15,6 +15,10 @@
           {
             "Key": "Name",
             "Value": "gobble"
+          },
+          {
+            "Key": "service",
+            "Value": "gobble"
           }
         ],
         "BlockDeviceMappings": [
