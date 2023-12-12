@@ -27,7 +27,7 @@ def _compress_and_upload_file(fp: str):
         buffer = BytesIO(gz_bytes)
 
         s3.upload_fileobj(
-            buffer, S3_BUCKET, Key=s3_key, ExtraArgs={"ContentType": "text/csv", "Content-Encoding": "gzip"}
+            buffer, S3_BUCKET, Key=s3_key, ExtraArgs={"ContentType": "text/csv", "ContentEncoding": "gzip"}
         )
 
 
