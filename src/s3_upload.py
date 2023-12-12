@@ -56,20 +56,5 @@ def upload_todays_events_to_s3():
     print(f"Uploaded {len(files_updated_today)} to s3, took {end_time - start_time} seconds.")
 
 
-def backfill_events_to_s3():
-    start_time = time.time()
-
-    print("Beginning upload of all events to s3.")
-    all_events = glob.glob(str(DATA_DIR / "*/*/*/*/events.csv"))
-
-    # upload them to s3, gzipped
-    for fp in all_events:
-        _compress_and_upload_file(fp)
-
-    end_time = time.time()
-    print(f"Uploaded {len(all_events)} to s3, took {end_time - start_time} seconds.")
-
-
 if __name__ == "__main__":
-    # upload_todays_events_to_s3()
-    backfill_events_to_s3()
+    upload_todays_events_to_s3()
