@@ -12,8 +12,10 @@ pandas = "2.1.3"
 sseclient-py = "1.8.0"
 requests = "2.31.0"
 boto3 = "^1.33.11"
+ddtrace = "^2.3.1"
 
 [tool.poetry.dev-dependencies]
+pip = ">=23.1.0"
 flake8 = "^6.1.0"
 black = "^23.7.0"
 

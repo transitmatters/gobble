@@ -13,6 +13,10 @@
     - name: install poetry
       shell: curl -sSL https://install.python-poetry.org | python3 -
 
+    - name: Install the Datadog Agent
+      import_role:
+        name: datadog.dd.agent
+
     - name: copy config file
       copy:
         src: local.json
@@ -39,4 +43,9 @@
       ansible.builtin.cron:
         name: upload todays events to s3
         minute: "0, 30"
-        job: "cd /home/ubuntu/gobble && poetry run python3 src/s3_upload.py"
+        job: "cd /home/ubuntu/gobble && poetry run ddtrace-run python3 src/s3_upload.py"
+
+  vars:
+    datadog_api_key: "{{ lookup('env', 'DD_API_KEY') }}"
+    datadog_site: "datadoghq.com"
+    datadog_apm_instrumentation_enabled: "all"
