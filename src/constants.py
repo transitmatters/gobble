@@ -19,7 +19,6 @@ STOPS = {
         "75",
         "79",
     },
-    # TODO: populate relevant stops
     "15": {
         "11257",
         "1468",
