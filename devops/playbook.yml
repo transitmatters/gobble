@@ -48,4 +48,3 @@
   vars:
     datadog_api_key: "{{ lookup('env', 'DD_API_KEY') }}"
     datadog_site: "datadoghq.com"
-    datadog_apm_instrumentation_enabled: "all"
