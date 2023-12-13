@@ -5,7 +5,7 @@ import pandas as pd
 import requests
 import sseclient
 
-from constants import STOPS, ROUTES
+from constants import STOPS, ROUTES_CR
 from config import CONFIG
 import gtfs
 import disk
@@ -13,7 +13,7 @@ import util
 
 API_KEY = CONFIG["mbta"]["v3_api_key"]
 HEADERS = {"X-API-KEY": API_KEY, "Accept": "text/event-stream"}
-URL = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(ROUTES)}'
+URL = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(ROUTES_CR)}'
 
 
 def get_stop_name(stops_df, stop_id):
@@ -66,7 +66,7 @@ def main():
                 gtfs_service_date = service_date
                 scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date)
 
-            if prev["stop_id"] in STOPS[route_id] or True:
+            if prev["stop_id"] in STOPS.get(route_id, {}) or True:
                 print(f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} DEP stop={stop_name_prev}")
 
                 # write the event here
