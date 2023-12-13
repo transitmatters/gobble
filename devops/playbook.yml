@@ -14,6 +14,8 @@
       shell: curl -sSL https://install.python-poetry.org | python3 -
 
     - name: Install the Datadog Agent
+      become: yes
+      become_user: root
       import_role:
         name: datadog.dd.agent
 
