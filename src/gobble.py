@@ -5,7 +5,7 @@ import pandas as pd
 import requests
 import sseclient
 
-from constants import STOPS, ROUTES_CR
+from constants import STOPS, ROUTES_BUS
 from config import CONFIG
 import gtfs
 import disk
@@ -13,7 +13,7 @@ import util
 
 API_KEY = CONFIG["mbta"]["v3_api_key"]
 HEADERS = {"X-API-KEY": API_KEY, "Accept": "text/event-stream"}
-URL = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(ROUTES_CR)}'
+URL = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(ROUTES_BUS)}'
 
 
 def get_stop_name(stops_df, stop_id):
