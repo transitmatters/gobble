@@ -26,7 +26,7 @@ def _download_gtfs_archives_list():
     return archives_df
 
 
-def to_dateint(date):
+def to_dateint(date: datetime.date):
     """turn date into 20220615 e.g."""
     return int(str(date).replace("-", ""))
 
