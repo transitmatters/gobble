@@ -4,6 +4,7 @@ import pathlib
 import shutil
 import urllib.request
 from urllib.parse import urljoin
+from ddtrace import tracer
 import warnings
 
 MAIN_DIR = pathlib.Path("./data/gtfs_archives/")
@@ -19,6 +20,7 @@ RTE_DIR_STOP = ["route_id", "direction_id", "stop_id"]
 STOP_TIMES_COLS = ["stop_id", "trip_id", "arrival_time", "departure_time", "stop_id", "stop_sequence"]
 
 
+@tracer.wrap()
 def _download_gtfs_archives_list():
     """Downloads list of GTFS archive urls. This file will get overwritten."""
     archives_df = pd.read_csv(urljoin(GTFS_ARCHIVES_PREFIX, GTFS_ARCHIVES_FILENAME))
@@ -31,6 +33,7 @@ def to_dateint(date: datetime.date):
     return int(str(date).replace("-", ""))
 
 
+@tracer.wrap()
 def get_gtfs_archive(dateint: int):
     """
     Determine which GTFS archive corresponds to the date.
@@ -66,6 +69,7 @@ def get_gtfs_archive(dateint: int):
     return MAIN_DIR / archive_name
 
 
+@tracer.wrap()
 def get_services(date: datetime.date, archive_dir: pathlib.Path):
     """
     Read calendar.txt to determine which services ran on the given date.
@@ -87,6 +91,7 @@ def get_services(date: datetime.date, archive_dir: pathlib.Path):
     return list(services)
 
 
+@tracer.wrap()
 def read_gtfs(date: datetime.date):
     """
     Given a date, this function will:
@@ -115,6 +120,7 @@ def read_gtfs(date: datetime.date):
     return trips, stop_times, stops
 
 
+@tracer.wrap()
 def add_gtfs_headways(events_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops: pd.DataFrame):
     """
     This will calculate scheduled headway and traveltime information
