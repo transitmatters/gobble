@@ -23,7 +23,6 @@ DATA_DIR = pathlib.Path("data")
 STATE_FILENAME = "state.json"
 
 
-@tracer.wrap()
 def write_event(event):
     dirname = DATA_DIR / pathlib.Path(
         output_dir_path(
