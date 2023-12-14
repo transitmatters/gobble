@@ -53,7 +53,7 @@ def upload_todays_events_to_s3():
         _compress_and_upload_file(fp)
 
     end_time = time.time()
-    print(f"Uploaded {len(files_updated_today)} to s3, took {end_time - start_time} seconds.")
+    print(f"Uploaded {len(files_updated_today)} files to s3, took {end_time - start_time} seconds.")
 
 
 if __name__ == "__main__":

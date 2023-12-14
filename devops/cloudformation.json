@@ -1,11 +1,76 @@
 {
   "Resources": {
+    "PerformanceBucketPolicy": {
+      "Type": "AWS::IAM::ManagedPolicy",
+      "Properties": {
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": ["s3:GetObject", "s3:PutObject"],
+              "Resource": [
+                "arn:aws:s3:::tm-mbta-performance",
+                "arn:aws:s3:::tm-mbta-performance/*",
+              ],
+            },
+            {
+              "Effect": "Allow",
+              "Action": "s3:ListBucket",
+              "Resource": [
+                "arn:aws:s3:::tm-mbta-performance",
+                "arn:aws:s3:::tm-mbta-performance/*",
+              ],
+            }
+          ]
+        },
+        "Roles": [
+          {
+            "Ref" : "S3BucketsRole"
+          }
+        ]
+      },
+    },
+    "S3BucketsRole" : {
+      "Type" : "AWS::IAM::Role",
+      "Properties" : {
+        "AssumeRolePolicyDocument": {
+          "Version" : "2012-10-17",
+          "Statement" : [
+            {
+              "Effect" : "Allow",
+              "Principal" : {
+                "Service" : ["ec2.amazonaws.com"]
+              },
+              "Action" : [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path" : "/"
+      }
+    },
+    "S3BucketsInstanceProfile" : {
+      "Type" : "AWS::IAM::InstanceProfile",
+      "Properties" : {
+        "Path" : "/",
+        "Roles" : [
+          {
+            "Ref" : "S3BucketsRole"
+          }
+        ]
+      }
+    },
     "GBLEInstance": {
       "Type": "AWS::EC2::Instance",
       "Properties": {
         "ImageId": "ami-0feba2720136a0493",
         "InstanceType": "t4g.small",
         "KeyName": "transitmatters-gobble",
+        "IamInstanceProfile" : {
+          "Ref" : "S3BucketsInstanceProfile"
+        },
         "SecurityGroupIds": [
           {
             "Ref": "GBLESecurityGroup"
@@ -48,28 +113,6 @@
           }
         ]
       }
-    },
-    "PerformanceBucketPolicy": {
-      "Type": "AWS::IAM::ManagedPolicy",
-      "Properties": {
-        "PolicyDocument": {
-          "Version": "2012-10-17",
-          "Statement": [
-            {
-              "Effect": "Allow",
-              "Principal": "*",
-              "Action": ["s3:GetObject", "s3:PutObject"],
-              "Resource": "arn:aws:s3:::tm-mbta-performance",
-            },
-            {
-              "Effect": "Allow",
-              "Principal": "*",
-              "Action": "s3:ListBucket",
-              "Resource": "arn:aws:s3:::tm-mbta-performance",
-            }
-          ]
-        }
-      },
     },
   },
   "Outputs": {
