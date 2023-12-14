@@ -33,7 +33,7 @@ def _compress_and_upload_file(fp: str):
         )
 
 
-@tracer.wrap()
+@tracer.wrap("gobble")
 def upload_todays_events_to_s3():
     """Upload today's events to the TM s3 bucket.
 
