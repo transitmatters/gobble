@@ -12,6 +12,12 @@ MAIN_DIR.mkdir(parents=True, exist_ok=True)
 GTFS_ARCHIVES_PREFIX = "https://cdn.mbta.com/archive/"
 GTFS_ARCHIVES_FILENAME = "archived_feeds.txt"
 
+# defining these columns in particular becasue we use them everywhere
+RTE_DIR_STOP = ["route_id", "direction_id", "stop_id"]
+
+# only fetch required columns from gtfs csv's to reduce memory usage
+STOP_TIMES_COLS = ["stop_id", "trip_id", "arrival_time", "departure_time", "stop_id", "stop_sequence"]
+
 
 def _download_gtfs_archives_list():
     """Downloads list of GTFS archive urls. This file will get overwritten."""
@@ -20,7 +26,7 @@ def _download_gtfs_archives_list():
     return archives_df
 
 
-def to_dateint(date):
+def to_dateint(date: datetime.date):
     """turn date into 20220615 e.g."""
     return int(str(date).replace("-", ""))
 
@@ -100,8 +106,7 @@ def read_gtfs(date: datetime.date):
     stops = pd.read_csv(archive_dir / "stops.txt")
 
     stop_times = pd.read_csv(
-        archive_dir / "stop_times.txt",
-        dtype={"trip_id": str, "stop_id": str, "stop_headsign": str, "checkpoint_id": str},
+        archive_dir / "stop_times.txt", dtype={"trip_id": str, "stop_id": str}, usecols=STOP_TIMES_COLS
     )
     stop_times = stop_times[stop_times.trip_id.isin(trips.trip_id)]
     stop_times.arrival_time = pd.to_timedelta(stop_times.arrival_time)
@@ -120,10 +125,6 @@ def add_gtfs_headways(events_df: pd.DataFrame, all_trips: pd.DataFrame, all_stop
     https://pandas.pydata.org/docs/reference/api/pandas.merge_asof.html
     """
     # TODO: I think we need to worry about 114/116/117 headways?
-
-    # defining these columns in particular becasue we use them everywhere
-    RTE_DIR_STOP = ["route_id", "direction_id", "stop_id"]
-
     results = []
     # NB: event times are converted to pd timestamps in this fuction for pandas merge manipulation,
     # but will be converted back into datetime.datetime for serialization purposes. careful!
