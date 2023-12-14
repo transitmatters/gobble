@@ -45,6 +45,9 @@ def read_state():
             return json.load(fd)
     except FileNotFoundError:
         return {}
+    except json.decoder.JSONDecodeError:
+        print("Encountered corrupted state, will skip loading.")
+        return {}
 
 
 def write_state(state):

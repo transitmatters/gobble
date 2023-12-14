@@ -66,7 +66,7 @@ def main():
                 gtfs_service_date = service_date
                 scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date)
 
-            if prev["stop_id"] in STOPS.get(route_id, {}) or True:
+            if prev["stop_id"] in STOPS.get(route_id, {}):
                 print(f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} DEP stop={stop_name_prev}")
 
                 # write the event here
