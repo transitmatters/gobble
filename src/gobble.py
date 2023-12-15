@@ -10,6 +10,7 @@ from config import CONFIG
 import gtfs
 import disk
 import util
+from ddtrace import tracer
 
 API_KEY = CONFIG["mbta"]["v3_api_key"]
 HEADERS = {"X-API-KEY": API_KEY, "Accept": "text/event-stream"}
@@ -20,6 +21,7 @@ def get_stop_name(stops_df, stop_id):
     return stops_df[stops_df["stop_id"] == stop_id].iloc[0].stop_name
 
 
+@tracer.wrap(service="gobble")
 def main():
     current_stop_state: Dict = disk.read_state()
 

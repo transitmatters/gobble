@@ -6,6 +6,7 @@ from io import BytesIO
 import gzip
 import os
 import time
+from ddtrace import tracer
 
 s3 = boto3.client("s3")
 
@@ -15,6 +16,7 @@ LOCAL_DATA_TEMPLATE = str(DATA_DIR / "*/Year={year}/Month={month}/Day={day}/even
 S3_DATA_TEMPLATE = "Events-live/daily-bus-data/{relative_path}.gz"
 
 
+@tracer.wrap()
 def _compress_and_upload_file(fp: str):
     """Compress a file in-memory and upload to S3."""
     # generate output location
@@ -31,6 +33,7 @@ def _compress_and_upload_file(fp: str):
         )
 
 
+@tracer.wrap("gobble")
 def upload_todays_events_to_s3():
     """Upload today's events to the TM s3 bucket.
 

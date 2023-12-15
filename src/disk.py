@@ -2,6 +2,7 @@ import csv
 import json
 import pathlib
 from util import output_dir_path
+from ddtrace import tracer
 
 CSV_FILENAME = "events.csv"
 CSV_FIELDS = [
@@ -38,6 +39,7 @@ def write_event(event):
         writer.writerow(event)
 
 
+@tracer.wrap()
 def read_state():
     pathname = pathlib.Path(DATA_DIR) / STATE_FILENAME
     try:
@@ -50,6 +52,7 @@ def read_state():
         return {}
 
 
+@tracer.wrap()
 def write_state(state):
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     pathname = pathlib.Path(DATA_DIR) / STATE_FILENAME
