@@ -4,5 +4,6 @@
   },
   "gtfs": {
     "dir": null
-  }
+  },
+  "DATADOG_TRACE_ENABLED": true
 }

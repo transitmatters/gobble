@@ -7,6 +7,11 @@ import gzip
 import os
 import time
 from ddtrace import tracer
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
 
 s3 = boto3.client("s3")
 
