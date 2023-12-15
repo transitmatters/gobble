@@ -45,7 +45,7 @@
       ansible.builtin.cron:
         name: upload todays events to s3
         minute: "0, 30"
-        job: "cd /home/ubuntu/gobble && poetry run ddtrace-run python3 src/s3_upload.py"
+        job: "cd /home/ubuntu/gobble && /home/ubuntu/.local/bin/poetry run ddtrace-run python3 src/s3_upload.py"
 
   vars:
     datadog_api_key: "{{ lookup('env', 'DD_API_KEY') }}"
