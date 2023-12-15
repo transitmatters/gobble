@@ -110,7 +110,7 @@ def main():
 
 
 if __name__ == "__main__":
-    logger = logging.getLogger()
+    logger = logging.getLogger(__file__)
     main()
 else:
     logger = logging.getLogger(__name__)

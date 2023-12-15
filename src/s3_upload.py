@@ -9,8 +9,9 @@ import time
 from ddtrace import tracer
 import logging
 
+from config import CONFIG
+
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
 
 s3 = boto3.client("s3")
@@ -65,7 +66,7 @@ def upload_todays_events_to_s3():
 
 
 if __name__ == "__main__":
-    logger = logging.getLogger()
+    logger = logging.getLogger(__file__)
     upload_todays_events_to_s3()
 else:
     logger = logging.getLogger(__name__)

@@ -5,5 +5,5 @@
   "gtfs": {
     "dir": null
   },
-  "DATADOG_TRACE_ENABLED": true
+  "DATADOG_TRACE_ENABLED": false
 }
