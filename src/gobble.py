@@ -14,7 +14,6 @@ import disk
 import util
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
 
 API_KEY = CONFIG["mbta"]["v3_api_key"]
@@ -111,4 +110,7 @@ def main():
 
 
 if __name__ == "__main__":
+    logger = logging.getLogger()
     main()
+else:
+    logger = logging.getLogger(__name__)

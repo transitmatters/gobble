@@ -65,4 +65,7 @@ def upload_todays_events_to_s3():
 
 
 if __name__ == "__main__":
+    logger = logging.getLogger()
     upload_todays_events_to_s3()
+else:
+    logger = logging.getLogger(__name__)

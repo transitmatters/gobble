@@ -3,6 +3,9 @@ import json
 import pathlib
 from util import output_dir_path
 from ddtrace import tracer
+import logging
+
+logger = logging.getLogger(__name__)
 
 CSV_FILENAME = "events.csv"
 CSV_FIELDS = [
@@ -48,7 +51,7 @@ def read_state():
     except FileNotFoundError:
         return {}
     except json.decoder.JSONDecodeError:
-        print("Encountered corrupted state, will skip loading.")
+        logger.exception("Encountered corrupted state, will skip loading.", stack_info=True, exc_info=True)
         return {}
 
 
