@@ -44,7 +44,7 @@
     - name: upload events to s3
       ansible.builtin.cron:
         name: upload todays events to s3
-        minute: "0, 30"
+        minute: "0,30"
         job: "cd /home/ubuntu/gobble && /home/ubuntu/.local/bin/poetry run ddtrace-run python3 src/s3_upload.py"
 
   vars:

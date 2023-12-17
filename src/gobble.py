@@ -4,33 +4,36 @@ import json
 import pandas as pd
 import requests
 import sseclient
+import logging
+from ddtrace import tracer
 
 from constants import STOPS, ROUTES_BUS
 from config import CONFIG
 import gtfs
 import disk
 import util
-from ddtrace import tracer
+
+logging.basicConfig(level=logging.INFO)
+tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
 
 API_KEY = CONFIG["mbta"]["v3_api_key"]
 HEADERS = {"X-API-KEY": API_KEY, "Accept": "text/event-stream"}
 URL = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(ROUTES_BUS)}'
 
 
-def get_stop_name(stops_df, stop_id):
+def get_stop_name(stops_df: pd.DataFrame, stop_id: str) -> str:
     return stops_df[stops_df["stop_id"] == stop_id].iloc[0].stop_name
 
 
-@tracer.wrap(service="gobble")
 def main():
     current_stop_state: Dict = disk.read_state()
 
     # Download the gtfs bundle before we proceed so we don't have to wait
-    print("Downloading GTFS bundle if necessary...")
+    logger.info("Downloading GTFS bundle if necessary...")
     gtfs_service_date = util.service_date(datetime.now())
     scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date)
 
-    print(f"Connecting to {URL}...")
+    logger.info(f"Connecting to {URL}...")
     client = sseclient.SSEClient(requests.get(URL, headers=HEADERS, stream=True))
 
     for event in client.events():
@@ -64,12 +67,14 @@ def main():
 
             # refresh the gtfs data bundle if the day has incremented
             if gtfs_service_date != service_date:
-                print(f"Refreshing GTFS bundle from {gtfs_service_date} to {service_date}...")
+                logger.info(f"Refreshing GTFS bundle from {gtfs_service_date} to {service_date}...")
                 gtfs_service_date = service_date
                 scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date)
 
             if prev["stop_id"] in STOPS.get(route_id, {}):
-                print(f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} DEP stop={stop_name_prev}")
+                logger.info(
+                    f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} DEP stop={stop_name_prev}"
+                )
 
                 # write the event here
                 df = pd.DataFrame(
@@ -105,4 +110,7 @@ def main():
 
 
 if __name__ == "__main__":
+    logger = logging.getLogger(__file__)
     main()
+else:
+    logger = logging.getLogger(__name__)

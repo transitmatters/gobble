@@ -29,7 +29,8 @@ jobs:
           {
             "mbta": {
               "v3_api_key": "${{ secrets.MBTA_V3_API_KEY }}"
-            }
+            },
+            "DATADOG_TRACE_ENABLED": true
           }
           EOF
       - name: Write SSH key

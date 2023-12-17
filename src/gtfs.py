@@ -6,6 +6,10 @@ import urllib.request
 from urllib.parse import urljoin
 from ddtrace import tracer
 import warnings
+from typing import List, Tuple
+import logging
+
+logger = logging.getLogger(__name__)
 
 MAIN_DIR = pathlib.Path("./data/gtfs_archives/")
 MAIN_DIR.mkdir(parents=True, exist_ok=True)
@@ -21,14 +25,14 @@ STOP_TIMES_COLS = ["stop_id", "trip_id", "arrival_time", "departure_time", "stop
 
 
 @tracer.wrap()
-def _download_gtfs_archives_list():
+def _download_gtfs_archives_list() -> pd.DataFrame:
     """Downloads list of GTFS archive urls. This file will get overwritten."""
     archives_df = pd.read_csv(urljoin(GTFS_ARCHIVES_PREFIX, GTFS_ARCHIVES_FILENAME))
     archives_df.to_csv(MAIN_DIR / GTFS_ARCHIVES_FILENAME)
     return archives_df
 
 
-def to_dateint(date: datetime.date):
+def to_dateint(date: datetime.date) -> int:
     """turn date into 20220615 e.g."""
     return int(str(date).replace("-", ""))
 
@@ -47,7 +51,7 @@ def get_gtfs_archive(dateint: int):
     # if there are no matches or we havent downloaded the url list yet,
     # fetch (or refetch) the archives and seek matches
     if len(matches) == 0:
-        print("No matches found in existing GTFS archives. Fetching latest archives.")
+        logger.info("No matches found in existing GTFS archives. Fetching latest archives.")
         archives_df = _download_gtfs_archives_list()
         matches = archives_df[(archives_df.feed_start_date <= dateint) & (archives_df.feed_end_date >= dateint)]
 
@@ -56,11 +60,11 @@ def get_gtfs_archive(dateint: int):
     archive_name = pathlib.Path(archive_url).stem
 
     if (MAIN_DIR / archive_name).exists():
-        print(f"GTFS archive for {dateint} already downloaded: {archive_name}")
+        logger.info(f"GTFS archive for {dateint} already downloaded: {archive_name}")
         return MAIN_DIR / archive_name
 
     # else we have to download it
-    print(f"Downloading GTFS archive for {dateint}: {archive_url}")
+    logger.info(f"Downloading GTFS archive for {dateint}: {archive_url}")
     zipfile, _ = urllib.request.urlretrieve(archive_url)
     shutil.unpack_archive(zipfile, extract_dir=(MAIN_DIR / archive_name), format="zip")
     # remove temporary zipfile
@@ -70,7 +74,7 @@ def get_gtfs_archive(dateint: int):
 
 
 @tracer.wrap()
-def get_services(date: datetime.date, archive_dir: pathlib.Path):
+def get_services(date: datetime.date, archive_dir: pathlib.Path) -> List[str]:
     """
     Read calendar.txt to determine which services ran on the given date.
     Also, incorporate exceptions from calendar_dates.txt for holidays, etc.
@@ -92,7 +96,7 @@ def get_services(date: datetime.date, archive_dir: pathlib.Path):
 
 
 @tracer.wrap()
-def read_gtfs(date: datetime.date):
+def read_gtfs(date: datetime.date) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Given a date, this function will:
     - Find the appropriate gtfs archive (downloading if necessary)
@@ -121,7 +125,7 @@ def read_gtfs(date: datetime.date):
 
 
 @tracer.wrap()
-def add_gtfs_headways(events_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops: pd.DataFrame):
+def add_gtfs_headways(events_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops: pd.DataFrame) -> pd.DataFrame:
     """
     This will calculate scheduled headway and traveltime information
     from gtfs for the routes we care about, and then match our actual
