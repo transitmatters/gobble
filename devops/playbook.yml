@@ -46,7 +46,7 @@
         state: 3.11
 
     - name: install app dependencies
-      shell: /home/ubuntu/.local/bin/poetry install
+      shell: /home/ubuntu/.local/bin/poetry env use 3.11 && /home/ubuntu/.local/bin/poetry install
       args:
         chdir: /home/ubuntu/gobble
 
