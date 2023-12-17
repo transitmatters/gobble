@@ -42,8 +42,8 @@
       become: yes
       become_user: root
       apt:
-        name: python3
-        state: 3.11
+        name: python3.11
+        state: latest
 
     - name: install app dependencies
       shell: /home/ubuntu/.local/bin/poetry env use 3.11 && /home/ubuntu/.local/bin/poetry install
