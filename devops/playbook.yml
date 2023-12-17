@@ -31,6 +31,20 @@
         src: systemd.conf
         dest: /etc/systemd/system/gobble.service
 
+    - name: add python ppa for apt repo
+      become: yes
+      become_user: root
+      apt_repository:
+        repo: ppa:deadsnakes/ppa
+        update_cache: yes
+
+    - name: install python3.11
+      become: yes
+      become_user: root
+      apt:
+        name: python3
+        state: 3.11
+
     - name: install app dependencies
       shell: /home/ubuntu/.local/bin/poetry install
       args:
