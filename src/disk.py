@@ -1,5 +1,6 @@
 import csv
 import json
+import os
 import pathlib
 from util import output_dir_path
 from ddtrace import tracer
@@ -37,8 +38,11 @@ def write_event(event):
     )
     dirname.mkdir(parents=True, exist_ok=True)
     pathname = dirname / CSV_FILENAME
+    file_exists = os.path.isfile(pathname)
     with pathname.open("a") as fd:
         writer = csv.DictWriter(fd, fieldnames=CSV_FIELDS, extrasaction="ignore")
+        if not file_exists:
+            writer.writeheader()
         writer.writerow(event)
 
 
