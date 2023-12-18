@@ -43,18 +43,20 @@ def _compress_and_upload_file(fp: str):
 def upload_todays_events_to_s3():
     """Upload today's events to the TM s3 bucket.
 
-    This is assumed to run on a 30 minute schedule, and as such we start the job from 30 minutes prior
+    This is assumed to run on a 30 minute schedule, and as such we start the job from 45 minutes prior
     TODO: This process will work just as well for busses and CR, just need to update the local data/S3 key accordingly
     """
     start_time = time.time()
 
     print("Beginning upload of recent events to s3.")
-    thirty_min_ago = datetime.datetime.now() - datetime.timedelta(minutes=30)
+    fortyfive_min_ago = datetime.datetime.now() - datetime.timedelta(minutes=45)
 
     # get files updated today
     # TODO: only update modified files? cant imagine much of a difference at 30 min update intervals...
     files_updated_today = glob.glob(
-        LOCAL_DATA_TEMPLATE.format(year=thirty_min_ago.year, month=thirty_min_ago.month, day=thirty_min_ago.day)
+        LOCAL_DATA_TEMPLATE.format(
+            year=fortyfive_min_ago.year, month=fortyfive_min_ago.month, day=fortyfive_min_ago.day
+        )
     )
 
     # upload them to s3, gzipped
