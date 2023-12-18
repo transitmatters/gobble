@@ -39,6 +39,7 @@ def write_event(event):
     pathname = dirname / CSV_FILENAME
     with pathname.open("a") as fd:
         writer = csv.DictWriter(fd, fieldnames=CSV_FIELDS, extrasaction="ignore")
+        writer.writeheader()
         writer.writerow(event)
 
 
