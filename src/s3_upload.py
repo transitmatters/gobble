@@ -55,7 +55,7 @@ def upload_todays_events_to_s3():
     pull_date = service_date(fortyfive_min_ago)
 
     # get files updated for this service date
-    # TODO: only update modified files? cant imagine much of a difference if we partition live data day
+    # TODO: only update modified files? cant imagine much of a difference if we partition live data by day
     files_updated_today = glob.glob(
         LOCAL_DATA_TEMPLATE.format(year=pull_date.year, month=pull_date.month, day=pull_date.day)
     )
