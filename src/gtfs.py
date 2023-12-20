@@ -134,15 +134,15 @@ def add_gtfs_headways(events_df: pd.DataFrame, all_trips: pd.DataFrame, all_stop
     https://pandas.pydata.org/docs/reference/api/pandas.merge_asof.html
     This function is ADAPTED from historical bus headway calculations
     https://github.com/transitmatters/t-performance-dash/blob/ebecaca071b39d8140296545f2e5b287915bc60d/server/bus/gtfs_archive.py#L90
+
+    NB 1: event times are converted to pd timestamps in this fuction for pandas merge manipulation,
+    but will be converted back into datetime.datetime for serialization purposes. careful!
+    NB 2: while live events' and the scheduled stop times' timestamps are reported in local (eastern) time,
+    the MBTA monthly datadumps report their times in UTC. our calculations are in
+    local time, but our final product should be converted to UTC for parity. careful!!!!!
     """
     # TODO: I think we need to worry about 114/116/117 headways?
     results = []
-    # NB: event times are converted to pd timestamps in this fuction for pandas merge manipulation,
-    # but will be converted back into datetime.datetime for serialization purposes. careful!
-    # NB: while live events' and the scheduled stop times' timestamps are reported in local (eastern) time,
-    # the MBTA monthly datadumps report their times in UTC. our calculations are in
-    # local time, but our final product should be converted to UTC for parity. careful!!!!!
-    events_df.event_time = events_df["event_time"]
 
     # we have to do this day-by-day because gtfs changes so often
     for service_date, days_events in events_df.groupby("service_date"):
