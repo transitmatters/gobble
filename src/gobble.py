@@ -91,7 +91,10 @@ def main():
                 gtfs_service_date = service_date
                 scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date)
 
-            if prev["stop_id"] in STOPS.get(route_id, {}):
+            if is_departure_event:
+                stop_id = prev["stop_id"]
+
+            if stop_id in STOPS.get(route_id, {}):
                 logger.info(
                     f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} DEP stop={stop_name_prev}"
                 )
@@ -104,7 +107,7 @@ def main():
                             "route_id": route_id,
                             "trip_id": trip_id,
                             "direction_id": direction_id,
-                            "stop_id": prev["stop_id"],
+                            "stop_id": stop_id,
                             "stop_sequence": current_stop_sequence,
                             "vehicle_id": "0",  # TODO??
                             "vehicle_label": vehicle_label,
