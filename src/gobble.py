@@ -79,9 +79,6 @@ def main():
         is_arrival_event = current_status == "STOPPED_AT" and prev.get("event_type", event_type) == "DEP"
 
         if is_departure_event or is_arrival_event:
-            logger.info(
-                f"{trip_id} current_stop_sequence: {current_stop_sequence}: {current_status}===stop: {stop_id}, prev: {prev['stop_id']}"
-            )
             stop_name_prev = get_stop_name(stops, prev["stop_id"])
             service_date = util.service_date(updated_at)
 
