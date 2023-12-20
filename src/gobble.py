@@ -79,7 +79,10 @@ def main():
         is_arrival_event = current_status == "STOPPED_AT" and prev.get("event_type", event_type) == "DEP"
 
         if is_departure_event or is_arrival_event:
-            stop_name_prev = get_stop_name(stops, prev["stop_id"])
+            if is_departure_event:
+                stop_id = prev["stop_id"]
+
+            stop_name = get_stop_name(stops, stop_id)
             service_date = util.service_date(updated_at)
 
             # refresh the gtfs data bundle if the day has incremented
@@ -88,12 +91,9 @@ def main():
                 gtfs_service_date = service_date
                 scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date)
 
-            if is_departure_event:
-                stop_id = prev["stop_id"]
-
             if stop_id in STOPS.get(route_id, {}):
                 logger.info(
-                    f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} {event_type} stop={stop_name_prev}"
+                    f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} {event_type} stop={stop_name}"
                 )
 
                 # write the event here
