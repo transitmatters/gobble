@@ -10,6 +10,7 @@ from ddtrace import tracer
 import logging
 
 from config import CONFIG
+from util import service_date
 
 logging.basicConfig(level=logging.INFO)
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
@@ -48,15 +49,15 @@ def upload_todays_events_to_s3():
     """
     start_time = time.time()
 
-    print("Beginning upload of recent events to s3.")
+    logger.info("Beginning upload of recent events to s3.")
     fortyfive_min_ago = datetime.datetime.now() - datetime.timedelta(minutes=45)
+    # the service date for 4am-midnight is the previous day
+    pull_date = service_date(fortyfive_min_ago)
 
-    # get files updated today
-    # TODO: only update modified files? cant imagine much of a difference at 30 min update intervals...
+    # get files updated for this service date
+    # TODO: only update modified files? cant imagine much of a difference if we partition by day
     files_updated_today = glob.glob(
-        LOCAL_DATA_TEMPLATE.format(
-            year=fortyfive_min_ago.year, month=fortyfive_min_ago.month, day=fortyfive_min_ago.day
-        )
+        LOCAL_DATA_TEMPLATE.format(year=pull_date.year, month=pull_date.month, day=pull_date.day)
     )
 
     # upload them to s3, gzipped
@@ -64,7 +65,7 @@ def upload_todays_events_to_s3():
         _compress_and_upload_file(fp)
 
     end_time = time.time()
-    print(f"Uploaded {len(files_updated_today)} files to s3, took {end_time - start_time} seconds.")
+    logger.info(f"Uploaded {len(files_updated_today)} files to s3, took {end_time - start_time} seconds.")
 
 
 if __name__ == "__main__":

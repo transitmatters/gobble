@@ -5,12 +5,12 @@ import os
 EASTERN_TIME = ZoneInfo("America/New_York")
 
 
-def to_dateint(date: date):
+def to_dateint(date: date) -> int:
     """turn date into 20220615 e.g."""
     return int(str(date).replace("-", ""))
 
 
-def output_dir_path(route_id: str, direction_id: str, stop_id: str, ts: datetime):
+def output_dir_path(route_id: str, direction_id: str, stop_id: str, ts: datetime) -> str:
     date = service_date(ts)
 
     return os.path.join(
