@@ -93,7 +93,7 @@ def main():
 
             if stop_id in STOPS.get(route_id, {}):
                 logger.info(
-                    f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} DEP stop={stop_name_prev}"
+                    f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} {event_type} stop={stop_name_prev}"
                 )
 
                 # write the event here
