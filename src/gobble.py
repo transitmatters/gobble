@@ -20,6 +20,16 @@ API_KEY = CONFIG["mbta"]["v3_api_key"]
 HEADERS = {"X-API-KEY": API_KEY, "Accept": "text/event-stream"}
 URL = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(ROUTES_BUS)}'
 
+EVENT_TYPE_MAP = {
+    # use the first instance of this signal as departure
+    "IN_TRANSIT_TO": "DEP",
+    # use the first instance of this signal as arrival
+    "STOPPED_AT": "ARR",
+    # this signal exists in theory but isnt used in practice in the realtime v3 API.
+    # we include it for completeness and in case it is ever used
+    "INCOMING_AT": "ARR",
+}
+
 
 def get_stop_name(stops_df: pd.DataFrame, stop_id: str) -> str:
     return stops_df[stops_df["stop_id"] == stop_id].iloc[0].stop_name
@@ -41,6 +51,8 @@ def main():
             continue
 
         update = json.loads(event.data)
+        current_status = update["attributes"]["current_status"]
+        event_type = EVENT_TYPE_MAP[current_status]
         current_stop_sequence = update["attributes"]["current_stop_sequence"]
         direction_id = update["attributes"]["direction_id"]
         route_id = update["relationships"]["route"]["data"]["id"]
@@ -55,13 +67,21 @@ def main():
                 "stop_sequence": current_stop_sequence,
                 "stop_id": stop_id,
                 "updated_at": updated_at,
+                "event_type": event_type,
             },
         )
+
         # current_stop_state updated_at is isofmt str, not datetime.
         if isinstance(prev["updated_at"], str):
             prev["updated_at"] = datetime.fromisoformat(prev["updated_at"])
 
-        if prev["stop_id"] != stop_id and prev["stop_sequence"] < current_stop_sequence:
+        is_departure_event = prev["stop_id"] != stop_id and prev["stop_sequence"] < current_stop_sequence
+        is_arrival_event = current_status == "STOPPED_AT" and prev.get("event_type", event_type) == "DEP"
+
+        if is_departure_event or is_arrival_event:
+            logger.info(
+                f"{trip_id} current_stop_sequence: {current_stop_sequence}: {current_status}===stop: {stop_id}, prev: {prev['stop_id']}"
+            )
             stop_name_prev = get_stop_name(stops, prev["stop_id"])
             service_date = util.service_date(updated_at)
 
@@ -88,7 +108,7 @@ def main():
                             "stop_sequence": current_stop_sequence,
                             "vehicle_id": "0",  # TODO??
                             "vehicle_label": vehicle_label,
-                            "event_type": "DEP",
+                            "event_type": event_type,
                             "event_time": updated_at,
                         }
                     ],
@@ -103,6 +123,7 @@ def main():
             "stop_sequence": current_stop_sequence,
             "stop_id": stop_id,
             "updated_at": updated_at,
+            "event_type": event_type,
         }
 
         # write the state out here
