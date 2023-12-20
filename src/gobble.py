@@ -117,7 +117,7 @@ def main():
                 )
 
                 headway_adjusted_df = gtfs.add_gtfs_headways(df, scheduled_trips, scheduled_stop_times)
-                # convert event_time from a local pandas timesamp to a UTC python datetime for serialization purposes
+                # convert event_time from a local pandas timestamp to a UTC python datetime for serialization purposes
                 headway_adjusted_df["event_time"] = headway_adjusted_df["event_time"].dt.tz_convert(None)  # to UTC
                 # future warning: returning a series is actually the correct future behavior of to_pydatetime(), can drop the
                 # context manager later
