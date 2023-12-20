@@ -5,7 +5,6 @@ import shutil
 import urllib.request
 from urllib.parse import urljoin
 from ddtrace import tracer
-import warnings
 from typing import List, Tuple
 import logging
 
@@ -133,12 +132,17 @@ def add_gtfs_headways(events_df: pd.DataFrame, all_trips: pd.DataFrame, all_stop
     time-of-day, so is not an excact match. Luckily, pandas helps us out
     with merge_asof.
     https://pandas.pydata.org/docs/reference/api/pandas.merge_asof.html
+    This function is ADAPTED from historical bus headway calculations
+    https://github.com/transitmatters/t-performance-dash/blob/ebecaca071b39d8140296545f2e5b287915bc60d/server/bus/gtfs_archive.py#L90
     """
     # TODO: I think we need to worry about 114/116/117 headways?
     results = []
     # NB: event times are converted to pd timestamps in this fuction for pandas merge manipulation,
     # but will be converted back into datetime.datetime for serialization purposes. careful!
-    events_df.event_time = events_df["event_time"].dt.tz_localize(None)
+    # NB: while live events' and the scheduled stop times' timestamps are reported in local (eastern) time,
+    # the MBTA monthly datadumps report their times in UTC. our calculations are in
+    # local time, but our final product should be converted to UTC for parity. careful!!!!!
+    events_df.event_time = events_df["event_time"]
 
     # we have to do this day-by-day because gtfs changes so often
     for service_date, days_events in events_df.groupby("service_date"):
@@ -162,7 +166,7 @@ def add_gtfs_headways(events_df: pd.DataFrame, all_trips: pd.DataFrame, all_stop
 
         # assign each actual timepoint a scheduled headway
         # merge_asof 'backward' matches the previous scheduled value of 'arrival_time'
-        days_events["arrival_time"] = days_events.event_time - pd.Timestamp(service_date).tz_localize(None)
+        days_events["arrival_time"] = days_events.event_time - pd.Timestamp(service_date).tz_localize("US/Eastern")
         augmented_events = pd.merge_asof(
             days_events.sort_values(by="arrival_time"),
             gtfs_stops[RTE_DIR_STOP + ["arrival_time", "scheduled_headway"]],
@@ -199,12 +203,4 @@ def add_gtfs_headways(events_df: pd.DataFrame, all_trips: pd.DataFrame, all_stop
         # finally, put all the days together
         results.append(augmented_events)
 
-    results_df = pd.concat(results)
-    # convert to event_time python datetime for serialization purposes outside of this fuction
-    # TODO: do we also do this with arrival_time? its not written to disk
-    # future warning: returning a series is actually the correct future behavior of to_pydatetime(), can drop the
-    # context manager later
-    with warnings.catch_warnings():
-        warnings.simplefilter(action="ignore", category=FutureWarning)
-        results_df["event_time"] = pd.Series(results_df["event_time"].dt.to_pydatetime(), dtype="object")
-    return results_df
+    return pd.concat(results)

@@ -44,15 +44,12 @@ def _compress_and_upload_file(fp: str):
 def upload_todays_events_to_s3():
     """Upload today's events to the TM s3 bucket.
 
-    This is assumed to run on a 30 minute schedule, and as such we start the job from 45 minutes prior
     TODO: This process will work just as well for busses and CR, just need to update the local data/S3 key accordingly
     """
     start_time = time.time()
 
     logger.info("Beginning upload of recent events to s3.")
-    fortyfive_min_ago = datetime.datetime.now() - datetime.timedelta(minutes=45)
-    # the service date for 4am-midnight is the previous day
-    pull_date = service_date(fortyfive_min_ago)
+    pull_date = service_date(datetime.datetime.now())
 
     # get files updated for this service date
     # TODO: only update modified files? cant imagine much of a difference if we partition live data by day

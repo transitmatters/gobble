@@ -6,6 +6,7 @@ import requests
 import sseclient
 import logging
 from ddtrace import tracer
+import warnings
 
 from constants import STOPS, ROUTES_BUS
 from config import CONFIG
@@ -93,7 +94,7 @@ def main():
 
             if stop_id in STOPS.get(route_id, {}):
                 logger.info(
-                    f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} {event_type} stop={stop_name}"
+                    f"[{updated_at.isoformat()}] Event: route={route_id} {direction_id} {stop_id} trip_id={trip_id} {event_type} stop={stop_name}"
                 )
 
                 # write the event here
@@ -116,6 +117,16 @@ def main():
                 )
 
                 headway_adjusted_df = gtfs.add_gtfs_headways(df, scheduled_trips, scheduled_stop_times)
+                # convert event_time from a local pandas timesamp to a UTC python datetime for serialization purposes
+                headway_adjusted_df["event_time"] = headway_adjusted_df["event_time"].dt.tz_convert(None)  # to UTC
+                # future warning: returning a series is actually the correct future behavior of to_pydatetime(), can drop the
+                # context manager later
+                with warnings.catch_warnings():
+                    warnings.simplefilter(action="ignore", category=FutureWarning)
+                    headway_adjusted_df["event_time"] = pd.Series(
+                        headway_adjusted_df["event_time"].dt.to_pydatetime(), dtype="object"
+                    )
+                # TODO: more explicit datetime string conversion?
                 event = headway_adjusted_df.to_dict("records")[0]
                 disk.write_event(event)
 
