@@ -27,7 +27,7 @@ DATA_DIR = pathlib.Path("data")
 STATE_FILENAME = "state.json"
 
 
-def write_event(event):
+def write_event(event: dict):
     dirname = DATA_DIR / pathlib.Path(
         output_dir_path(
             event["route_id"],
@@ -47,7 +47,7 @@ def write_event(event):
 
 
 @tracer.wrap()
-def read_state():
+def read_state() -> dict:
     pathname = pathlib.Path(DATA_DIR) / STATE_FILENAME
     try:
         with pathname.open() as fd:
@@ -60,7 +60,7 @@ def read_state():
 
 
 @tracer.wrap()
-def write_state(state):
+def write_state(state: dict):
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     pathname = pathlib.Path(DATA_DIR) / STATE_FILENAME
 

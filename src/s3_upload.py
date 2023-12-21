@@ -10,6 +10,7 @@ from ddtrace import tracer
 import logging
 
 from config import CONFIG
+from util import service_date
 
 logging.basicConfig(level=logging.INFO)
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
@@ -43,20 +44,17 @@ def _compress_and_upload_file(fp: str):
 def upload_todays_events_to_s3():
     """Upload today's events to the TM s3 bucket.
 
-    This is assumed to run on a 30 minute schedule, and as such we start the job from 45 minutes prior
     TODO: This process will work just as well for busses and CR, just need to update the local data/S3 key accordingly
     """
     start_time = time.time()
 
-    print("Beginning upload of recent events to s3.")
-    fortyfive_min_ago = datetime.datetime.now() - datetime.timedelta(minutes=45)
+    logger.info("Beginning upload of recent events to s3.")
+    pull_date = service_date(datetime.datetime.now())
 
-    # get files updated today
-    # TODO: only update modified files? cant imagine much of a difference at 30 min update intervals...
+    # get files updated for this service date
+    # TODO: only update modified files? cant imagine much of a difference if we partition live data by day
     files_updated_today = glob.glob(
-        LOCAL_DATA_TEMPLATE.format(
-            year=fortyfive_min_ago.year, month=fortyfive_min_ago.month, day=fortyfive_min_ago.day
-        )
+        LOCAL_DATA_TEMPLATE.format(year=pull_date.year, month=pull_date.month, day=pull_date.day)
     )
 
     # upload them to s3, gzipped
@@ -64,7 +62,7 @@ def upload_todays_events_to_s3():
         _compress_and_upload_file(fp)
 
     end_time = time.time()
-    print(f"Uploaded {len(files_updated_today)} files to s3, took {end_time - start_time} seconds.")
+    logger.info(f"Uploaded {len(files_updated_today)} files to s3, took {end_time - start_time} seconds.")
 
 
 if __name__ == "__main__":
