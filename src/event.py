@@ -149,10 +149,10 @@ def enrich_event(df: pd.DataFrame, scheduled_trips: pd.DataFrame, scheduled_stop
     """
     Given a dataframe with a single event, enrich it with headway information and return a single event dict
     """
-    headway_adjusted_df = gtfs.add_gtfs_headways(df, scheduled_trips, scheduled_stop_times)
-
     # ensure timestamp is always in local time to match the rest of the data
-    headway_adjusted_df["event_time"] = headway_adjusted_df["event_time"].dt.tz_convert("US/Eastern")
+    df["event_time"] = df["event_time"].dt.tz_convert("US/Eastern")
+    
+    headway_adjusted_df = gtfs.add_gtfs_headways(df, scheduled_trips, scheduled_stop_times)
     # future warning: returning a series is actually the correct future behavior of to_pydatetime(), can drop the
     # context manager later
     with warnings.catch_warnings():
