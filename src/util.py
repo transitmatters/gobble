@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 import os
 
-EASTERN_TIME = ZoneInfo("America/New_York")
+EASTERN_TIME = ZoneInfo("US/Eastern")
 
 
 def to_dateint(date: date) -> int:
@@ -19,11 +19,14 @@ def output_dir_path(route_id: str, direction_id: str, stop_id: str, ts: datetime
 
 
 def service_date(ts: datetime) -> date:
-    localized = ts.astimezone(EASTERN_TIME)
-    if localized.hour >= 3 and localized.hour <= 23:
+    # In practice a None TZ is UTC, but we want to be explicit
+    # In many places we have an implied eastern
+    ts = ts.replace(tzinfo=EASTERN_TIME)
+
+    if ts.hour >= 3 and ts.hour <= 23:
         return date(ts.year, ts.month, ts.day)
 
-    prior = localized - timedelta(days=1)
+    prior = ts - timedelta(days=1)
     return date(prior.year, prior.month, prior.day)
 
 

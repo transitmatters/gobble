@@ -10,7 +10,7 @@ from ddtrace import tracer
 import logging
 
 from config import CONFIG
-from util import service_date
+from util import EASTERN_TIME, service_date
 
 logging.basicConfig(level=logging.INFO)
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
@@ -49,7 +49,7 @@ def upload_todays_events_to_s3():
     start_time = time.time()
 
     logger.info("Beginning upload of recent events to s3.")
-    pull_date = service_date(datetime.datetime.now())
+    pull_date = service_date(datetime.datetime.now(EASTERN_TIME))
 
     # get files updated for this service date
     # TODO: only update modified files? cant imagine much of a difference if we partition live data by day
