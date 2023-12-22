@@ -26,7 +26,7 @@ def main():
 
     # Download the gtfs bundle before we proceed so we don't have to wait
     logger.info("Downloading GTFS bundle if necessary...")
-    gtfs_service_date = util.service_date(datetime.now())
+    gtfs_service_date = util.service_date(datetime.now(util.EASTERN_TIME))
     scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date)
 
     logger.info(f"Connecting to {URL}...")
