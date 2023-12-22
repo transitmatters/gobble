@@ -1,7 +1,6 @@
 import datetime
 import glob
 import boto3
-from disk import DATA_DIR
 from io import BytesIO
 import gzip
 import os
@@ -10,6 +9,7 @@ from ddtrace import tracer
 import logging
 
 from config import CONFIG
+from disk import DATA_DIR
 from util import EASTERN_TIME, service_date
 
 logging.basicConfig(level=logging.INFO)
