@@ -24,7 +24,14 @@ EVENT_TYPE_MAP = {
 
 
 def get_stop_name(stops_df: pd.DataFrame, stop_id: str) -> str:
-    return stops_df[stops_df["stop_id"] == stop_id].iloc[0].stop_name
+    matching_stops = stops_df[stops_df["stop_id"] == stop_id]
+    if len(matching_stops) > 0:
+        return matching_stops.iloc[0].stop_name
+    else:
+        # TODO: An example of this would be stop id ER-0117-01, which was the Lynn Interim stop on the Newburyport/Rockport Line
+        # We just use this name for logging purposes so its NBD if we return a raw id.
+        logger.error(f"Encountered stop id {stop_id} without human-readable name. Is this a temporary stop?")
+        return stop_id
 
 
 def arr_or_dep_event(prev, current_status, current_stop_sequence, event_type: str, stop_id) -> Tuple[bool, bool]:
@@ -37,13 +44,18 @@ def reduce_update_event(update):
     current_status = update["attributes"]["current_status"]
     event_type = EVENT_TYPE_MAP[current_status]
     updated_at = datetime.fromisoformat(update["attributes"]["updated_at"])
+    # The vehicle’s current (when current_status is STOPPED_AT) or next stop.
+    if "stop" in update["relationships"]:
+        stop_id = update["relationships"]["stop"]["data"]["id"]
+    else:
+        stop_id = None
     return (
         current_status,
         event_type,
         update["attributes"]["current_stop_sequence"],
         update["attributes"]["direction_id"],
         update["relationships"]["route"]["data"]["id"],
-        update["relationships"]["stop"]["data"]["id"],
+        stop_id,
         update["relationships"]["trip"]["data"]["id"],
         update["attributes"]["label"],
         updated_at,
@@ -108,7 +120,7 @@ def process_event(
             scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date)
 
         # store all commuter rail stops, but only some bus stops
-        if route_id in ROUTES_CR or stop_id in BUS_STOPS.get(route_id, {}):
+        if stop_id and (route_id in ROUTES_CR or stop_id in BUS_STOPS.get(route_id, {})):
             logger.info(
                 f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} {event_type} stop={stop_name}"
             )
