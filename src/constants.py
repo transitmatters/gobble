@@ -1,4 +1,4 @@
-STOPS = {
+BUS_STOPS = {
     "1": {
         "102",
         "10590",
@@ -238,7 +238,7 @@ STOPS = {
     },
 }
 
-ROUTES_BUS = set(STOPS.keys())
+ROUTES_BUS = set(BUS_STOPS.keys())
 
 # TODO: add appropriate disk/s3 upload utilities
 ROUTES_CR = {

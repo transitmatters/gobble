@@ -1,6 +1,7 @@
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 import os
+from constants import ROUTES_CR
 
 EASTERN_TIME = ZoneInfo("US/Eastern")
 
@@ -13,8 +14,20 @@ def to_dateint(date: date) -> int:
 def output_dir_path(route_id: str, direction_id: str, stop_id: str, ts: datetime) -> str:
     date = service_date(ts)
 
+    # commuter rail lines have dashes in both route id and stop id, so use underscores as delimiter
+    if route_id in ROUTES_CR:
+        delimiter = "_"
+        mode = "cr"
+    else:
+        delimiter = "-"
+        mode = "bus"
+
     return os.path.join(
-        f"{route_id}-{direction_id}-{stop_id}", f"Year={date.year}", f"Month={date.month}", f"Day={date.day}"
+        f"daily-{mode}-data",
+        f"{route_id}{delimiter}{direction_id}{delimiter}{stop_id}",
+        f"Year={date.year}",
+        f"Month={date.month}",
+        f"Day={date.day}",
     )
 
 

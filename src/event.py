@@ -5,7 +5,7 @@ import logging
 from ddtrace import tracer
 import warnings
 
-from constants import STOPS
+from constants import BUS_STOPS, ROUTES_CR
 import gtfs
 import disk
 import util
@@ -107,7 +107,8 @@ def process_event(
             gtfs_service_date = service_date
             scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date)
 
-        if stop_id in STOPS.get(route_id, {}):
+        # store all commuter rail stops, but only some bus stops
+        if route_id in ROUTES_CR or stop_id in BUS_STOPS.get(route_id, {}):
             logger.info(
                 f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} {event_type} stop={stop_name}"
             )

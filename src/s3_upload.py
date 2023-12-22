@@ -19,8 +19,8 @@ s3 = boto3.client("s3")
 
 S3_BUCKET = "tm-mbta-performance"
 
-LOCAL_DATA_TEMPLATE = str(DATA_DIR / "*/Year={year}/Month={month}/Day={day}/events.csv")
-S3_DATA_TEMPLATE = "Events-live/daily-bus-data/{relative_path}.gz"
+LOCAL_DATA_TEMPLATE = str(DATA_DIR / "daily*/*/Year={year}/Month={month}/Day={day}/events.csv")
+S3_DATA_TEMPLATE = "Events-live/{relative_path}.gz"
 
 
 @tracer.wrap()
@@ -42,10 +42,7 @@ def _compress_and_upload_file(fp: str):
 
 @tracer.wrap("gobble")
 def upload_todays_events_to_s3():
-    """Upload today's events to the TM s3 bucket.
-
-    TODO: This process will work just as well for busses and CR, just need to update the local data/S3 key accordingly
-    """
+    """Upload today's events to the TM s3 bucket."""
     start_time = time.time()
 
     logger.info("Beginning upload of recent events to s3.")
