@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 import os
 
-EASTERN_TIME = ZoneInfo("America/New_York")
+EASTERN_TIME = ZoneInfo("US/Eastern")
 
 
 def to_dateint(date: date) -> int:
