@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from util import EASTERN_TIME, service_date
 
 
