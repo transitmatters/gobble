@@ -158,9 +158,7 @@ def enrich_event(df: pd.DataFrame, scheduled_trips: pd.DataFrame, scheduled_stop
     with warnings.catch_warnings():
         warnings.simplefilter(action="ignore", category=FutureWarning)
         headway_adjusted_df["event_time"] = pd.Series(
-            # We need to strip away timezone info before saving to file
-            headway_adjusted_df["event_time"].dt.to_pydatetime(),
-            dtype="object",
+            headway_adjusted_df["event_time"].dt.to_pydatetime(), dtype="object"
         )
 
     event = headway_adjusted_df.to_dict("records")[0]
