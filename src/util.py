@@ -21,7 +21,7 @@ def output_dir_path(route_id: str, direction_id: str, stop_id: str, ts: datetime
 def service_date(ts: datetime) -> date:
     localized = ts.astimezone(EASTERN_TIME)
     if localized.hour >= 3 and localized.hour <= 23:
-        return date(ts.year, ts.month, ts.day)
+        return date(localized.year, localized.month, localized.day)
 
     prior = localized - timedelta(days=1)
     return date(prior.year, prior.month, prior.day)
