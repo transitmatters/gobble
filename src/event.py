@@ -44,11 +44,17 @@ def reduce_update_event(update):
     current_status = update["attributes"]["current_status"]
     event_type = EVENT_TYPE_MAP[current_status]
     updated_at = datetime.fromisoformat(update["attributes"]["updated_at"])
-    # The vehicle’s current (when current_status is STOPPED_AT) or next stop.
-    if "stop" in update["relationships"]:
-        stop_id = update["relationships"]["stop"]["data"]["id"]
-    else:
+
+    try:
+        # The vehicle’s current (when current_status is STOPPED_AT) or next stop.
+        if "stop" in update["relationships"]:
+            stop_id = update["relationships"]["stop"]["data"]["id"]
+        else:
+            stop_id = None
+    except TypeError:
+        logger.error(f"Encountered TypeError when processing update: {update}")
         stop_id = None
+
     return (
         current_status,
         event_type,
@@ -97,6 +103,10 @@ def process_event(
     # current_stop_state updated_at is isofmt str, not datetime.
     if isinstance(prev["updated_at"], str):
         prev["updated_at"] = datetime.fromisoformat(prev["updated_at"])
+
+    if stop_id is None:
+        logger.info(f"Skipping event with no stop_id: {update}")
+        return
 
     is_departure_event, is_arrival_event = arr_or_dep_event(
         prev=prev,
