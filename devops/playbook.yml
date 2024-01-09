@@ -8,6 +8,7 @@
       git:
         repo: https://github.com/transitmatters/gobble.git
         dest: /home/ubuntu/gobble
+        version: main
         force: yes
 
     - name: install poetry
