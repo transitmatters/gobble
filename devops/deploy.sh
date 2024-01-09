@@ -10,10 +10,14 @@ export AWS_PAGER=""
 STACK_NAME="gobble"
 
 # Ensure required secrets are set
-if [[ -z "$DD_API_KEY"  ]]; then
+if [[ -z "$DD_API_KEY" ]]; then
     echo "Must provide DD_API_KEY in environment to deploy" 1>&2
     exit 1
 fi
+
+# Identify the version and commit of the current deploy
+export GIT_SHA=`git rev-parse HEAD`
+echo "Deploying version $GIT_SHA"
 
 echo "Deploying Gobble..."
 echo "View stack log here: https://$AWS_REGION.console.aws.amazon.com/cloudformation/home?region=$AWS_REGION"
