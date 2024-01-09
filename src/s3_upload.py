@@ -10,9 +10,10 @@ import logging
 
 from config import CONFIG
 from disk import DATA_DIR
+from logger import set_up_logging
 from util import EASTERN_TIME, service_date
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, filename="s3_upload.log")
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
 
 s3 = boto3.client("s3")
@@ -63,7 +64,7 @@ def upload_todays_events_to_s3():
 
 
 if __name__ == "__main__":
-    logger = logging.getLogger(__file__)
+    logger = set_up_logging(__file__)
     upload_todays_events_to_s3()
 else:
-    logger = logging.getLogger(__name__)
+    logger = set_up_logging(__name__)

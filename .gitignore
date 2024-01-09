@@ -11,3 +11,7 @@ __pycache__
 
 # config
 config/local.json
+
+# logs
+gobble.log
+s3_upload.log

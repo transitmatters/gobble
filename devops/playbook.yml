@@ -65,6 +65,9 @@
     datadog_api_key: "{{ lookup('env', 'DD_API_KEY') }}"
     datadog_site: "datadoghq.com"
     datadog_config:
+      tags:
+        - "git.repository_url:github.com/transitmatters/gobble"
+        - "git.commit.sha:{{ lookup('env', 'GIT_SHA') }}"
       apm_config:
         enabled: true
       process_config:
@@ -74,3 +77,16 @@
       enabled: true
     system_probe_config:
       enable_oom_kill: true
+    datadog_checks:
+      python:
+        logs:
+          - type: file
+            path: "/home/ubuntu/gobble/gobble.log"
+            service: "gobble"
+            source: python
+            sourcecategory: sourcecode
+          - type: file
+            path: "/home/ubuntu/gobble/s3_upload.log"
+            service: "gobble"
+            source: python
+            sourcecategory: sourcecode
