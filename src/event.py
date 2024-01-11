@@ -1,3 +1,4 @@
+import json
 from datetime import date, datetime
 from typing import Tuple
 import pandas as pd
@@ -50,7 +51,7 @@ def reduce_update_event(update):
         stop_id = update["relationships"]["stop"]["data"]["id"]
     except (TypeError, KeyError):
         logger.error(
-            f"Encountered degenerate stop information. This event will be skipped: {update}",
+            f"Encountered degenerate stop information. This event will be skipped: {json.dumps(update)}",
             stack_info=True,
             exc_info=True,
         )
