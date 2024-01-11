@@ -6,7 +6,7 @@ import sseclient
 import logging
 from ddtrace import tracer
 
-from constants import ROUTES_BUS, ROUTES_CR
+from constants import ALL_ROUTES
 from config import CONFIG
 from event import process_event
 from logger import set_up_logging
@@ -19,7 +19,7 @@ tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
 
 API_KEY = CONFIG["mbta"]["v3_api_key"]
 HEADERS = {"X-API-KEY": API_KEY, "Accept": "text/event-stream"}
-URL = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(ROUTES_CR.union(ROUTES_BUS))}'
+URL = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(ALL_ROUTES)}'
 
 
 def main():
