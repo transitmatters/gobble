@@ -1,3 +1,4 @@
+import json
 from datetime import date, datetime
 from typing import Tuple
 import pandas as pd
@@ -47,12 +48,13 @@ def reduce_update_event(update):
 
     try:
         # The vehicle’s current (when current_status is STOPPED_AT) or next stop.
-        if "stop" in update["relationships"]:
-            stop_id = update["relationships"]["stop"]["data"]["id"]
-        else:
-            stop_id = None
-    except TypeError:
-        logger.error(f"Encountered TypeError when processing update: {update}")
+        stop_id = update["relationships"]["stop"]["data"]["id"]
+    except (TypeError, KeyError):
+        logger.error(
+            f"Encountered degenerate stop information. This event will be skipped: {json.dumps(update)}",
+            stack_info=True,
+            exc_info=True,
+        )
         stop_id = None
 
     return (
@@ -105,7 +107,6 @@ def process_event(
         prev["updated_at"] = datetime.fromisoformat(prev["updated_at"])
 
     if stop_id is None:
-        logger.info(f"Skipping event with no stop_id: {update}")
         return
 
     is_departure_event, is_arrival_event = arr_or_dep_event(
