@@ -6,9 +6,14 @@ import urllib.request
 from urllib.parse import urljoin
 from ddtrace import tracer
 from typing import List, Tuple
-import logging
 
-logger = logging.getLogger(__name__)
+from config import CONFIG
+from logger import set_up_logging
+
+
+logger = set_up_logging(__name__)
+tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
+
 
 MAIN_DIR = pathlib.Path("./data/gtfs_archives/")
 MAIN_DIR.mkdir(parents=True, exist_ok=True)

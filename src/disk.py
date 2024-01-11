@@ -4,9 +4,13 @@ import os
 import pathlib
 from util import output_dir_path
 from ddtrace import tracer
-import logging
 
-logger = logging.getLogger(__name__)
+from config import CONFIG
+from logger import set_up_logging
+
+
+logger = set_up_logging(__name__)
+tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
 
 CSV_FILENAME = "events.csv"
 CSV_FIELDS = [
