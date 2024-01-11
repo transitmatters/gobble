@@ -2,16 +2,19 @@ import json
 from datetime import date, datetime
 from typing import Tuple
 import pandas as pd
-import logging
 from ddtrace import tracer
 import warnings
 
+from config import CONFIG
 from constants import BUS_STOPS, ROUTES_CR, ROUTES_RAPID
-import gtfs
 import disk
+import gtfs
+from logger import set_up_logging
 import util
 
-logger = logging.getLogger(__name__)
+logger = set_up_logging(__name__)
+tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
+
 
 EVENT_TYPE_MAP = {
     # use the first instance of this signal as departure
