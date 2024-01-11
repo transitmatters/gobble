@@ -240,7 +240,6 @@ BUS_STOPS = {
 
 ROUTES_BUS = set(BUS_STOPS.keys())
 
-# TODO: add appropriate disk/s3 upload utilities
 ROUTES_CR = {
     "CR-Fairmount",
     "CR-Fitchburg",
@@ -256,3 +255,15 @@ ROUTES_CR = {
     "CR-Providence",
     "CR-Foxboro",
 }
+
+ROUTES_RAPID = {
+    "Red",
+    "Blue",
+    "Orange",
+    "Green-B",
+    "Green-C",
+    "Green-D",
+    "Green-E",
+}
+
+ALL_ROUTES = ROUTES_BUS.union(ROUTES_CR).union(ROUTES_RAPID)

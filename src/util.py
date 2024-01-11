@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 import os
 
-from constants import ROUTES_CR
+from constants import ROUTES_CR, ROUTES_RAPID
 
 EASTERN_TIME = ZoneInfo("US/Eastern")
 
@@ -16,9 +16,15 @@ def output_dir_path(route_id: str, direction_id: str, stop_id: str, ts: datetime
     date = service_date(ts)
 
     # commuter rail lines have dashes in both route id and stop id, so use underscores as delimiter
+    # ex, CR-Fairmount_0_DB-2205-01/
     if route_id in ROUTES_CR:
         delimiter = "_"
         mode = "cr"
+    # rapid transit may rarely have dashes AND SPACES in stop id/route id!
+    # ex, Green_D_1-Union Square-02
+    elif route_id in ROUTES_RAPID:
+        delimiter = "_"
+        mode = "rapid"
     else:
         delimiter = "-"
         mode = "bus"
