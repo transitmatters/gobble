@@ -1,6 +1,6 @@
 import json
 from datetime import date, datetime
-from typing import Tuple
+from typing import Dict, Tuple
 import pandas as pd
 from ddtrace import tracer
 import warnings
@@ -38,13 +38,15 @@ def get_stop_name(stops_df: pd.DataFrame, stop_id: str) -> str:
         return stop_id
 
 
-def arr_or_dep_event(prev, current_status, current_stop_sequence, event_type: str, stop_id) -> Tuple[bool, bool]:
+def arr_or_dep_event(
+    prev: Dict, current_status: str, current_stop_sequence: int, event_type: str, stop_id
+) -> Tuple[bool, bool]:
     is_departure_event = prev["stop_id"] != stop_id and prev["stop_sequence"] < current_stop_sequence
     is_arrival_event = current_status == "STOPPED_AT" and prev.get("event_type", event_type) == "DEP"
     return is_departure_event, is_arrival_event
 
 
-def reduce_update_event(update):
+def reduce_update_event(update: Dict) -> Tuple:
     current_status = update["attributes"]["current_status"]
     event_type = EVENT_TYPE_MAP[current_status]
     updated_at = datetime.fromisoformat(update["attributes"]["updated_at"])
@@ -75,8 +77,8 @@ def reduce_update_event(update):
 
 @tracer.wrap()
 def process_event(
-    update,
-    current_stop_state,
+    update: Dict,
+    current_stop_state: Dict,
     gtfs_service_date: date,
     scheduled_trips: pd.DataFrame,
     scheduled_stop_times: pd.DataFrame,
@@ -110,6 +112,8 @@ def process_event(
         prev["updated_at"] = datetime.fromisoformat(prev["updated_at"])
 
     if stop_id is None:
+        # TODO: attempt to enrich update with stop information. successful,
+        # continue. otherwise, return.
         return
 
     is_departure_event, is_arrival_event = arr_or_dep_event(
@@ -172,7 +176,7 @@ def process_event(
     disk.write_state(current_stop_state)
 
 
-def enrich_event(df: pd.DataFrame, scheduled_trips: pd.DataFrame, scheduled_stop_times: pd.DataFrame):
+def enrich_event(df: pd.DataFrame, scheduled_trips: pd.DataFrame, scheduled_stop_times: pd.DataFrame) -> Dict:
     """
     Given a dataframe with a single event, enrich it with headway information and return a single event dict
     """
