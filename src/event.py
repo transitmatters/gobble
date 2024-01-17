@@ -53,11 +53,7 @@ def reduce_update_event(update):
         # The vehicle’s current (when current_status is STOPPED_AT) or next stop.
         stop_id = update["relationships"]["stop"]["data"]["id"]
     except (TypeError, KeyError):
-        logger.error(
-            f"Encountered degenerate stop information. This event will be skipped: {json.dumps(update)}",
-            stack_info=True,
-            exc_info=True,
-        )
+        logger.error(f"Encountered degenerate stop information. This event will be skipped: {json.dumps(update)}")
         stop_id = None
 
     return (
