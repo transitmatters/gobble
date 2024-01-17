@@ -91,3 +91,8 @@
             service: "gobble"
             source: python
             sourcecategory: sourcecode
+      systemd:
+        init_config:
+        instances:
+          - unit_names:
+            - gobble.service
