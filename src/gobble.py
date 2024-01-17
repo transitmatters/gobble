@@ -47,8 +47,8 @@ def main():
     cr_thread.start()
 
     bus_threads: list[threading.Thread] = []
-    for i in range(0, len(list(ROUTES_BUS)), 10):  
-        bus_routes = list(ROUTES_BUS)[i:i + 10] 
+    for i in range(0, len(list(ROUTES_BUS)), 10):
+        bus_routes = list(ROUTES_BUS)[i : i + 10]
         bus_url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(bus_routes)}'
         bus_thread = threading.Thread(
             target=client_thread,
