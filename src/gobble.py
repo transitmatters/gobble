@@ -5,6 +5,7 @@ import requests
 import sseclient
 import logging
 from ddtrace import tracer
+import urllib3
 
 from constants import ALL_ROUTES
 from config import CONFIG
@@ -34,11 +35,15 @@ def main():
     client = sseclient.SSEClient(requests.get(URL, headers=HEADERS, stream=True))
 
     for event in client.events():
-        if event.event != "update":
-            continue
+        try:
+            if event.event != "update":
+                continue
 
-        update = json.loads(event.data)
-        process_event(update, current_stop_state, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops)
+            update = json.loads(event.data)
+            process_event(update, current_stop_state, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops)
+        except urllib3.exceptions.InvalidChunkLength:
+            logger.exception("Encountered invalid chunk length issue, skipping event", stack_info=True, exc_info=True)
+            continue
 
 
 if __name__ == "__main__":
