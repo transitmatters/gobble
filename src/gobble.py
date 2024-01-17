@@ -36,13 +36,6 @@ def main():
         name="rapid_routes",
     )
 
-    bus_url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(ROUTES_BUS)}'
-    bus_thread = threading.Thread(
-        target=client_thread,
-        args=(bus_url, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops),
-        name="bus_routes",
-    )
-
     cr_url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(ROUTES_CR)}'
     cr_thread = threading.Thread(
         target=client_thread,
@@ -51,12 +44,24 @@ def main():
     )
 
     rapid_thread.start()
-    bus_thread.start()
     cr_thread.start()
 
+    bus_threads: list[threading.Thread] = []
+    for i in range(0, len(list(ROUTES_BUS)), 10):  
+        bus_routes = list(ROUTES_BUS)[i:i + 10] 
+        bus_url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(bus_routes)}'
+        bus_thread = threading.Thread(
+            target=client_thread,
+            args=(bus_url, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops),
+            name=f"bus_routes{i}",
+        )
+        bus_threads.append(bus_thread)
+        bus_thread.start()
+
     rapid_thread.join()
-    bus_thread.join()
     cr_thread.join()
+    for bus_thread in bus_threads:
+        bus_thread.join()
 
 
 def client_thread(
