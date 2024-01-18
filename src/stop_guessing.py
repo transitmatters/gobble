@@ -34,6 +34,12 @@ def attempt_enrich_update(update: Dict) -> Optional[Dict]:
 
 
 def report_outage(update: Dict) -> Optional[pd.DataFrame]:
+    """Given an outage event, cache it and potentially try fill the missing information.
+    
+    If the outage duration is small (<1 minute,) it will return nothing. 
+    It will then attempt to fill the missing information using shape interpolation and gtfs data
+    This might still fail and return nothing. 
+    """
     cache_key = cache_key_fmt.format(vehicle_label=update["vehicle_label"], trip_id=update["trip_id"])
     outage_sequence = OUTAGES_BY_VEHICLE_AND_TRIP.get(cache_key, [])
     if len(outage_sequence) == 0:
