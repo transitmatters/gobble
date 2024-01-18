@@ -51,6 +51,11 @@
       args:
         chdir: /home/ubuntu/gobble
 
+    - name: enable service
+      become: yes
+      become_user: root
+      shell: systemctl enable gobble
+
     - name: restart service
       become: yes
       become_user: root
