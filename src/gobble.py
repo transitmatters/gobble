@@ -80,7 +80,12 @@ def client_thread(
 
 
 def process_events(
-    client: sseclient.SSEClient, current_stop_state, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops
+    client: sseclient.SSEClient,
+    current_stop_state: dict,
+    gtfs_service_date: date,
+    scheduled_trips: pd.DataFrame,
+    scheduled_stop_times: pd.DataFrame,
+    stops: pd.DataFrame,
 ):
     for event in client.events():
         try:
@@ -88,6 +93,19 @@ def process_events(
                 continue
 
             update = json.loads(event.data)
+
+            # check for new day
+            updated_at = datetime.fromisoformat(update["attributes"]["updated_at"])
+            service_date = util.service_date(updated_at)
+
+            if gtfs_service_date != service_date:
+                logger.info(
+                    f"New day! Refreshing GTFS bundle from {gtfs_service_date} to {service_date} and clearing state..."
+                )
+                disk.write_state({})
+                scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date)
+                gtfs_service_date = service_date
+
             process_event(update, current_stop_state, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops)
         except Exception:
             logger.exception("Encountered an exception when processing an event", stack_info=True, exc_info=True)
