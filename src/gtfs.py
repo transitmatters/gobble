@@ -5,10 +5,11 @@ import shutil
 import urllib.request
 from urllib.parse import urljoin
 from ddtrace import tracer
-from typing import List, Tuple
+from typing import List, Tuple, Optional, Set
 
 from config import CONFIG
 from logger import set_up_logging
+from util import EASTERN_TIME
 
 
 logger = set_up_logging(__name__)
@@ -100,12 +101,15 @@ def get_services(date: datetime.date, archive_dir: pathlib.Path) -> List[str]:
 
 
 @tracer.wrap()
-def read_gtfs(date: datetime.date) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def read_gtfs(
+    date: datetime.date, routes_filter: Optional[Set[str]] = None
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Given a date, this function will:
     - Find the appropriate gtfs archive (downloading if necessary)
     - Determine which services ran on that date
-    - Return two dataframes containing just the trips and stop_times that ran on that date
+    - Return three dataframes containing just the trips and stop_times that ran on that date, and corresponding stop information
+    If a route filter is applied, only return trips and stop information relevent to supplied routes. Otherwise, return all services.
     """
     dateint = to_dateint(date)
 
@@ -115,6 +119,9 @@ def read_gtfs(date: datetime.date) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataF
     # specify dtypes to avoid warnings
     trips = pd.read_csv(archive_dir / "trips.txt", dtype={"trip_short_name": str, "block_id": str})
     trips = trips[trips.service_id.isin(services)]
+    # filter by routes
+    if routes_filter:
+        trips = trips[trips.route_id.isin(routes_filter)]
 
     stops = pd.read_csv(archive_dir / "stops.txt")
 
@@ -129,24 +136,8 @@ def read_gtfs(date: datetime.date) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataF
 
 
 @tracer.wrap()
-def add_gtfs_headways(events_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops: pd.DataFrame) -> pd.DataFrame:
-    """
-    This will calculate scheduled headway and traveltime information
-    from gtfs for the routes we care about, and then match our actual
-    events to the scheduled values. This matching is done based on
-    time-of-day, so is not an excact match. Luckily, pandas helps us out
-    with merge_asof.
-    https://pandas.pydata.org/docs/reference/api/pandas.merge_asof.html
-    This function is ADAPTED from historical bus headway calculations
-    https://github.com/transitmatters/t-performance-dash/blob/ebecaca071b39d8140296545f2e5b287915bc60d/server/bus/gtfs_archive.py#L90
-
-    NB 1: event times are converted to pd timestamps in this fuction for pandas merge manipulation,
-    but will be converted back into datetime.datetime for serialization purposes. careful!
-    NB 2: while live events' and the scheduled stop times' timestamps are reported in local (eastern) time,
-    the MBTA monthly datadumps report their times in UTC. our calculations are in
-    local time, but our final product should be converted to UTC for parity. careful!!!!!
-    """
-    # TODO: I think we need to worry about 114/116/117 headways?
+def batch_add_gtfs_headways(events_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops: pd.DataFrame) -> pd.DataFrame:
+    """A batch implementation of add_gtfs_headways--this will probably never be used, but we include it just in case."""
     results = []
 
     # we have to do this day-by-day because gtfs changes so often
@@ -171,7 +162,7 @@ def add_gtfs_headways(events_df: pd.DataFrame, all_trips: pd.DataFrame, all_stop
 
         # assign each actual timepoint a scheduled headway
         # merge_asof 'backward' matches the previous scheduled value of 'arrival_time'
-        days_events["arrival_time"] = days_events.event_time - pd.Timestamp(service_date).tz_localize("US/Eastern")
+        days_events["arrival_time"] = days_events.event_time - pd.Timestamp(service_date).tz_localize(EASTERN_TIME)
         augmented_events = pd.merge_asof(
             days_events.sort_values(by="arrival_time"),
             gtfs_stops[RTE_DIR_STOP + ["arrival_time", "scheduled_headway"]],
@@ -209,3 +200,80 @@ def add_gtfs_headways(events_df: pd.DataFrame, all_trips: pd.DataFrame, all_stop
         results.append(augmented_events)
 
     return pd.concat(results)
+
+
+def add_gtfs_headways(event_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops: pd.DataFrame) -> pd.DataFrame:
+    """
+    This will calculate scheduled headway and traveltime information
+    from gtfs for the routes we care about, and then match our actual
+    events to the scheduled values. This matching is done based on
+    time-of-day, so is not an excact match. Luckily, pandas helps us out
+    with merge_asof.
+    https://pandas.pydata.org/docs/reference/api/pandas.merge_asof.html
+    This function is ADAPTED from historical bus headway calculations
+    https://github.com/transitmatters/t-performance-dash/blob/ebecaca071b39d8140296545f2e5b287915bc60d/server/bus/gtfs_archive.py#L90
+
+    NB 1: event times are converted to pd timestamps in this fuction for pandas merge manipulation,
+    but will be converted back into datetime.datetime for serialization purposes. careful!
+    NB 2: ensure that all times are in US/Eastern!
+    """
+    # TODO: I think we need to worry about 114/116/117 headways?
+    if len(event_df) > 1:
+        return batch_add_gtfs_headways(event_df, all_trips, all_stops)
+
+    service_date = event_df.service_date.iloc[0]
+    route_id = event_df.route_id.iloc[0]
+    # filter out the trips of interest
+    relevant_trips = all_trips[all_trips.route_id == route_id]
+
+    # take only the stops from those trips (adding route and dir info)
+    trip_info = relevant_trips[["trip_id", "route_id", "direction_id"]]
+    gtfs_stops = all_stops.merge(trip_info, on="trip_id", how="right")
+
+    # calculate gtfs headways
+    gtfs_stops = gtfs_stops.sort_values(by="arrival_time")
+    headways = gtfs_stops.groupby(RTE_DIR_STOP).arrival_time.diff()
+    # the first stop of a trip doesnt technically have a real scheduled headway, so we set to empty string
+    headways = headways.fillna("")
+    gtfs_stops["scheduled_headway"] = headways.dt.seconds
+
+    # calculate gtfs traveltimes
+    trip_start_times = gtfs_stops.groupby("trip_id").arrival_time.transform("min")
+    gtfs_stops["scheduled_tt"] = (gtfs_stops.arrival_time - trip_start_times).dt.seconds
+
+    # assign each actual timepoint a scheduled headway
+    # merge_asof 'backward' matches the previous scheduled value of 'arrival_time'
+    event_df["arrival_time"] = event_df.event_time - pd.Timestamp(service_date).tz_localize(EASTERN_TIME)
+    augmented_event = pd.merge_asof(
+        event_df,
+        gtfs_stops[RTE_DIR_STOP + ["arrival_time", "scheduled_headway"]],
+        on="arrival_time",
+        direction="backward",
+        by=RTE_DIR_STOP,
+    )
+
+    # assign each actual trip a scheduled trip_id, based on when it started the route
+    route_starts = event_df[RTE_DIR_STOP + ["trip_id", "arrival_time"]]
+
+    trip_id_map = pd.merge_asof(
+        route_starts,
+        gtfs_stops[RTE_DIR_STOP + ["arrival_time", "trip_id"]],
+        on="arrival_time",
+        direction="nearest",
+        by=RTE_DIR_STOP,
+        suffixes=["", "_scheduled"],
+    )
+    trip_id_map = trip_id_map.set_index("trip_id").trip_id_scheduled
+
+    # use the scheduled trip matching to get the scheduled traveltime
+    augmented_event["scheduled_trip_id"] = augmented_event.trip_id.map(trip_id_map)
+    augmented_event = pd.merge(
+        augmented_event,
+        gtfs_stops[RTE_DIR_STOP + ["trip_id", "scheduled_tt"]],
+        how="left",
+        left_on=RTE_DIR_STOP + ["scheduled_trip_id"],
+        right_on=RTE_DIR_STOP + ["trip_id"],
+        suffixes=["", "_gtfs"],
+    )
+
+    return augmented_event

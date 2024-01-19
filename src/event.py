@@ -38,13 +38,15 @@ def get_stop_name(stops_df: pd.DataFrame, stop_id: str) -> str:
         return stop_id
 
 
-def arr_or_dep_event(prev, current_status, current_stop_sequence, event_type: str, stop_id) -> Tuple[bool, bool]:
+def arr_or_dep_event(
+    prev: dict, current_status: str, current_stop_sequence: int, event_type: str, stop_id: str
+) -> Tuple[bool, bool]:
     is_departure_event = prev["stop_id"] != stop_id and prev["stop_sequence"] < current_stop_sequence
     is_arrival_event = current_status == "STOPPED_AT" and prev.get("event_type", event_type) == "DEP"
     return is_departure_event, is_arrival_event
 
 
-def reduce_update_event(update):
+def reduce_update_event(update: dict) -> Tuple:
     current_status = update["attributes"]["current_status"]
     event_type = EVENT_TYPE_MAP[current_status]
     updated_at = datetime.fromisoformat(update["attributes"]["updated_at"])
@@ -71,13 +73,13 @@ def reduce_update_event(update):
 
 @tracer.wrap()
 def process_event(
-    update,
-    current_stop_state,
+    update: dict,
+    current_stop_state: dict,
     gtfs_service_date: date,
     scheduled_trips: pd.DataFrame,
     scheduled_stop_times: pd.DataFrame,
     stops: pd.DataFrame,
-):
+) -> None:
     """Process a single event from the MBTA's realtime API."""
     (
         current_status,
@@ -162,12 +164,12 @@ def process_event(
     disk.write_state(current_stop_state)
 
 
-def enrich_event(df: pd.DataFrame, scheduled_trips: pd.DataFrame, scheduled_stop_times: pd.DataFrame):
+def enrich_event(df: pd.DataFrame, scheduled_trips: pd.DataFrame, scheduled_stop_times: pd.DataFrame) -> pd.DataFrame:
     """
     Given a dataframe with a single event, enrich it with headway information and return a single event dict
     """
     # ensure timestamp is always in local time to match the rest of the data
-    df["event_time"] = df["event_time"].dt.tz_convert("US/Eastern")
+    df["event_time"] = df["event_time"].dt.tz_convert(util.EASTERN_TIME)
 
     headway_adjusted_df = gtfs.add_gtfs_headways(df, scheduled_trips, scheduled_stop_times)
     # future warning: returning a series is actually the correct future behavior of to_pydatetime(), can drop the
