@@ -1,11 +1,12 @@
 from datetime import date, datetime
+from ddtrace import tracer
 import json
-import threading
-from typing import Dict, Set
+import logging
+import pandas as pd
 import requests
 import sseclient
-import logging
-from ddtrace import tracer
+import threading
+from typing import Dict, Set
 
 from constants import ROUTES_BUS, ROUTES_CR, ROUTES_RAPID
 from config import CONFIG
@@ -65,9 +66,8 @@ def client_thread(
     gtfs_service_date: date,
     routes_filter: Set[str],
 ):
-    logger.info(f"Connecting to {url}...")
-
     url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(routes_filter)}'
+    logger.info(f"Connecting to {url}...")
     client = sseclient.SSEClient(requests.get(url, headers=HEADERS, stream=True))
 
     current_stop_state: Dict = disk.read_state()
@@ -93,6 +93,19 @@ def process_events(
                 continue
 
             update = json.loads(event.data)
+
+            # check for new day
+            updated_at = datetime.fromisoformat(update["attributes"]["updated_at"])
+            service_date = util.service_date(updated_at)
+
+            if gtfs_service_date != service_date:
+                logger.info(
+                    f"New day! Refreshing GTFS bundle from {gtfs_service_date} to {service_date} and clearing state..."
+                )
+                disk.write_state({})
+                scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date)
+                gtfs_service_date = service_date
+
             process_event(update, current_stop_state, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops)
         except Exception:
             logger.exception("Encountered an exception when processing an event", stack_info=True, exc_info=True)

@@ -125,12 +125,6 @@ def process_event(
         stop_name = get_stop_name(stops, stop_id)
         service_date = util.service_date(updated_at)
 
-        # refresh the gtfs data bundle if the day has incremented
-        if gtfs_service_date != service_date:
-            logger.info(f"Refreshing GTFS bundle from {gtfs_service_date} to {service_date}...")
-            gtfs_service_date = service_date
-            scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date)
-
         # store all commuter rail/subway stops, but only some bus stops
         if route_id in ROUTES_CR.union(ROUTES_RAPID) or stop_id in BUS_STOPS.get(route_id, {}):
             logger.info(
