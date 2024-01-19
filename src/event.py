@@ -165,11 +165,11 @@ def enrich_event(df: pd.DataFrame, gtfs_archive: gtfs.GtfsArchive):
 
     # get trips and stop times for this route specifically (slow to scan them all)
     route_id = df["route_id"].iloc[0]
-    trip_id = df["trip_id"].iloc[0]
     scheduled_trips_for_route = gtfs_archive.trips_by_route_id(route_id)
-    scheduled_stop_times_for_route = gtfs_archive.stop_times_by_trip_id(trip_id)
+    scheduled_stop_times_for_route = gtfs_archive.stop_times_by_route_id(route_id)
 
     headway_adjusted_df = gtfs.add_gtfs_headways(df, scheduled_trips_for_route, scheduled_stop_times_for_route)
+    # headway_adjusted_df = gtfs.add_gtfs_headways(df, gtfs_archive.trips, gtfs_archive.stop_times)
     # future warning: returning a series is actually the correct future behavior of to_pydatetime(), can drop the
     # context manager later
     with warnings.catch_warnings():
