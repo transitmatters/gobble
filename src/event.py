@@ -101,7 +101,7 @@ def process_event(update: dict, current_stop_state: dict):
         prev["updated_at"] = datetime.fromisoformat(prev["updated_at"])
 
     if stop_id is None:
-        # TODO: attempt to enrich update with stop information. successful,
+        # TODO (hamima): attempt to enrich update with stop information. if successful,
         # continue. otherwise, return.
         return
 
