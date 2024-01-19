@@ -6,6 +6,7 @@ import pandas as pd
 import requests
 import sseclient
 import logging
+import traceback
 from ddtrace import tracer
 
 from constants import ROUTES_BUS, ROUTES_CR, ROUTES_RAPID
@@ -25,21 +26,19 @@ HEADERS = {"X-API-KEY": API_KEY, "Accept": "text/event-stream"}
 
 def main():
     # Download the gtfs bundle before we proceed so we don't have to wait
-    logger.info("Downloading GTFS bundle if necessary...")
-    gtfs_service_date = util.service_date(datetime.now(util.EASTERN_TIME))
-    scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date)
+    gtfs.start_watching_gtfs()
 
     rapid_url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(ROUTES_RAPID)}'
     rapid_thread = threading.Thread(
         target=client_thread,
-        args=(rapid_url, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops),
+        args=(rapid_url,),
         name="rapid_routes",
     )
 
     cr_url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(ROUTES_CR)}'
     cr_thread = threading.Thread(
         target=client_thread,
-        args=(cr_url, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops),
+        args=(cr_url,),
         name="cr_routes",
     )
 
@@ -52,7 +51,7 @@ def main():
         bus_url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(bus_routes)}'
         bus_thread = threading.Thread(
             target=client_thread,
-            args=(bus_url, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops),
+            args=(bus_url,),
             name=f"bus_routes{i}",
         )
         bus_threads.append(bus_thread)
@@ -64,33 +63,26 @@ def main():
         bus_thread.join()
 
 
-def client_thread(
-    url: str,
-    gtfs_service_date: date,
-    scheduled_trips: pd.DataFrame,
-    scheduled_stop_times: pd.DataFrame,
-    stops: pd.DataFrame,
-):
+def client_thread(url: str):
     logger.info(f"Connecting to {url}...")
     client = sseclient.SSEClient(requests.get(url, headers=HEADERS, stream=True))
 
     current_stop_state: Dict = disk.read_state()
 
-    process_events(client, current_stop_state, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops)
+    process_events(client, current_stop_state)
 
 
-def process_events(
-    client: sseclient.SSEClient, current_stop_state, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops
-):
+def process_events(client: sseclient.SSEClient, current_stop_state):
     for event in client.events():
         try:
             if event.event != "update":
                 continue
 
             update = json.loads(event.data)
-            process_event(update, current_stop_state, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops)
+            process_event(update, current_stop_state)
         except Exception:
-            logger.exception("Encountered an exception when processing an event", stack_info=True, exc_info=True)
+            traceback.print_exc()
+            # logger.exception("Encountered an exception when processing an event", stack_info=True, exc_info=True)
             continue
 
 
