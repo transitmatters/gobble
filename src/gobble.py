@@ -68,7 +68,7 @@ def client_thread(url: str):
     process_events(client, current_stop_state)
 
 
-def process_events(client: sseclient.SSEClient, current_stop_state):
+def process_events(client: sseclient.SSEClient, current_stop_state: dict):
     for event in client.events():
         try:
             if event.event != "update":
