@@ -4,9 +4,11 @@ from dataclasses import dataclass
 from typing import Dict, TypedDict, Optional
 from ddtrace import tracer
 
-from logger import logging
+from logger import set_up_logging
 from disk import DATA_DIR
 from util import get_current_service_date
+
+logger = set_up_logging(__name__)
 
 
 class TripState(TypedDict):
@@ -58,11 +60,13 @@ def read_trips_state_file(route_id: str) -> Dict[str, TripState]:
             try:
                 file_contents = json.load(trip_file)
                 if "trip_states" in file_contents and "service_date" in file_contents:
+                    trip_states = {
+                        trip_id: deserialize_trip_state(trip_state)
+                        for trip_id, trip_state in file_contents["trip_states"].items()
+                    }
+                    logger.info(f"Loaded {len(trip_states)} trip states for route {route_id}")
                     return {
-                        "trip_states": {
-                            trip_id: deserialize_trip_state(trip_state)
-                            for trip_id, trip_state in file_contents["trip_states"].items()
-                        },
+                        "trip_states": trip_states,
                         "service_date": date.fromisoformat(file_contents["service_date"]),
                     }
             except json.decoder.JSONDecodeError:
@@ -109,6 +113,7 @@ class RouteTripsState:
     def _purge_trips_state_if_overnight(self) -> None:
         current_service_date = get_current_service_date()
         if self.service_date < current_service_date:
+            logger.info(f"Purging trip state for route {self.route_id} on new service date {current_service_date}")
             self.service_date = current_service_date
             self.trips = {}
         write_trips_state_file(self.route_id, self)
