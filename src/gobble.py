@@ -1,17 +1,17 @@
 import json
 import threading
-from typing import Dict
 import requests
 import sseclient
 import logging
 from ddtrace import tracer
+import traceback
 
 from constants import ROUTES_BUS, ROUTES_CR, ROUTES_RAPID
 from config import CONFIG
 from event import process_event
 from logger import set_up_logging
+from trip_state import TripsStateManager
 import gtfs
-import disk
 
 logging.basicConfig(level=logging.INFO, filename="gobble.log")
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
@@ -62,22 +62,23 @@ def main():
 def client_thread(url: str):
     logger.info(f"Connecting to {url}...")
     client = sseclient.SSEClient(requests.get(url, headers=HEADERS, stream=True))
-
-    current_stop_state: Dict = disk.read_state()
-
-    process_events(client, current_stop_state)
+    trips_state = TripsStateManager()
+    process_events(client, trips_state)
 
 
-def process_events(client: sseclient.SSEClient, current_stop_state):
+def process_events(client: sseclient.SSEClient, trips_state: TripsStateManager):
     for event in client.events():
         try:
             if event.event != "update":
                 continue
 
             update = json.loads(event.data)
-            process_event(update, current_stop_state)
+            process_event(update, trips_state)
         except Exception:
-            logger.exception("Encountered an exception when processing an event", stack_info=True, exc_info=True)
+            if tracer.enabled:
+                logger.exception("Encountered an exception when processing an event", stack_info=True, exc_info=True)
+            else:
+                traceback.print_exc()
             continue
 
 

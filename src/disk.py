@@ -1,5 +1,4 @@
 import csv
-import json
 import os
 import pathlib
 from util import output_dir_path
@@ -48,25 +47,3 @@ def write_event(event: dict):
         if not file_exists:
             writer.writeheader()
         writer.writerow(event)
-
-
-@tracer.wrap()
-def read_state() -> dict:
-    pathname = pathlib.Path(DATA_DIR) / STATE_FILENAME
-    try:
-        with pathname.open() as fd:
-            return json.load(fd)
-    except FileNotFoundError:
-        return {}
-    except json.decoder.JSONDecodeError:
-        logger.exception("Encountered corrupted state, will skip loading.", stack_info=True, exc_info=True)
-        return {}
-
-
-@tracer.wrap()
-def write_state(state: dict):
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    pathname = pathlib.Path(DATA_DIR) / STATE_FILENAME
-
-    with pathname.open("w") as fd:
-        json.dump(state, fd, default=str)

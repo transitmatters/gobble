@@ -7,9 +7,11 @@ import warnings
 
 from config import CONFIG
 from constants import BUS_STOPS, ROUTES_CR, ROUTES_RAPID
+from logger import set_up_logging
+from trip_state import TripsStateManager
+
 import disk
 import gtfs
-from logger import set_up_logging
 import util
 
 logger = set_up_logging(__name__)
@@ -70,7 +72,7 @@ def reduce_update_event(update):
 
 
 @tracer.wrap()
-def process_event(update, current_stop_state):
+def process_event(update, trips_state: TripsStateManager):
     """Process a single event from the MBTA's realtime API."""
     (
         current_status,
@@ -84,25 +86,24 @@ def process_event(update, current_stop_state):
         updated_at,
     ) = reduce_update_event(update)
 
-    prev = current_stop_state.get(
-        trip_id,
-        {
+    prev_trip_state = trips_state.get_trip_state(route_id, trip_id)
+    if prev_trip_state is None:
+        prev_trip_state = {
             "stop_sequence": current_stop_sequence,
             "stop_id": stop_id,
             "updated_at": updated_at,
             "event_type": event_type,
-        },
-    )
+        }
 
     # current_stop_state updated_at is isofmt str, not datetime.
-    if isinstance(prev["updated_at"], str):
-        prev["updated_at"] = datetime.fromisoformat(prev["updated_at"])
+    if isinstance(prev_trip_state["updated_at"], str):
+        prev_trip_state["updated_at"] = datetime.fromisoformat(prev_trip_state["updated_at"])
 
     if stop_id is None:
         return
 
     is_departure_event, is_arrival_event = arr_or_dep_event(
-        prev=prev,
+        prev=prev_trip_state,
         current_status=current_status,
         current_stop_sequence=current_stop_sequence,
         event_type=event_type,
@@ -111,7 +112,7 @@ def process_event(update, current_stop_state):
 
     if is_departure_event or is_arrival_event:
         if is_departure_event:
-            stop_id = prev["stop_id"]
+            stop_id = prev_trip_state["stop_id"]
 
         gtfs_archive = gtfs.get_current_gtfs_archive()
         stop_name = get_stop_name(gtfs_archive.stops, stop_id)
@@ -145,15 +146,16 @@ def process_event(update, current_stop_state):
             event = enrich_event(df, gtfs_archive)
             disk.write_event(event)
 
-    current_stop_state[trip_id] = {
-        "stop_sequence": current_stop_sequence,
-        "stop_id": stop_id,
-        "updated_at": updated_at,
-        "event_type": event_type,
-    }
-
-    # write the state out here
-    disk.write_state(current_stop_state)
+    trips_state.set_trip_state(
+        route_id,
+        trip_id,
+        {
+            "stop_sequence": current_stop_sequence,
+            "stop_id": stop_id,
+            "updated_at": updated_at,
+            "event_type": event_type,
+        },
+    )
 
 
 def enrich_event(df: pd.DataFrame, gtfs_archive: gtfs.GtfsArchive):
