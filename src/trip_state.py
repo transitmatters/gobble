@@ -47,7 +47,6 @@ def write_trips_state_file(route_id: str, state: "RouteTripsState") -> None:
         "service_date": state.service_date.isoformat(),
         "trip_states": trip_states,
     }
-    print(file_contents)
     with open(trip_file_path, "w") as trip_file:
         trip_file.write(json.dumps(file_contents))
 
