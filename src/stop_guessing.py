@@ -3,7 +3,7 @@ import pandas as pd
 from typing import Dict, List, Optional
 
 # a data structure of negligent vehicles.
-# purge this on a new service date. i dont like that this is a dict--should this be a daily cache? dynamodb? also route shapes
+# purge this on a new service date. i dont like that this is a dict--should this be a redis cache? dynamodb? also route shapes
 
 # TODO: should we track degenerate vehicles? the knowledge isnt actionable but it is neat
 cache_key_fmt = "{vehicle_label}_{trip_id}"
@@ -14,11 +14,19 @@ LONG_OUTAGE_TIMEDELTA = datetime.timedelta(minutes=1)
 
 
 def _add_update_to_sequence(cache_key: str, update: Dict) -> None:
-    OUTAGES_BY_VEHICLE_AND_TRIP[cache_key].append(update)
+    if cache_key in OUTAGES_BY_VEHICLE_AND_TRIP:
+        OUTAGES_BY_VEHICLE_AND_TRIP[cache_key].append(update)
+    else:
+        OUTAGES_BY_VEHICLE_AND_TRIP[cache_key] = [update]
 
 
 def _remove(cache_key: str) -> None:
     OUTAGES_BY_VEHICLE_AND_TRIP[cache_key] = []
+
+
+def purge_cache():
+    nonlocal OUTAGES_BY_VEHICLE_AND_TRIP
+    OUTAGES_BY_VEHICLE_AND_TRIP = {}
 
 
 def attempt_enrich_update(update: Dict) -> Optional[Dict]:
@@ -52,18 +60,15 @@ def report_outage(update: Dict) -> Optional[pd.DataFrame]:
     first_ts = outage_sequence[0]["updated_at"]
     current_ts = update["updated_at"]
 
-    # if timestamps are not close, remove entire cache entry. this is now the most recent instance.
+    # if timestamps are not close, remove entire cache entry. this is now the first instance of a new outage.
     if current_ts - last_ts >= SAME_OUTAGE_TIMEDELTA:
         _remove(cache_key)
         _add_update_to_sequence(cache_key, update)
-        # return empty.
         return None
     else:
-        # append this event to outages and cache
         _add_update_to_sequence(cache_key, update)
-        # compare first timestamp and this timestamp...
+        # if the outage is <1 min, not long enough to bother with shape interpolation yet.
         if current_ts - first_ts <= LONG_OUTAGE_TIMEDELTA:
-            # if the timedelta is < 1 minute, return empty.
             return None
         else:
             # else, attempt to intuit the stop information via shapes and trip info
