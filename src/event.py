@@ -1,5 +1,5 @@
 import json
-from datetime import date, datetime
+from datetime import datetime
 from typing import Tuple
 import pandas as pd
 from ddtrace import tracer

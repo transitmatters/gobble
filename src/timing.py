@@ -7,6 +7,7 @@ import numpy as np
 def measure_time(report_frequency: float = 1.0, trail_length=1000):
     def decorator(fn):
         exec_times = []
+
         @wraps(fn)
         def wrap(*args, **kw):
             nonlocal exec_times

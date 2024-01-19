@@ -1,12 +1,9 @@
-from datetime import date, datetime
 import json
 import threading
 from typing import Dict
-import pandas as pd
 import requests
 import sseclient
 import logging
-import traceback
 from ddtrace import tracer
 
 from constants import ROUTES_BUS, ROUTES_CR, ROUTES_RAPID
@@ -15,7 +12,6 @@ from event import process_event
 from logger import set_up_logging
 import gtfs
 import disk
-import util
 
 logging.basicConfig(level=logging.INFO, filename="gobble.log")
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
@@ -25,7 +21,7 @@ HEADERS = {"X-API-KEY": API_KEY, "Accept": "text/event-stream"}
 
 
 def main():
-    # Download the gtfs bundle before we proceed so we don't have to wait
+    # Start downloading GTFS bundles immediately
     gtfs.start_watching_gtfs()
 
     rapid_url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(ROUTES_RAPID)}'
@@ -81,8 +77,7 @@ def process_events(client: sseclient.SSEClient, current_stop_state):
             update = json.loads(event.data)
             process_event(update, current_stop_state)
         except Exception:
-            traceback.print_exc()
-            # logger.exception("Encountered an exception when processing an event", stack_info=True, exc_info=True)
+            logger.exception("Encountered an exception when processing an event", stack_info=True, exc_info=True)
             continue
 
 

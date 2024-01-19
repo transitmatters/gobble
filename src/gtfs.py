@@ -14,7 +14,6 @@ from config import CONFIG
 from logger import set_up_logging
 
 import util
-import timing
 
 
 logger = set_up_logging(__name__)
@@ -172,7 +171,6 @@ def read_gtfs(date: datetime.date) -> GtfsArchive:
     return GtfsArchive(trips=trips, stop_times=stop_times, stops=stops, service_date=date)
 
 
-@timing.measure_time(report_frequency=0.1)
 @tracer.wrap()
 def add_gtfs_headways(events_df: pd.DataFrame, trips: pd.DataFrame, stop_times: pd.DataFrame) -> pd.DataFrame:
     """
@@ -263,14 +261,14 @@ write_gtfs_archive_lock = Lock()
 def update_current_gtfs_archive_if_necessary():
     global current_gtfs_archive
     global write_gtfs_archive_lock
-    gtfs_service_date = util.service_date(datetime.datetime.now(util.EASTERN_TIME))
-    needs_update = current_gtfs_archive is None or current_gtfs_archive.service_date != gtfs_service_date
-    if needs_update:
-        if current_gtfs_archive is not None:
-            logger.info(f"Updating GTFS archive from {current_gtfs_archive.service_date} to {gtfs_service_date}")
-        else:
-            logger.info(f"Downloading GTFS archive for {gtfs_service_date}")
-        with write_gtfs_archive_lock:
+    with write_gtfs_archive_lock:
+        gtfs_service_date = util.service_date(datetime.datetime.now(util.EASTERN_TIME))
+        needs_update = current_gtfs_archive is None or current_gtfs_archive.service_date != gtfs_service_date
+        if needs_update:
+            if current_gtfs_archive is None:
+                logger.info(f"Downloading GTFS archive for {gtfs_service_date}")
+            else:
+                logger.info(f"Updating GTFS archive from {current_gtfs_archive.service_date} to {gtfs_service_date}")
             current_gtfs_archive = read_gtfs(gtfs_service_date)
 
 
