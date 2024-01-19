@@ -1,6 +1,6 @@
 import json
-from datetime import date, datetime
-from typing import Dict, Tuple
+from datetime import datetime
+from typing import Tuple
 import pandas as pd
 from ddtrace import tracer
 import warnings
@@ -39,14 +39,14 @@ def get_stop_name(stops_df: pd.DataFrame, stop_id: str) -> str:
 
 
 def arr_or_dep_event(
-    prev: Dict, current_status: str, current_stop_sequence: int, event_type: str, stop_id
+    prev: dict, current_status: str, current_stop_sequence: int, event_type: str, stop_id: str
 ) -> Tuple[bool, bool]:
     is_departure_event = prev["stop_id"] != stop_id and prev["stop_sequence"] < current_stop_sequence
     is_arrival_event = current_status == "STOPPED_AT" and prev.get("event_type", event_type) == "DEP"
     return is_departure_event, is_arrival_event
 
 
-def reduce_update_event(update: Dict) -> Tuple:
+def reduce_update_event(update: dict) -> Tuple:
     current_status = update["attributes"]["current_status"]
     event_type = EVENT_TYPE_MAP[current_status]
     updated_at = datetime.fromisoformat(update["attributes"]["updated_at"])
@@ -55,11 +55,7 @@ def reduce_update_event(update: Dict) -> Tuple:
         # The vehicle’s current (when current_status is STOPPED_AT) or next stop.
         stop_id = update["relationships"]["stop"]["data"]["id"]
     except (TypeError, KeyError):
-        logger.error(
-            f"Encountered degenerate stop information. This event will be skipped: {json.dumps(update)}",
-            stack_info=True,
-            exc_info=True,
-        )
+        logger.error(f"Encountered degenerate stop information. This event will be skipped: {json.dumps(update)}")
         stop_id = None
 
     return (
@@ -76,14 +72,7 @@ def reduce_update_event(update: Dict) -> Tuple:
 
 
 @tracer.wrap()
-def process_event(
-    update: Dict,
-    current_stop_state: Dict,
-    gtfs_service_date: date,
-    scheduled_trips: pd.DataFrame,
-    scheduled_stop_times: pd.DataFrame,
-    stops: pd.DataFrame,
-):
+def process_event(update: dict, current_stop_state: dict):
     """Process a single event from the MBTA's realtime API."""
     (
         current_status,
@@ -128,14 +117,9 @@ def process_event(
         if is_departure_event:
             stop_id = prev["stop_id"]
 
-        stop_name = get_stop_name(stops, stop_id)
+        gtfs_archive = gtfs.get_current_gtfs_archive()
+        stop_name = get_stop_name(gtfs_archive.stops, stop_id)
         service_date = util.service_date(updated_at)
-
-        # refresh the gtfs data bundle if the day has incremented
-        if gtfs_service_date != service_date:
-            logger.info(f"Refreshing GTFS bundle from {gtfs_service_date} to {service_date}...")
-            gtfs_service_date = service_date
-            scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date)
 
         # store all commuter rail/subway stops, but only some bus stops
         if route_id in ROUTES_CR.union(ROUTES_RAPID) or stop_id in BUS_STOPS.get(route_id, {}):
@@ -162,7 +146,7 @@ def process_event(
                 index=[0],
             )
 
-            event = enrich_event(df, scheduled_trips, scheduled_stop_times)
+            event = enrich_event(df, gtfs_archive)
             disk.write_event(event)
 
     current_stop_state[trip_id] = {
@@ -176,14 +160,19 @@ def process_event(
     disk.write_state(current_stop_state)
 
 
-def enrich_event(df: pd.DataFrame, scheduled_trips: pd.DataFrame, scheduled_stop_times: pd.DataFrame) -> Dict:
+def enrich_event(df: pd.DataFrame, gtfs_archive: gtfs.GtfsArchive):
     """
     Given a dataframe with a single event, enrich it with headway information and return a single event dict
     """
     # ensure timestamp is always in local time to match the rest of the data
-    df["event_time"] = df["event_time"].dt.tz_convert("US/Eastern")
+    df["event_time"] = df["event_time"].dt.tz_convert(util.EASTERN_TIME)
 
-    headway_adjusted_df = gtfs.add_gtfs_headways(df, scheduled_trips, scheduled_stop_times)
+    # get trips and stop times for this route specifically (slow to scan them all)
+    route_id = df["route_id"].iloc[0]
+    scheduled_trips_for_route = gtfs_archive.trips_by_route_id(route_id)
+    scheduled_stop_times_for_route = gtfs_archive.stop_times_by_route_id(route_id)
+
+    headway_adjusted_df = gtfs.add_gtfs_headways(df, scheduled_trips_for_route, scheduled_stop_times_for_route)
     # future warning: returning a series is actually the correct future behavior of to_pydatetime(), can drop the
     # context manager later
     with warnings.catch_warnings():
