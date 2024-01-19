@@ -1,5 +1,5 @@
 import json
-from datetime import date, datetime
+from datetime import datetime
 from typing import Tuple
 import pandas as pd
 from ddtrace import tracer
@@ -72,14 +72,7 @@ def reduce_update_event(update: dict) -> Tuple:
 
 
 @tracer.wrap()
-def process_event(
-    update: dict,
-    current_stop_state: dict,
-    gtfs_service_date: date,
-    scheduled_trips: pd.DataFrame,
-    scheduled_stop_times: pd.DataFrame,
-    stops: pd.DataFrame,
-) -> None:
+def process_event(update, current_stop_state: dict):
     """Process a single event from the MBTA's realtime API."""
     (
         current_status,
@@ -122,7 +115,8 @@ def process_event(
         if is_departure_event:
             stop_id = prev["stop_id"]
 
-        stop_name = get_stop_name(stops, stop_id)
+        gtfs_archive = gtfs.get_current_gtfs_archive()
+        stop_name = get_stop_name(gtfs_archive.stops, stop_id)
         service_date = util.service_date(updated_at)
 
         # store all commuter rail/subway stops, but only some bus stops
@@ -150,7 +144,7 @@ def process_event(
                 index=[0],
             )
 
-            event = enrich_event(df, scheduled_trips, scheduled_stop_times)
+            event = enrich_event(df, gtfs_archive)
             disk.write_event(event)
 
     current_stop_state[trip_id] = {
@@ -164,14 +158,19 @@ def process_event(
     disk.write_state(current_stop_state)
 
 
-def enrich_event(df: pd.DataFrame, scheduled_trips: pd.DataFrame, scheduled_stop_times: pd.DataFrame) -> pd.DataFrame:
+def enrich_event(df: pd.DataFrame, gtfs_archive: gtfs.GtfsArchive):
     """
     Given a dataframe with a single event, enrich it with headway information and return a single event dict
     """
     # ensure timestamp is always in local time to match the rest of the data
     df["event_time"] = df["event_time"].dt.tz_convert(util.EASTERN_TIME)
 
-    headway_adjusted_df = gtfs.add_gtfs_headways(df, scheduled_trips, scheduled_stop_times)
+    # get trips and stop times for this route specifically (slow to scan them all)
+    route_id = df["route_id"].iloc[0]
+    scheduled_trips_for_route = gtfs_archive.trips_by_route_id(route_id)
+    scheduled_stop_times_for_route = gtfs_archive.stop_times_by_route_id(route_id)
+
+    headway_adjusted_df = gtfs.add_gtfs_headways(df, scheduled_trips_for_route, scheduled_stop_times_for_route)
     # future warning: returning a series is actually the correct future behavior of to_pydatetime(), can drop the
     # context manager later
     with warnings.catch_warnings():

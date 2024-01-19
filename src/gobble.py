@@ -1,8 +1,6 @@
-from datetime import date, datetime
 from ddtrace import tracer
 import json
 import logging
-import pandas as pd
 import requests
 import sseclient
 import threading
@@ -14,7 +12,6 @@ from event import process_event
 from logger import set_up_logging
 import gtfs
 import disk
-import util
 
 logging.basicConfig(level=logging.INFO, filename="gobble.log")
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
@@ -24,19 +21,18 @@ HEADERS = {"X-API-KEY": API_KEY, "Accept": "text/event-stream"}
 
 
 def main():
-    # Download the gtfs bundle before we proceed so we don't have to wait
-    logger.info("Downloading GTFS bundle if necessary...")
-    gtfs_service_date = util.service_date(datetime.now(util.EASTERN_TIME))
+    # Start downloading GTFS bundles immediately
+    gtfs.start_watching_gtfs()
 
     rapid_thread = threading.Thread(
         target=client_thread,
-        args=(gtfs_service_date, ROUTES_RAPID),
+        args=(ROUTES_RAPID,),
         name="rapid_routes",
     )
 
     cr_thread = threading.Thread(
         target=client_thread,
-        args=(gtfs_service_date, ROUTES_CR),
+        args=(ROUTES_CR,),
         name="cr_routes",
     )
 
@@ -48,7 +44,7 @@ def main():
         routes_bus_chunk = list(ROUTES_BUS)[i : i + 10]
         bus_thread = threading.Thread(
             target=client_thread,
-            args=(gtfs_service_date, set(routes_bus_chunk)),
+            args=(set(routes_bus_chunk),),
             name=f"routes_bus_chunk{i}",
         )
         bus_threads.append(bus_thread)
@@ -60,51 +56,21 @@ def main():
         bus_thread.join()
 
 
-def client_thread(
-    gtfs_service_date: date,
-    routes_filter: Set[str],
-):
+def client_thread(routes_filter: Set[str]):
     url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(routes_filter)}'
     logger.info(f"Connecting to {url}...")
     client = sseclient.SSEClient(requests.get(url, headers=HEADERS, stream=True))
-
     current_stop_state: Dict = disk.read_state()
-
-    scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date, routes_filter=routes_filter)
-    process_events(
-        client, current_stop_state, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops, routes_filter
-    )
+    process_events(client, current_stop_state)
 
 
-def process_events(
-    client: sseclient.SSEClient,
-    current_stop_state: dict,
-    gtfs_service_date: date,
-    scheduled_trips: pd.DataFrame,
-    scheduled_stop_times: pd.DataFrame,
-    stops: pd.DataFrame,
-    routes_filter: Set[str],
-):
+def process_events(client: sseclient.SSEClient, current_stop_state: dict):
     for event in client.events():
         try:
             if event.event != "update":
                 continue
-
             update = json.loads(event.data)
-
-            # check for new day
-            updated_at = datetime.fromisoformat(update["attributes"]["updated_at"])
-            service_date = util.service_date(updated_at)
-
-            if gtfs_service_date != service_date:
-                logger.info(
-                    f"New day! Refreshing GTFS bundle from {gtfs_service_date} to {service_date} and clearing state..."
-                )
-                disk.write_state({})
-                scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date, routes_filter)
-                gtfs_service_date = service_date
-
-            process_event(update, current_stop_state, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops)
+            process_event(update, current_stop_state)
         except Exception:
             logger.exception("Encountered an exception when processing an event", stack_info=True, exc_info=True)
             continue
