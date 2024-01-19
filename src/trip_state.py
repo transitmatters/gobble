@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Dict, TypedDict, Optional
 from ddtrace import tracer
 
-
+from logger import logging
 from disk import DATA_DIR
 from util import get_current_service_date
 
@@ -93,12 +93,12 @@ class RouteTripsState:
             self.trips = {}
             self.service_date = get_current_service_date()
 
-    @tracer.wrap(name="update_trip_state")
+    @tracer.wrap()
     def set_trip_state(self, trip_id: str, trip_state: TripState) -> None:
         self.trips[trip_id] = trip_state
         write_trips_state_file(self.route_id, self)
 
-    @tracer.wrap(name="get_trip_state")
+    @tracer.wrap()
     def get_trip_state(self, trip_id: str) -> Optional[TripState]:
         self._purge_trips_state_if_overnight()
         trip = self.trips.get(trip_id)
