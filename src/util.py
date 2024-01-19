@@ -21,7 +21,7 @@ def output_dir_path(route_id: str, direction_id: str, stop_id: str, ts: datetime
         delimiter = "_"
         mode = "cr"
     # rapid transit may rarely have dashes AND SPACES in stop id/route id!
-    # ex, Green_D_1-Union Square-02
+    # ex, Green-D_1_Union Square-02
     elif route_id in ROUTES_RAPID:
         delimiter = "_"
         mode = "rapid"

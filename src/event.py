@@ -72,7 +72,7 @@ def reduce_update_event(update: dict) -> Tuple:
 
 
 @tracer.wrap()
-def process_event(update, current_stop_state: dict):
+def process_event(update: dict, current_stop_state: dict):
     """Process a single event from the MBTA's realtime API."""
     (
         current_status,
@@ -101,6 +101,8 @@ def process_event(update, current_stop_state: dict):
         prev["updated_at"] = datetime.fromisoformat(prev["updated_at"])
 
     if stop_id is None:
+        # TODO (hamima): attempt to enrich update with stop information. if successful,
+        # continue. otherwise, return.
         return
 
     is_departure_event, is_arrival_event = arr_or_dep_event(
