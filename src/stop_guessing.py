@@ -37,7 +37,7 @@ def attempt_enrich_update(update: Dict) -> Optional[Dict]:
     # if current_status is IN_TRANSIT...
     #   check previous location stamp. if its TOO CLOSE, it might be stopped.
     # if its TOO CLOSE to a stop location, its stopped at a stop.
-    #   otherwise, it might clogged in traffic, sitting at a red, whatever.
+    #   otherwise, it might be bogged down in traffic, sitting at a red, whatever.
     # update event_type accordingly
     return None
 
