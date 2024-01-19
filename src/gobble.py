@@ -28,14 +28,12 @@ def main():
     logger.info("Downloading GTFS bundle if necessary...")
     gtfs_service_date = util.service_date(datetime.now(util.EASTERN_TIME))
 
-    rapid_trips, rapid_stop_times, stops = gtfs.read_gtfs(gtfs_service_date, routes_filter=ROUTES_RAPID)
     rapid_thread = threading.Thread(
         target=client_thread,
         args=(gtfs_service_date, ROUTES_RAPID),
         name="rapid_routes",
     )
 
-    cr_trips, cr_stop_times, stops = gtfs.read_gtfs(gtfs_service_date, routes_filter=ROUTES_CR)
     cr_thread = threading.Thread(
         target=client_thread,
         args=(gtfs_service_date, ROUTES_CR),
@@ -103,7 +101,7 @@ def process_events(
                     f"New day! Refreshing GTFS bundle from {gtfs_service_date} to {service_date} and clearing state..."
                 )
                 disk.write_state({})
-                scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date)
+                scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date, routes_filter)
                 gtfs_service_date = service_date
 
             process_event(update, current_stop_state, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops)
