@@ -27,7 +27,10 @@ aws cloudformation deploy --stack-name $STACK_NAME \
     --capabilities CAPABILITY_NAMED_IAM \
     --no-fail-on-empty-changeset
 
-INSTANCE_HOSTNAME=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query "Stacks[0].Outputs[?OutputKey=='InstanceHostname'].OutputValue" --output text)
+# Look up the physical ID of the EC2 instance currently associated with the stack
+INSTANCE_PHYSICAL_ID=$(aws cloudformation list-stack-resources --stack-name $STACK_NAME --query "StackResourceSummaries[?LogicalResourceId=='GBLEInstance'].PhysicalResourceId" --output text)
+# Look up the hostname of the instance by physical ID
+INSTANCE_HOSTNAME=$(aws ec2 describe-instances --instance-ids $INSTANCE_PHYSICAL_ID --query "Reservations[*].Instances[*].PublicDnsName" --output text)
 
 # Run the playbook! :-)
 export ANSIBLE_HOST_KEY_CHECKING=False # If it's a new host, ssh known_hosts not having the key fingerprint will cause an error. Silence it
