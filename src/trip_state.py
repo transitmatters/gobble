@@ -18,7 +18,7 @@ class TripState(TypedDict):
     stop_sequence: int
     # What stop are we at?
     stop_id: str
-    # When was this event received (as a string)
+    # When was this event received?
     updated_at: datetime
     # What type of event was this? (ARR or DEP)
     event_type: str
