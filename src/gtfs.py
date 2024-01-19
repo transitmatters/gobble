@@ -14,7 +14,7 @@ from config import CONFIG
 from logger import set_up_logging
 
 import util
-
+import disk
 
 logger = set_up_logging(__name__)
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
@@ -270,6 +270,9 @@ def update_current_gtfs_archive_if_necessary():
             else:
                 logger.info(f"Updating GTFS archive from {current_gtfs_archive.service_date} to {gtfs_service_date}")
             current_gtfs_archive = read_gtfs(gtfs_service_date)
+            # TODO(ian): This will become a per-trip concern in a future change
+            # See https://transitmatters.slack.com/archives/GSJ6F35DW/p1705680401311829?thread_ts=1705677890.833879&cid=GSJ6F35DW
+            disk.write_state({})
 
 
 def get_current_gtfs_archive():
