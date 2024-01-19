@@ -42,10 +42,7 @@ def write_trips_state_file(route_id: str, state: "RouteTripsState") -> None:
     trips_states_dir = DATA_DIR / "trip_states"
     trips_states_dir.mkdir(exist_ok=True)
     trip_file_path = trips_states_dir / f"{route_id}.json"
-    trip_states = {
-        trip_id: serialize_trip_state(trip_state)
-        for trip_id, trip_state in state.trips.items()
-    }
+    trip_states = {trip_id: serialize_trip_state(trip_state) for trip_id, trip_state in state.trips.items()}
     file_contents = {
         "service_date": state.service_date.isoformat(),
         "trip_states": trip_states,
