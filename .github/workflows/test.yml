@@ -15,6 +15,9 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
+      - name: Set up empty local config
+        run: |
+          cp ./config/template.json ./config/local.json
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v3
         with:
@@ -25,4 +28,4 @@ jobs:
           poetry install
       - name: test code with pytest
         run: |
-          poetry run pytest src
+          poetry run python -m pytest

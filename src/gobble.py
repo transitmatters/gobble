@@ -1,10 +1,10 @@
+from ddtrace import tracer
 import json
-import threading
-from typing import Dict
+import logging
 import requests
 import sseclient
-import logging
-from ddtrace import tracer
+import threading
+from typing import Dict, Set
 
 from constants import ROUTES_BUS, ROUTES_CR, ROUTES_RAPID
 from config import CONFIG
@@ -24,17 +24,15 @@ def main():
     # Start downloading GTFS bundles immediately
     gtfs.start_watching_gtfs()
 
-    rapid_url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(ROUTES_RAPID)}'
     rapid_thread = threading.Thread(
         target=client_thread,
-        args=(rapid_url,),
+        args=(ROUTES_RAPID,),
         name="rapid_routes",
     )
 
-    cr_url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(ROUTES_CR)}'
     cr_thread = threading.Thread(
         target=client_thread,
-        args=(cr_url,),
+        args=(ROUTES_CR,),
         name="cr_routes",
     )
 
@@ -43,12 +41,11 @@ def main():
 
     bus_threads: list[threading.Thread] = []
     for i in range(0, len(list(ROUTES_BUS)), 10):
-        bus_routes = list(ROUTES_BUS)[i : i + 10]
-        bus_url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(bus_routes)}'
+        routes_bus_chunk = list(ROUTES_BUS)[i : i + 10]
         bus_thread = threading.Thread(
             target=client_thread,
-            args=(bus_url,),
-            name=f"bus_routes{i}",
+            args=(set(routes_bus_chunk),),
+            name=f"routes_bus_chunk{i}",
         )
         bus_threads.append(bus_thread)
         bus_thread.start()
@@ -59,12 +56,11 @@ def main():
         bus_thread.join()
 
 
-def client_thread(url: str):
+def client_thread(routes_filter: Set[str]):
+    url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(routes_filter)}'
     logger.info(f"Connecting to {url}...")
     client = sseclient.SSEClient(requests.get(url, headers=HEADERS, stream=True))
-
     current_stop_state: Dict = disk.read_state()
-
     process_events(client, current_stop_state)
 
 
@@ -73,7 +69,6 @@ def process_events(client: sseclient.SSEClient, current_stop_state: dict):
         try:
             if event.event != "update":
                 continue
-
             update = json.loads(event.data)
             process_event(update, current_stop_state)
         except Exception:

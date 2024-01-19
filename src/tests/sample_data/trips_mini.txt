@@ -1,0 +1,14 @@
+route_id,service_id,trip_id,trip_headsign,trip_short_name,direction_id,block_id,shape_id,wheelchair_accessible,trip_route_type,route_pattern_id,bikes_allowed
+1,BUS12024-hbc14ns1-Weekday-02,60063972,Harvard,,0,C01-1,010128,1,,1-_-0,1
+1,BUS12024-hbc14ns1-Weekday-02,60063974,Harvard,,0,C01-4,010128,1,,1-_-0,1
+1,BUS12024-hbc14ns1-Weekday-02,60063977,Harvard,,0,C01-7,010128,1,,1-_-0,1
+1,BUS12024-hbc14ns1-Weekday-02,60063980,Harvard,,0,C01-9,010128,1,,1-_-0,1
+66,BUS12024-hbc14ns1-Weekday-02,60063973,Harvard via Allston,,0,C66-245,660250,1,,66-6-0,1
+66,BUS12024-hbc14ns1-Weekday-02,60063975,Harvard via Allston,,0,C66-226,660250,1,,66-6-0,1
+66,BUS12024-hbc14ns1-Weekday-02,60063978,Harvard via Allston,,0,C66-228,660250,1,,66-6-0,1
+66,BUS12024-hbc14ns1-Weekday-02,60063979,Harvard via Allston,,0,C66-232,660250,1,,66-6-0,1
+CR-Providence,FALL 2023-SOUTHSAT-Saturday-1-Scbbf1ea5,CR-628414-1803,Providence,1803,0,,9890009,1,,CR-Providence-d31884e1-0,1
+CR-Providence,FALL 2023-SOUTHSAT-Saturday-1-Scbbf1ea5,CR-628416-1805,Providence,1805,0,,9890009,1,,CR-Providence-d31884e1-0,1
+CR-Providence,FALL 2023-SOUTHSAT-Saturday-1-Scbbf1ea5,CR-628418-1807,Providence,1807,0,,9890009,1,,CR-Providence-d31884e1-0,1
+CR-Providence,FALL 2023-SOUTHSAT-Saturday-1-Scbbf1ea5,CR-628420-1809,Providence,1809,0,,9890009,1,,CR-Providence-d31884e1-0,1
+CR-Providence,FALL 2023-SOUTHSAT-Saturday-1-Scbbf1ea5,CR-628422-1811,Providence,1811,0,,9890009,1,,CR-Providence-d31884e1-0,1
