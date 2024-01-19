@@ -1,8 +1,7 @@
 from datetime import date, datetime
 import json
 import threading
-from typing import Dict
-import pandas as pd
+from typing import Dict, Set
 import requests
 import sseclient
 import logging
@@ -27,19 +26,18 @@ def main():
     # Download the gtfs bundle before we proceed so we don't have to wait
     logger.info("Downloading GTFS bundle if necessary...")
     gtfs_service_date = util.service_date(datetime.now(util.EASTERN_TIME))
-    scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date)
 
-    rapid_url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(ROUTES_RAPID)}'
+    rapid_trips, rapid_stop_times, stops = gtfs.read_gtfs(gtfs_service_date, routes_filter=ROUTES_RAPID)
     rapid_thread = threading.Thread(
         target=client_thread,
-        args=(rapid_url, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops),
+        args=(gtfs_service_date, ROUTES_RAPID),
         name="rapid_routes",
     )
 
-    cr_url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(ROUTES_CR)}'
+    cr_trips, cr_stop_times, stops = gtfs.read_gtfs(gtfs_service_date, routes_filter=ROUTES_CR)
     cr_thread = threading.Thread(
         target=client_thread,
-        args=(cr_url, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops),
+        args=(gtfs_service_date, ROUTES_CR),
         name="cr_routes",
     )
 
@@ -48,12 +46,11 @@ def main():
 
     bus_threads: list[threading.Thread] = []
     for i in range(0, len(list(ROUTES_BUS)), 10):
-        bus_routes = list(ROUTES_BUS)[i : i + 10]
-        bus_url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(bus_routes)}'
+        routes_bus_chunk = list(ROUTES_BUS)[i : i + 10]
         bus_thread = threading.Thread(
             target=client_thread,
-            args=(bus_url, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops),
-            name=f"bus_routes{i}",
+            args=(gtfs_service_date, set(routes_bus_chunk)),
+            name=f"routes_bus_chunk{i}",
         )
         bus_threads.append(bus_thread)
         bus_thread.start()
@@ -65,22 +62,30 @@ def main():
 
 
 def client_thread(
-    url: str,
     gtfs_service_date: date,
-    scheduled_trips: pd.DataFrame,
-    scheduled_stop_times: pd.DataFrame,
-    stops: pd.DataFrame,
+    routes_filter: Set[str],
 ):
     logger.info(f"Connecting to {url}...")
+
+    url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(routes_filter)}'
     client = sseclient.SSEClient(requests.get(url, headers=HEADERS, stream=True))
 
     current_stop_state: Dict = disk.read_state()
 
-    process_events(client, current_stop_state, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops)
+    scheduled_trips, scheduled_stop_times, stops = gtfs.read_gtfs(gtfs_service_date, routes_filter=routes_filter)
+    process_events(
+        client, current_stop_state, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops, routes_filter
+    )
 
 
 def process_events(
-    client: sseclient.SSEClient, current_stop_state, gtfs_service_date, scheduled_trips, scheduled_stop_times, stops
+    client: sseclient.SSEClient,
+    current_stop_state: dict,
+    gtfs_service_date: date,
+    scheduled_trips: pd.DataFrame,
+    scheduled_stop_times: pd.DataFrame,
+    stops: pd.DataFrame,
+    routes_filter: Set[str],
 ):
     for event in client.events():
         try:
