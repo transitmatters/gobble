@@ -41,7 +41,7 @@ def _compress_and_upload_file(fp: str):
         )
 
 
-@tracer.wrap("gobble")
+@tracer.wrap(service="gobble")
 def upload_todays_events_to_s3():
     """Upload today's events to the TM s3 bucket."""
     start_time = time.time()
