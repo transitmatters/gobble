@@ -50,5 +50,9 @@ def service_date(ts: datetime) -> date:
     return date(prior.year, prior.month, prior.day)
 
 
+def get_current_service_date() -> date:
+    return service_date(datetime.now(EASTERN_TIME))
+
+
 def service_date_iso8601(ts: datetime) -> str:
     return service_date(ts).isoformat()
