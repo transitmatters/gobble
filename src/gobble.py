@@ -2,6 +2,7 @@ import json
 import threading
 import requests
 import sseclient
+import time
 import logging
 import traceback
 from ddtrace import tracer
@@ -57,12 +58,36 @@ def main():
         bus_thread.join()
 
 
-def client_thread(routes_filter: Set[str]):
-    url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(routes_filter)}'
+def connect(routes: Set[str]) -> requests.Response:
+    url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(routes)}'
     logger.info(f"Connecting to {url}...")
-    client = sseclient.SSEClient(requests.get(url, headers=HEADERS, stream=True))
+    return requests.get(url, headers=HEADERS, stream=True)
+
+
+def client_thread(routes: Set[str]):
     trips_state = TripsStateManager()
-    process_events(client, trips_state)
+    while True:
+        start_at = time.time()
+        client = None
+        try:
+            client = sseclient.SSEClient(connect(routes))  # type: ignore
+            process_events(client, trips_state)
+        except requests.exceptions.ChunkedEncodingError:
+            # Keep track of how long into connections this occurs, in case it's consistent (a timeout?)
+            elapsed = time.time() - start_at
+            if tracer.enabled:
+                logger.exception(
+                    f"ChunkedEncodingError (handled) at elapsed={elapsed}s", stack_info=True, exc_info=True
+                )
+        except Exception:
+            if tracer.enabled:
+                logger.exception("Encountered an exception in client_thread", stack_info=True, exc_info=True)
+            else:
+                traceback.print_exc()
+        finally:
+            if client is not None:
+                client.close()
+            time.sleep(0.5)  # Just in case something is borked, to avoid hammering. It doesn't GIL!
 
 
 def process_events(client: sseclient.SSEClient, trips_state: TripsStateManager):
