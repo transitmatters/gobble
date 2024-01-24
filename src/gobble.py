@@ -71,7 +71,7 @@ def client_thread(routes: Set[str]):
         client = None
         try:
             client = sseclient.SSEClient(connect(routes))  # type: ignore
-            process_events(client, routes, trips_state)
+            process_events(client, trips_state)
         except requests.exceptions.ChunkedEncodingError:
             # Keep track of how long into connections this occurs, in case it's consistent (a timeout?)
             elapsed = time.time() - start_at
@@ -87,7 +87,7 @@ def client_thread(routes: Set[str]):
                 client.close()
 
 
-def process_events(client: sseclient.SSEClient, routes: Set[str], trips_state: TripsStateManager):
+def process_events(client: sseclient.SSEClient, trips_state: TripsStateManager):
     for event in client.events():
         try:
             if event.event != "update":
