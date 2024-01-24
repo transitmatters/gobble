@@ -76,7 +76,9 @@ def client_thread(routes: Set[str]):
             # Keep track of how long into connections this occurs, in case it's consistent (a timeout?)
             elapsed = time.time() - start_at
             if tracer.enabled:
-                logger.exception(f"ChunkedEncodingError (handled) at elapsed={elapsed}s", stack_info=True, exc_info=True)
+                logger.exception(
+                    f"ChunkedEncodingError (handled) at elapsed={elapsed}s", stack_info=True, exc_info=True
+                )
         except Exception:
             if tracer.enabled:
                 logger.exception("Encountered an exception in client_thread", stack_info=True, exc_info=True)
