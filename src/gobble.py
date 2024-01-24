@@ -85,6 +85,7 @@ def client_thread(routes: Set[str]):
         finally:
             if client is not None:
                 client.close()
+            time.sleep(0.5) # Just in case something is borked, to avoid hammering. It doesn't GIL!
 
 
 def process_events(client: sseclient.SSEClient, trips_state: TripsStateManager):
