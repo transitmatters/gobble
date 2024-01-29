@@ -71,6 +71,7 @@
         "IamInstanceProfile" : {
           "Ref" : "S3BucketsInstanceProfile"
         },
+        "PropagateTagsToVolumeOnCreation": true,
         "SecurityGroupIds": [
           {
             "Ref": "GBLESecurityGroup"
