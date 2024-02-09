@@ -34,4 +34,4 @@ INSTANCE_PHYSICAL_ID=$(aws cloudformation list-stack-resources --stack-name $STA
 export ANSIBLE_HOST_KEY_CHECKING=False # If it's a new host, ssh known_hosts not having the key fingerprint will cause an error. Silence it
 ansible-galaxy collection install datadog.dd
 SSH_PROXY_ARGS="-o ProxyCommand='aws ec2-instance-connect open-tunnel --instance-id $INSTANCE_PHYSICAL_ID'"
-ansible-playbook -v --ssh-extra-args $SSH_PROXY_ARGS -i $INSTANCE_HOSTNAME, -u ubuntu --private-key ~/.ssh/transitmatters-gobble.pem playbook.yml
+ansible-playbook -v --ssh-extra-args "$SSH_PROXY_ARGS" -i $INSTANCE_HOSTNAME, -u ubuntu --private-key ~/.ssh/transitmatters-gobble.pem playbook.yml
