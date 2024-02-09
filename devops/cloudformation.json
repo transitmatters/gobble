@@ -114,17 +114,6 @@
           }
         ]
       }
-    },
-  },
-  "Outputs": {
-    "InstanceHostname": {
-      "Description": "GBLE's public hostname",
-      "Value": {
-        "Fn::GetAtt": [
-          "GBLEInstance",
-          "PublicDnsName"
-        ]
-      }
     }
   }
 }
