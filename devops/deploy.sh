@@ -29,9 +29,10 @@ aws cloudformation deploy --stack-name $STACK_NAME \
 
 # Look up the physical ID of the EC2 instance currently associated with the stack
 INSTANCE_PHYSICAL_ID=$(aws cloudformation list-stack-resources --stack-name $STACK_NAME --query "StackResourceSummaries[?LogicalResourceId=='GBLEInstance'].PhysicalResourceId" --output text)
+# Look up the hostname of the instance by physical ID
+INSTANCE_HOSTNAME=$(aws ec2 describe-instances --instance-ids $INSTANCE_PHYSICAL_ID --query "Reservations[*].Instances[*].PublicDnsName" --output text)
 
 # Run the playbook! :-)
 export ANSIBLE_HOST_KEY_CHECKING=False # If it's a new host, ssh known_hosts not having the key fingerprint will cause an error. Silence it
 ansible-galaxy collection install datadog.dd
-SSH_PROXY_ARGS="-o ProxyCommand='aws ec2-instance-connect open-tunnel --instance-id $INSTANCE_PHYSICAL_ID'"
-ansible-playbook -v --ssh-extra-args "$SSH_PROXY_ARGS" -i $INSTANCE_PHYSICAL_ID, -u ubuntu --private-key ~/.ssh/transitmatters-gobble.pem playbook.yml
+ansible-playbook -v -i $INSTANCE_HOSTNAME, -u ubuntu --private-key ~/.ssh/transitmatters-gobble.pem playbook.yml
