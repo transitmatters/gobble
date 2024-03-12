@@ -5,7 +5,7 @@
 
 ## Requirements to develop locally
 
-- Python 3.11+
+- Python 3.12
 - [poetry](https://python-poetry.org/)
 
 ## Development Instructions
