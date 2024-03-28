@@ -39,15 +39,15 @@
         repo: ppa:deadsnakes/ppa
         update_cache: yes
 
-    - name: install python3.11
+    - name: install python3.12
       become: yes
       become_user: root
       apt:
-        name: python3.11
+        name: python3.12
         state: latest
 
     - name: install app dependencies
-      shell: /home/ubuntu/.local/bin/poetry env use 3.11 && /home/ubuntu/.local/bin/poetry install
+      shell: /home/ubuntu/.local/bin/poetry env use 3.12 && /home/ubuntu/.local/bin/poetry install
       args:
         chdir: /home/ubuntu/gobble
 
