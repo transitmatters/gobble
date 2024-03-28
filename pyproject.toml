@@ -18,7 +18,7 @@ python-json-logger = "^2.0.7"
 [tool.poetry.dev-dependencies]
 pip = ">=23.1.0"
 flake8 = "^7.0.0"
-black = "^24.2.0"
+black = "^24.3.0"
 pytest = "~8.1.1"
 
 [tool.black]
