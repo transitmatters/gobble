@@ -1,7 +1,10 @@
 # gobble
-![lint](https://github.com/transitmatters/mbta-slow-zone-bot/workflows/lint/badge.svg?branch=main)
+![lint](https://github.com/transitmatters/gobble/workflows/lint/badge.svg?branch=main)
+![test](https://github.com/transitmatters/gobble/workflows/test/badge.svg?branch=main)
 
 ![Screenshot in action](docs/screenshot.png)
+
+Gobble is a service that reads the [MBTA V3 Streaming API](https://www.mbta.com/developers/v3-api/streaming) for all train/bus events, and writes them out to a format that can be understood by the [TransitMatters Data Dashboard](https://github.com/transitmatters/t-performance-dash).
 
 ## Requirements to develop locally
 
