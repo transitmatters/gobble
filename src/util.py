@@ -19,19 +19,20 @@ def output_dir_path(route_id: str, direction_id: str, stop_id: str, ts: datetime
     # ex, CR-Fairmount_0_DB-2205-01/
     if route_id in ROUTES_CR:
         delimiter = "_"
+        stop_path = f"{route_id}{delimiter}{direction_id}{delimiter}{stop_id}"
         mode = "cr"
-    # rapid transit may rarely have dashes AND SPACES in stop id/route id!
-    # ex, Green_D_1-Union Square-02
+    # rapid transit doesn't need to be split by direction or line
     elif route_id in ROUTES_RAPID:
-        delimiter = "_"
+        stop_path = f"{stop_id}"
         mode = "rapid"
     else:
         delimiter = "-"
+        stop_path = f"{route_id}{delimiter}{direction_id}{delimiter}{stop_id}"
         mode = "bus"
 
     return os.path.join(
         f"daily-{mode}-data",
-        f"{route_id}{delimiter}{direction_id}{delimiter}{stop_id}",
+        stop_path,
         f"Year={date.year}",
         f"Month={date.month}",
         f"Day={date.day}",
