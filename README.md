@@ -1,6 +1,6 @@
 # gobble
-![lint](https://github.com/transitmatters/gobble/workflows/lint/badge.svg?branch=main)
-![test](https://github.com/transitmatters/gobble/workflows/test/badge.svg?branch=main)
+![lint](https://github.com/transitmatters/gobble/actions/workflows/lint.yml/badge.svg?branch=main)
+![test](https://github.com/transitmatters/gobble/actions/workflows/test.yml/badge.svg?branch=main)
 
 ![Screenshot in action](docs/screenshot.png)
 

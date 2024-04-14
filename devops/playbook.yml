@@ -80,6 +80,7 @@
       tags:
         - "git.repository_url:github.com/transitmatters/gobble"
         - "git.commit.sha:{{ lookup('env', 'GIT_SHA') }}"
+        - "version:{{ lookup('env', 'GIT_SHA') }}"
       apm_config:
         enabled: true
       process_config:
