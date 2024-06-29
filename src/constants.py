@@ -694,6 +694,7 @@ ROUTES_RAPID = {
     "Green-C",
     "Green-D",
     "Green-E",
+    "Mattapan"
 }
 
 ALL_ROUTES = ROUTES_BUS.union(ROUTES_CR).union(ROUTES_RAPID)
