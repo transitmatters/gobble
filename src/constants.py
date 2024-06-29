@@ -686,14 +686,6 @@ ROUTES_CR = {
     "CR-Foxboro",
 }
 
-ROUTES_RAPID = {
-    "Red",
-    "Blue",
-    "Orange",
-    "Green-B",
-    "Green-C",
-    "Green-D",
-    "Green-E",
-}
+ROUTES_RAPID = {"Red", "Blue", "Orange", "Green-B", "Green-C", "Green-D", "Green-E", "Mattapan"}
 
 ALL_ROUTES = ROUTES_BUS.union(ROUTES_CR).union(ROUTES_RAPID)
