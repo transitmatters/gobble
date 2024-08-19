@@ -219,7 +219,7 @@ class TestGTFS(unittest.TestCase):
 
     def test_read_gtfs_date_exists_feed_is_read(self):
         day_to_test = datetime.date(2024, 8, 7)
-        expected_path: str = f"data/gtfs_archives/20240802"
+        expected_path: str = f"data/gtfs_archives/20240807"
 
         result = gtfs.read_gtfs(day_to_test)
 
@@ -235,12 +235,11 @@ class TestGTFS(unittest.TestCase):
         # sanity check stops exist for the red line
         assert not result.stop_times_by_route_id('Red').empty
         # red line has stop data for ashmont
-        assert '70094' in result.stop_times_by_route_id('Red')['stop_id']
+        assert '70094' in result.stop_times_by_route_id('Red')['stop_id'].values
 
-        # 10 bus has trips
-        assert not result.trips_by_route_id('10').empty
-        # it stopped at st james / dartmouth street
-        assert '178' in result.trips_by_route_id('10')['stop_id']
+        # the 1 bus has trips to harcard
+        assert not result.trips_by_route_id('1').empty
+        assert 'Harvard' in result.trips_by_route_id('1')['trip_headsign'].values
 
         shutil.rmtree(expected_path)
 

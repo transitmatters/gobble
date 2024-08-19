@@ -338,10 +338,11 @@ def update_current_gtfs_archive_if_necessary():
             current_gtfs_archive = read_gtfs(gtfs_service_date, routes_filter=ALL_ROUTES)
 
 
-def get_current_gtfs_archive():
+def get_current_gtfs_archive() -> GtfsArchive:
     global current_gtfs_archive
     if current_gtfs_archive is None:
         update_current_gtfs_archive_if_necessary()
+
     return current_gtfs_archive
 
 
