@@ -205,7 +205,7 @@ class TestGTFS(unittest.TestCase):
         # from https://cdn.mbta.com/archive/archived_feeds.txt
         # 20240802,20240806,"Summer 2024, 2024-08-09T21:10:59+00:00, version D",https://cdn.mbtace.com/archive/20240802.zip,fix: Correct wrong-direction stop sequences etc in existing Ashmont-Mattapan shuttle definition; Add shuttle activation for 08/16-18 Mattapan shuttle; Replace Mattapan Line service during 08/16-18 suspension for track work; Add missing 25:00 info to shuttle activation; Fix formatting; Whoops! Change
         day_to_test: int = 20240804
-        expected_path: str = f"data/gtfs_archives/20240802"
+        expected_path: str = f"data/gtfs_archives/{day_to_test}"
 
         result = gtfs.get_gtfs_archive(day_to_test)
 
@@ -217,7 +217,7 @@ class TestGTFS(unittest.TestCase):
 
     def test_read_gtfs_date_exists_feed_is_read(self):
         day_to_test = datetime.date(2024, 8, 7)
-        expected_path: str = f"data/gtfs_archives/20240807"
+        expected_path: str = f"data/gtfs_archives/{day_to_test}"
 
         result = gtfs.read_gtfs(day_to_test)
 
