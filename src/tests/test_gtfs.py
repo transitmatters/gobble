@@ -32,7 +32,6 @@ class TestGTFS(unittest.TestCase):
 
         self.all_trips = pd.read_csv(DATA_DIR / "trips_mini.txt", dtype={"trip_short_name": str, "block_id": str})
 
-
     def test_add_gtfs_headways_batch(self):
         # expected stop info....
         # 60063977,05:10:00,05:10:00,10003,5,,0,0,0,,,
@@ -187,11 +186,10 @@ class TestGTFS(unittest.TestCase):
         post_df = gtfs.add_gtfs_headways(df, self.all_trips, self.stop_times)
         pd.testing.assert_frame_equal(post_df, expected_df)
 
-
     # this is really more of an integration test... should we have an integration tests directory?
     def test_get_gtfs_archive_day_is_feed_returns_dir_of_day(self):
         # just a random day
-        
+
         day_to_test: int = 20240807
         expected_path: str = f"data/gtfs_archives/{str(day_to_test)}"
 
@@ -225,7 +223,7 @@ class TestGTFS(unittest.TestCase):
 
         assert result.service_date == day_to_test
 
-        orange_line_trips = result.trips_by_route_id('Orange')
+        orange_line_trips = result.trips_by_route_id("Orange")
         assert not orange_line_trips.empty
 
         # sanity check we have trips for each termini of the orange line
@@ -233,14 +231,12 @@ class TestGTFS(unittest.TestCase):
         assert "Oak Grove" in orange_line_trips["trip_headsign"].values
 
         # sanity check stops exist for the red line
-        assert not result.stop_times_by_route_id('Red').empty
+        assert not result.stop_times_by_route_id("Red").empty
         # red line has stop data for ashmont
-        assert '70094' in result.stop_times_by_route_id('Red')['stop_id'].values
+        assert "70094" in result.stop_times_by_route_id("Red")["stop_id"].values
 
         # the 1 bus has trips to harcard
-        assert not result.trips_by_route_id('1').empty
-        assert 'Harvard' in result.trips_by_route_id('1')['trip_headsign'].values
+        assert not result.trips_by_route_id("1").empty
+        assert "Harvard" in result.trips_by_route_id("1")["trip_headsign"].values
 
         shutil.rmtree(expected_path)
-
-
