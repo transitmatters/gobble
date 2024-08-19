@@ -3,6 +3,7 @@ import datetime
 import numpy as np
 import pandas as pd
 import pathlib
+import shutil
 from zoneinfo import ZoneInfo
 
 import gtfs
@@ -30,6 +31,7 @@ class TestGTFS(unittest.TestCase):
         self.stop_times.departure_time = pd.to_timedelta(self.stop_times.departure_time)
 
         self.all_trips = pd.read_csv(DATA_DIR / "trips_mini.txt", dtype={"trip_short_name": str, "block_id": str})
+
 
     def test_add_gtfs_headways_batch(self):
         # expected stop info....
@@ -184,3 +186,62 @@ class TestGTFS(unittest.TestCase):
 
         post_df = gtfs.add_gtfs_headways(df, self.all_trips, self.stop_times)
         pd.testing.assert_frame_equal(post_df, expected_df)
+
+
+    # this is really more of an integration test... should we have an integration tests directory?
+    def test_get_gtfs_archive_day_is_feed_returns_dir_of_day(self):
+        # just a random day
+        
+        day_to_test: int = 20240807
+        expected_path: str = f"data/gtfs_archives/{str(day_to_test)}"
+
+        result = gtfs.get_gtfs_archive(day_to_test)
+
+        assert str(result) == expected_path
+        assert pathlib.Path.exists(result)
+
+        # cleanup
+        shutil.rmtree(expected_path)
+
+    def test_get_gtfs_archive_day_not_feed_returns_dir_of_feed_containing_day(self):
+        # from https://cdn.mbta.com/archive/archived_feeds.txt
+        # 20240802,20240806,"Summer 2024, 2024-08-09T21:10:59+00:00, version D",https://cdn.mbtace.com/archive/20240802.zip,fix: Correct wrong-direction stop sequences etc in existing Ashmont-Mattapan shuttle definition; Add shuttle activation for 08/16-18 Mattapan shuttle; Replace Mattapan Line service during 08/16-18 suspension for track work; Add missing 25:00 info to shuttle activation; Fix formatting; Whoops! Change
+        day_to_test: int = 20240804
+        expected_path: str = f"data/gtfs_archives/20240802"
+
+        result = gtfs.get_gtfs_archive(day_to_test)
+
+        assert str(result) == expected_path
+        assert pathlib.Path.exists(result)
+
+        # cleanup
+        shutil.rmtree(expected_path)
+
+    def test_read_gtfs_date_exists_feed_is_read(self):
+        day_to_test = datetime.date(2024, 8, 7)
+        expected_path: str = f"data/gtfs_archives/20240802"
+
+        result = gtfs.read_gtfs(day_to_test)
+
+        assert result.service_date == day_to_test
+
+        orange_line_trips = result.trips_by_route_id('Orange')
+        assert not orange_line_trips.empty
+
+        # sanity check we have trips for each termini of the orange line
+        assert "Forest Hills" in orange_line_trips["trip_headsign"].values
+        assert "Oak Grove" in orange_line_trips["trip_headsign"].values
+
+        # sanity check stops exist for the red line
+        assert not result.stop_times_by_route_id('Red').empty
+        # red line has stop data for ashmont
+        assert '70094' in result.stop_times_by_route_id('Red')['stop_id']
+
+        # 10 bus has trips
+        assert not result.trips_by_route_id('10').empty
+        # it stopped at st james / dartmouth street
+        assert '178' in result.trips_by_route_id('10')['stop_id']
+
+        shutil.rmtree(expected_path)
+
+
