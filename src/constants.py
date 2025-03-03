@@ -684,6 +684,7 @@ ROUTES_CR = {
     "CR-Newburyport",
     "CR-Providence",
     "CR-Foxboro",
+    "CR-NewBedford",
 }
 
 ROUTES_RAPID = {"Red", "Blue", "Orange", "Green-B", "Green-C", "Green-D", "Green-E", "Mattapan"}
