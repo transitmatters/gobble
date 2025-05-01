@@ -1,6 +1,7 @@
 import csv
 import os
 import pathlib
+from datetime import datetime, timedelta
 from util import output_dir_path
 from ddtrace import tracer
 
@@ -47,3 +48,28 @@ def write_event(event: dict):
         if not file_exists:
             writer.writeheader()
         writer.writerow(event)
+
+
+def cleanup_old_files():
+    """Delete CSV files older than 6 months."""
+    logger.info("Starting cleanup of old files")
+    cutoff = datetime.now() - timedelta(days=180)
+    deleted = 0
+
+    def scan_and_cleanup(path: pathlib.Path):
+        nonlocal deleted
+        with os.scandir(path) as it:
+            for entry in it:
+                try:
+                    if entry.is_dir(follow_symlinks=False):
+                        scan_and_cleanup(entry.path)
+                    elif entry.is_file(follow_symlinks=False) and entry.name == CSV_FILENAME:
+                        if datetime.fromtimestamp(entry.stat().st_mtime) < cutoff:
+                            os.unlink(entry.path)
+                            deleted += 1
+                            logger.info(f"Deleted old file: {entry.path}")
+                except Exception as e:
+                    logger.warning(f"Skipping {entry.path}: {e}")
+
+    scan_and_cleanup(DATA_DIR)
+    logger.info(f"Completed cleanup — deleted {deleted} file(s)")
