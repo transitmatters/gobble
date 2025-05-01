@@ -53,19 +53,23 @@ def write_event(event: dict):
 def cleanup_old_files():
     """Delete CSV files older than 6 months."""
     logger.info("Starting cleanup of old files")
-    cutoff_date = datetime.now() - timedelta(days=180)  # 6 months
+    cutoff = datetime.now() - timedelta(days=180)
+    deleted = 0
 
-    for root, _, files in os.walk(DATA_DIR):
-        for file in files:
-            if file == CSV_FILENAME:
-                file_path = pathlib.Path(root) / file
-                file_mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
+    def scan_and_cleanup(path: pathlib.Path):
+        nonlocal deleted
+        with os.scandir(path) as it:
+            for entry in it:
+                try:
+                    if entry.is_dir(follow_symlinks=False):
+                        scan_and_cleanup(entry.path)
+                    elif entry.is_file(follow_symlinks=False) and entry.name == CSV_FILENAME:
+                        if datetime.fromtimestamp(entry.stat().st_mtime) < cutoff:
+                            os.unlink(entry.path)
+                            deleted += 1
+                            logger.info(f"Deleted old file: {entry.path}")
+                except Exception as e:
+                    logger.warning(f"Skipping {entry.path}: {e}")
 
-                if file_mtime < cutoff_date:
-                    try:
-                        file_path.unlink()
-                        logger.info(f"Deleted old file: {file_path}")
-                    except Exception as e:
-                        logger.error(f"Failed to delete {file_path}: {e}")
-
-    logger.info("Completed cleanup of old files")
+    scan_and_cleanup(DATA_DIR)
+    logger.info(f"Completed cleanup — deleted {deleted} file(s)")
