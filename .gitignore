@@ -12,7 +12,12 @@ __pycache__
 # config
 config/local.json
 .envrc
+.poetry
 
 # logs
 gobble.log
 s3_upload.log
+
+# ides
+.cursor
+.vscode

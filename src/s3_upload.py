@@ -9,7 +9,7 @@ from ddtrace import tracer
 import logging
 
 from config import CONFIG
-from disk import DATA_DIR
+from disk import DATA_DIR, cleanup_old_files
 from logger import set_up_logging
 from util import EASTERN_TIME, service_date
 
@@ -61,6 +61,9 @@ def upload_todays_events_to_s3():
 
     end_time = time.time()
     logger.info(f"Uploaded {len(files_updated_today)} files to s3, took {end_time - start_time} seconds.")
+
+    # cleanup old files, free up disk space
+    cleanup_old_files()
 
 
 if __name__ == "__main__":
