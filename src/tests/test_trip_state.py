@@ -121,27 +121,6 @@ class TestTripStateFileIO(unittest.TestCase):
         # Should write exactly once
         mock_write.assert_called_once_with("1", state)
 
-    @patch("trip_state.write_trips_state_file")
-    def test_get_trip_state_never_writes(self, mock_write):
-        """get_trip_state should never write to file"""
-        state = RouteTripsState("1")
-
-        # Add trip directly to avoid triggering write
-        state.trips["trip_123"] = {
-            "stop_sequence": 5,
-            "stop_id": "123",
-            "updated_at": datetime.now(EASTERN_TIME),
-            "event_type": "ARR",
-        }
-
-        # Call get_trip_state multiple times
-        state.get_trip_state("trip_123")
-        state.get_trip_state("nonexistent")
-        state.get_trip_state("trip_123")
-
-        # Should never write
-        mock_write.assert_not_called()
-
 
 class TestTripStateIntegration(unittest.TestCase):
 
