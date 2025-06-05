@@ -100,11 +100,11 @@ class RouteTripsState:
     @tracer.wrap()
     def set_trip_state(self, trip_id: str, trip_state: TripState) -> None:
         self.trips[trip_id] = trip_state
+        self._cleanup_trip_states()
         write_trips_state_file(self.route_id, self)
 
     @tracer.wrap()
     def get_trip_state(self, trip_id: str) -> Optional[TripState]:
-        self._cleanup_trip_states()
         trip = self.trips.get(trip_id)
         if trip:
             return {**trip}
@@ -145,7 +145,6 @@ class RouteTripsState:
             logger.info(f"Purging trip state for route {self.route_id} on new service date {current_service_date}")
             self.service_date = current_service_date
             self.trips = {}
-        write_trips_state_file(self.route_id, self)
 
 
 class TripsStateManager:
