@@ -48,6 +48,7 @@ def arr_or_dep_event(
     return is_departure_event, is_arrival_event
 
 
+@tracer.wrap()
 def reduce_update_event(update: dict) -> Tuple:
     current_status = update["attributes"]["current_status"]
     event_type = EVENT_TYPE_MAP[current_status]
@@ -88,6 +89,10 @@ def process_event(update, trips_state: TripsStateManager):
         updated_at,
     ) = reduce_update_event(update)
 
+    # Skip events where the vehicle has no stop associated
+    if stop_id is None:
+        return
+
     prev_trip_state = trips_state.get_trip_state(route_id, trip_id)
     if prev_trip_state is None:
         prev_trip_state = {
@@ -100,9 +105,6 @@ def process_event(update, trips_state: TripsStateManager):
     # current_stop_state updated_at is isofmt str, not datetime.
     if isinstance(prev_trip_state["updated_at"], str):
         prev_trip_state["updated_at"] = datetime.fromisoformat(prev_trip_state["updated_at"])
-
-    if stop_id is None:
-        return
 
     is_departure_event, is_arrival_event = arr_or_dep_event(
         prev=prev_trip_state,
@@ -160,6 +162,7 @@ def process_event(update, trips_state: TripsStateManager):
     )
 
 
+@tracer.wrap()
 def enrich_event(df: pd.DataFrame, gtfs_archive: gtfs.GtfsArchive):
     """
     Given a dataframe with a single event, enrich it with headway information and return a single event dict

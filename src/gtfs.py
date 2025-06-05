@@ -243,6 +243,7 @@ def batch_add_gtfs_headways(events_df: pd.DataFrame, trips: pd.DataFrame, stop_t
     return pd.concat(results)
 
 
+@tracer.wrap()
 def add_gtfs_headways(event_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops: pd.DataFrame) -> pd.DataFrame:
     """
     This will calculate scheduled headway and traveltime information

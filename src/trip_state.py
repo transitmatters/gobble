@@ -1,12 +1,12 @@
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from dataclasses import dataclass
 from typing import Dict, TypedDict, Optional
 from ddtrace import tracer
 
 from logger import set_up_logging
 from disk import DATA_DIR
-from util import get_current_service_date
+from util import EASTERN_TIME, get_current_service_date
 
 logger = set_up_logging(__name__)
 
@@ -92,23 +92,54 @@ class RouteTripsState:
         if state_file:
             self.trips = state_file["trip_states"]
             self.service_date = state_file["service_date"]
-            self._purge_trips_state_if_overnight()
+            self._cleanup_trip_states()
         else:
             self.trips = {}
             self.service_date = get_current_service_date()
 
     @tracer.wrap()
     def set_trip_state(self, trip_id: str, trip_state: TripState) -> None:
+        # Do cleanup first, before adding the new trip
+        self._cleanup_trip_states()
+        # Now add the new trip - it won't be cleared by purge
         self.trips[trip_id] = trip_state
         write_trips_state_file(self.route_id, self)
 
     @tracer.wrap()
     def get_trip_state(self, trip_id: str) -> Optional[TripState]:
-        self._purge_trips_state_if_overnight()
         trip = self.trips.get(trip_id)
         if trip:
             return {**trip}
         return None
+
+    def _cleanup_trip_states(self) -> None:
+        """
+        Clean up trip states to prevent memory/CPU issues.
+        We don't care about yesterday's trip states, or ones older than 5 hours.
+        """
+        self._cleanup_stale_trip_states()
+        self._purge_trips_state_if_overnight()
+
+    @tracer.wrap()
+    def _cleanup_stale_trip_states(self, max_age_hours: int = 5) -> None:
+        """
+        Clean up stale trip states to prevent memory/CPU issues
+        We don't want to keep too many trip states around, so we'll clean them up periodically.
+        We'll keep the last 5 hours of trip states for each route at most.
+        """
+        current_time = datetime.now(EASTERN_TIME)
+        cutoff_time = current_time - timedelta(hours=max_age_hours)
+
+        stale_trips = []
+        for trip_id, trip_state in self.trips.items():
+            if trip_state["updated_at"] < cutoff_time:
+                stale_trips.append(trip_id)
+
+        for trip_id in stale_trips:
+            del self.trips[trip_id]
+
+        if stale_trips:
+            logger.info(f"Cleaned up {len(stale_trips)} stale trip states for route {self.route_id}")
 
     def _purge_trips_state_if_overnight(self) -> None:
         current_service_date = get_current_service_date()
@@ -116,7 +147,6 @@ class RouteTripsState:
             logger.info(f"Purging trip state for route {self.route_id} on new service date {current_service_date}")
             self.service_date = current_service_date
             self.trips = {}
-        write_trips_state_file(self.route_id, self)
 
 
 class TripsStateManager:
