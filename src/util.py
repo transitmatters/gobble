@@ -7,6 +7,10 @@ from constants import ROUTES_CR, ROUTES_RAPID
 
 EASTERN_TIME = ZoneInfo("US/Eastern")
 
+# Initialize service date cache variables
+_service_date_cache = None
+_cache_hour = None
+
 
 def to_dateint(date: date) -> int:
     """turn date into 20220615 e.g."""

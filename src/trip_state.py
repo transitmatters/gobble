@@ -99,8 +99,10 @@ class RouteTripsState:
 
     @tracer.wrap()
     def set_trip_state(self, trip_id: str, trip_state: TripState) -> None:
-        self.trips[trip_id] = trip_state
+        # Do cleanup first, before adding the new trip
         self._cleanup_trip_states()
+        # Now add the new trip - it won't be cleared by purge
+        self.trips[trip_id] = trip_state
         write_trips_state_file(self.route_id, self)
 
     @tracer.wrap()
