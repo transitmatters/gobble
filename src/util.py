@@ -1,6 +1,7 @@
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 import os
+from ddtrace import tracer
 
 from constants import ROUTES_CR, ROUTES_RAPID
 
@@ -39,6 +40,7 @@ def output_dir_path(route_id: str, direction_id: str, stop_id: str, ts: datetime
     )
 
 
+@tracer.wrap()
 def service_date(ts: datetime) -> date:
     # In practice a None TZ is UTC, but we want to be explicit
     # In many places we have an implied eastern
@@ -52,7 +54,17 @@ def service_date(ts: datetime) -> date:
 
 
 def get_current_service_date() -> date:
-    return service_date(datetime.now(EASTERN_TIME))
+    """
+    Get the current service date.
+    We cache the service date for the current hour to prevent
+    unnecessary timezone conversions, to save CPU.
+    """
+    global _service_date_cache, _cache_hour
+    now = datetime.now(EASTERN_TIME)
+    if now.hour != _cache_hour:
+        _service_date_cache = service_date(now)
+        _cache_hour = now.hour
+    return _service_date_cache
 
 
 def service_date_iso8601(ts: datetime) -> str:
