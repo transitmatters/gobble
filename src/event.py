@@ -53,6 +53,10 @@ def reduce_update_event(update: dict) -> Tuple:
     current_status = update["attributes"]["current_status"]
     event_type = EVENT_TYPE_MAP[current_status]
     updated_at = datetime.fromisoformat(update["attributes"]["updated_at"])
+    if len(update["attributes"]["carriages"]) > 0:
+        vehicle_consist = "|".join([carriage["label"] for carriage in update["attributes"]["carriages"]])
+    else:
+        vehicle_consist = update["attributes"]["label"]
 
     try:
         # The vehicle’s current (when current_status is STOPPED_AT) or next stop.
@@ -71,6 +75,7 @@ def reduce_update_event(update: dict) -> Tuple:
         update["relationships"]["trip"]["data"]["id"],
         update["attributes"]["label"],
         updated_at,
+        vehicle_consist,
     )
 
 
@@ -87,6 +92,7 @@ def process_event(update, trips_state: TripsStateManager):
         trip_id,
         vehicle_label,
         updated_at,
+        vehicle_consist,
     ) = reduce_update_event(update)
 
     # Skip events where the vehicle has no stop associated
@@ -142,6 +148,7 @@ def process_event(update, trips_state: TripsStateManager):
                         "vehicle_label": vehicle_label,
                         "event_type": event_type,
                         "event_time": updated_at,
+                        "vehicle_consist": vehicle_consist,
                     }
                 ],
                 index=[0],
@@ -158,6 +165,7 @@ def process_event(update, trips_state: TripsStateManager):
             "stop_id": stop_id,
             "updated_at": updated_at,
             "event_type": event_type,
+            "vehicle_consist": vehicle_consist,
         },
     )
 
