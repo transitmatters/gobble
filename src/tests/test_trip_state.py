@@ -18,6 +18,7 @@ class TestTripStatePerformance(unittest.TestCase):
             "stop_id": "123",
             "updated_at": datetime.now(EASTERN_TIME),
             "event_type": "ARR",
+            "vehicle_consist": "0704|0705|0790|0791|0749|0748",
         }
         state.trips["trip_123"] = trip_state
 
@@ -114,6 +115,7 @@ class TestTripStateFileIO(unittest.TestCase):
             "stop_id": "123",
             "updated_at": datetime.now(EASTERN_TIME),
             "event_type": "ARR",
+            "vehicle_consist": "0704|0705|0790|0791|0749|0748",
         }
 
         state.set_trip_state("trip_123", trip_state)

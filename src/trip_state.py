@@ -24,6 +24,8 @@ class TripState(TypedDict):
     updated_at: datetime
     # What type of event was this? (ARR or DEP)
     event_type: str
+    # What vehicle numbers are included? Will be a pipe delimited string for vehicles with multiple carriages.
+    vehicle_consist: str
 
 
 def serialize_trip_state(trip_state: TripState) -> Dict[str, str]:
