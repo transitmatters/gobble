@@ -6,13 +6,11 @@ class VehiclePositionFeed:
         self,
         url,
         agency,
-        file_path,
         timeout=30,
     ):
         self.entities: list[Entity] = []
         self.url: str = url
         self.agency: str = agency
-        self.file_path: str = file_path
         self.timeout: int = timeout
 
     def find_entity(self, entity_id):

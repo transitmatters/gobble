@@ -6,6 +6,7 @@ import gtfs
 import pandas as pd
 from event import enrich_event
 from util import service_date
+import util
 import disk
 
 
@@ -38,7 +39,7 @@ class Entity:
         self.vehicle_id: str = entity.vehicle.vehicle.id
         self.vehicle_label: str = entity.vehicle.vehicle.label
         self.license_plate: str = entity.vehicle.vehicle.license_plate
-        self.service_date: date = service_date(entity.vehicle.timestamp)
+        self.service_date: date = service_date(datetime.datetime.fromtimestamp(entity.vehicle.timestamp))
 
         # Temporal - we expect updates to this information
         self.bearing: float = entity.vehicle.position.bearing
@@ -46,7 +47,7 @@ class Entity:
         self.odometer: float = entity.vehicle.position.odometer
         self.speed: float = entity.vehicle.position.speed
         self.stop_id: str = entity.vehicle.stop_id
-        self.updated_at: str = datetime.datetime.fromtimestamp(entity.vehicle.timestamp).isoformat()
+        self.updated_at: datetime.datetime = datetime.datetime.fromtimestamp(entity.vehicle.timestamp).replace(tzinfo=util.EASTERN_TIME)
         self.current_stop_sequence: int = entity.vehicle.current_stop_sequence
         self.coordinates: list[float] = [entity.vehicle.position.longitude, entity.vehicle.position.latitude]
         self.occupancy_status: int = entity.vehicle.occupancy_status
@@ -66,7 +67,7 @@ class Entity:
         self.speed = entity.vehicle.position.speed
         self.odometer = entity.vehicle.position.odometer
         # TODO: need to convert to ISO 8601 format
-        self.updated_at = datetime.datetime.fromtimestamp(entity.vehicle.timestamp).isoformat()
+        self.updated_at = datetime.datetime.fromtimestamp(entity.vehicle.timestamp).replace(tzinfo=util.EASTERN_TIME)
         self.stop_id = entity.vehicle.stop_id
         self.congestion_level = entity.vehicle.congestion_level
 
@@ -88,7 +89,7 @@ class Entity:
         df = pd.DataFrame(
             [
                 {
-                    "service_date": service_date,
+                    "service_date": self.service_date,
                     "route_id": self.route_id,
                     "trip_id": self.trip_id,
                     "direction_id": self.direction_id,
