@@ -3,6 +3,7 @@ import json
 import datetime
 import os
 from Carriage import Carriage
+import gtfs
 
 
 class Entity:
@@ -66,12 +67,25 @@ class Entity:
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
     # TODO: convert f.write() to export to gobble format
-    def save(self, file_path):
-        isExist = os.path.exists(f"{file_path}/{self.route_id}")
-        if isExist is False:
-            os.makedirs(f"{file_path}/{self.route_id}", mode=0o777, exist_ok=False)
-            with open(f"{file_path}/{self.route_id}/{uuid.uuid4()}.mfjson", "w") as f:
-                f.write("")
-        else:
-            with open(f"{file_path}/{self.route_id}/{uuid.uuid4()}.mfjson", "w") as f:
-                f.write("")
+    def save(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "service_date": service_date,
+                    "route_id": route_id,
+                    "trip_id": trip_id,
+                    "direction_id": direction_id,
+                    "stop_id": stop_id,
+                    "stop_sequence": current_stop_sequence,
+                    "vehicle_id": "0",  # TODO??
+                    "vehicle_label": vehicle_label,
+                    "event_type": event_type,
+                    "event_time": updated_at,
+                    "vehicle_consist": vehicle_consist,
+                }
+            ],
+            index=[0],
+        )
+        gtfs_archive = gtfs.get_current_gtfs_archive()
+        event = enrich_event(df, gtfs_archive)
+        disk.write_event(event)

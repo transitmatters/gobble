@@ -1,21 +1,18 @@
 import os
-from dotenv import load_dotenv
 import time
 from VehiclePositionFeed import VehiclePositionFeed
-from helpers.setup_logger import logger
+from logger import set_up_logging
+from config import CONFIG
+from utils.consume_pb import consume_pb
+
+
+logger = set_up_logging(__name__)
 
 if __name__ == "__main__":
-    load_dotenv()
-    api_key = os.getenv("API_KEY")
-    provider = os.getenv("PROVIDER")
-    feed_url = os.getenv("FEED_URL")
-    s3_bucket = os.getenv("S3_BUCKET")
-    logger.info(type(s3_bucket))
-    x = VehiclePositionFeed(
-        feed_url, provider, f"./data/{provider}", s3_bucket=s3_bucket,
-        timeout=30
-    )
-    running = True
-    while running:
-        x.consume_pb()
-        time.sleep(x.timeout)
+    rt_feeds = CONFIG["rt_feeds"]
+    for feed in rt_feeds:
+        x = VehiclePositionFeed(feed["feed_url"], feed["agency"], f"./data/{provider}", timeout=30)
+        running = True
+        while running:
+            consume_pb(x, feed["config"])
+            time.sleep(x.timeout)

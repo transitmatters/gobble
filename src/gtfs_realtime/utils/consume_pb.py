@@ -1,28 +1,38 @@
 from Entity import Entity
 import datetime
+from logger import set_up_logging
+from ddtrace import tracer
+from config import CONFIG
+from fetch_entities import populate_feed_with_entities, get_vehicles_from_feed
+from VehiclePositionFeed import VehiclePositionFeed
+
+logger = set_up_logging(__name__)
+tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
 
 
-def consume_pb(self):
+# Similar to main.py
+def consume_pb(VehiclePositionFeed: VehiclePositionFeed, config: dict):
 
     # replace with function from fetch_entities.py
-    feed_entities = self.get_entities()
+    feed = populate_feed_with_entities(VehiclePositionFeed, config)
+    feed_entities = get_vehicles_from_feed(feed)
 
     if len(feed_entities) == 0:
-        # logger.warning(f"Empty Protobuf file for {self.url}")
-        self.updatetimeout(300)
+        logger.warning(f"Empty Protobuf file for {VehiclePositionFeed.url}")
+        VehiclePositionFeed.updatetimeout(300)
         # exit out of function
         return
 
-    if len(self.entities) == 0:
+    if len(VehiclePositionFeed.entities) == 0:
         # check if any observations exist, if none create all new objects
         for feed_entity in feed_entities:
             entity = Entity(feed_entity)
-            self.entities.append(entity)
+            VehiclePositionFeed.entities.append(entity)
     else:
         current_ids = []
         # find and update entity
         for feed_entity in feed_entities:
-            entity = self.find_entity(feed_entity.id)
+            entity = VehiclePositionFeed.find_entity(feed_entity.id)
             if entity:
                 # check if new direction and old direction are same
                 # check if last updated date is equivalent to new date, to prevent duplication
@@ -34,38 +44,37 @@ def consume_pb(self):
                         # first remove old
                         # this checks to make sure there are at least 2 measurements
                         if len(entity.updated_at) > 1:
-                            logger.info(type(self.s3_bucket))
                             now = datetime.datetime.now()
                             strf_rep = now.strftime("%Y%m%d")
                             entity.savetos3(
-                                self.s3_bucket,
-                                f"{self.agency}/{strf_rep}/{entity.route_id}",
+                                VehiclePositionFeed.s3_bucket,
+                                f"{VehiclePositionFeed.agency}/{strf_rep}/{entity.route_id}",
                             )
                             # entity.save(self.file_path)
-                        self.entities.remove(entity)
+                        VehiclePositionFeed.entities.remove(entity)
                         # now create new
                         entity = Entity(feed_entity)
-                        self.entities.append(entity)
+                        VehiclePositionFeed.entities.append(entity)
                         current_ids.append(feed_entity.id)
                 else:
                     current_ids.append(feed_entity.id)
         # remove and save finished entities
-        old_ids = [e.entity_id for e in self.entities]
+        old_ids = [e.entity_id for e in VehiclePositionFeed.entities]
         ids_to_remove = [x for x in old_ids if x not in current_ids]
         for id in ids_to_remove:
             # move logic onto object
-            entity = self.find_entity(id)
+            entity = VehiclePositionFeed.find_entity(id)
             if entity:
                 # call save method
                 if len(entity.updated_at) > 1:
-                    # logger.info(type(self.s3_bucket))
                     now = datetime.datetime.now()
                     strf_rep = now.strftime("%Y%m%d")
+                    # TODO: update to save to data path
                     entity.savetos3(
-                        self.s3_bucket,
-                        f"{self.agency}/{strf_rep}/{entity.route_id}",
+                        VehiclePositionFeed.s3_bucket,
+                        f"{VehiclePositionFeed.agency}/{strf_rep}/{entity.route_id}",
                     )
                     # entity.save(self.file_path)
-                    # logger.debug(f"Saving entity {entity.entity_id} | {self.file_path}")
+                    logger.debug(f"Saving entity {entity.entity_id} | {VehiclePositionFeed.file_path}")
                 # remove from list
-                self.entities.remove(entity)
+                VehiclePositionFeed.entities.remove(entity)
