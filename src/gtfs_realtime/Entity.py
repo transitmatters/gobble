@@ -1,9 +1,26 @@
 import uuid
 import json
 import datetime
+from datetime import date
 import os
 from Carriage import Carriage
 import gtfs
+import pandas as pd
+from event import enrich_event
+from util import service_date
+import disk
+
+
+# Event type mappings from the main gobble codebase
+EVENT_TYPE_MAP = {
+    "IN_TRANSIT_TO": "DEP",
+    "STOPPED_AT": "ARR",
+    "INCOMING_AT": "ARR",
+}
+
+# GTFS Realtime current_status integer mappings
+# 0: "INCOMING_AT", 1: "STOPPED_AT", 2: "IN_TRANSIT_TO"
+CURRENT_STATUS_MAP = {0: "ARR", 1: "ARR", 2: "DEP"}
 
 
 class Entity:
@@ -23,41 +40,39 @@ class Entity:
         self.vehicle_id: str = entity.vehicle.vehicle.id
         self.vehicle_label: str = entity.vehicle.vehicle.label
         self.license_plate: str = entity.vehicle.vehicle.license_plate
+        self.service_date: date = service_date(entity.vehicle.timestamp)
 
         # Temporal - we expect updates to this information
-        self.bearing: list[float] = [entity.vehicle.position.bearing]
-        self.current_status: list[int] = [entity.vehicle.current_status]
-        self.odometer: list[float] = [entity.vehicle.position.odometer]
-        self.speed: list[float] = [entity.vehicle.position.speed]
-        self.stop_id: list[str] = [entity.vehicle.stop_id]
-        self.updated_at: list[str] = [datetime.datetime.fromtimestamp(entity.vehicle.timestamp).isoformat()]
-        self.current_stop_sequence: list[int] = [entity.vehicle.current_stop_sequence]
-        self.coordinates: list[list[float]] = [[entity.vehicle.position.longitude, entity.vehicle.position.latitude]]
-        self.occupancy_status: list[int] = [entity.vehicle.occupancy_status]
-        self.occupancy_percentage: list[float] = [entity.vehicle.occupancy_percentage]
-        self.congestion_level: list[int] = [entity.vehicle.congestion_level]
+        self.bearing: float = entity.vehicle.position.bearing
+        self.current_status: int = entity.vehicle.current_status
+        self.odometer: float = entity.vehicle.position.odometer
+        self.speed: float = entity.vehicle.position.speed
+        self.stop_id: str = entity.vehicle.stop_id
+        self.updated_at: str = datetime.datetime.fromtimestamp(entity.vehicle.timestamp).isoformat()
+        self.current_stop_sequence: int = entity.vehicle.current_stop_sequence
+        self.coordinates: list[float] = [entity.vehicle.position.longitude, entity.vehicle.position.latitude]
+        self.occupancy_status: int = entity.vehicle.occupancy_status
+        self.occupancy_percentage: float = entity.vehicle.occupancy_percentage
+        self.congestion_level: int = entity.vehicle.congestion_level
 
         self.carriages: list[Carriage] = [Carriage(c) for c in entity.vehicle.multi_carriage_details]
 
     def update(self, entity):
         # Temporal
-        self.bearing.append(entity.vehicle.position.bearing)
-        self.current_status.append(entity.vehicle.current_status)
-        self.current_stop_sequence.append(entity.vehicle.current_stop_sequence)
-        self.coordinates.append([entity.vehicle.position.longitude, entity.vehicle.position.latitude])
-        self.occupancy_status.append(entity.vehicle.occupancy_status)
-        self.occupancy_percentage.append(entity.vehicle.occupancy_percentage)
-        self.speed.append(entity.vehicle.position.speed)
-        self.odometer.append(entity.vehicle.position.odometer)
+        self.bearing = entity.vehicle.position.bearing
+        self.current_status = entity.vehicle.current_status
+        self.current_stop_sequence = entity.vehicle.current_stop_sequence
+        self.coordinates = [entity.vehicle.position.longitude, entity.vehicle.position.latitude]
+        self.occupancy_status = entity.vehicle.occupancy_status
+        self.occupancy_percentage = entity.vehicle.occupancy_percentage
+        self.speed = entity.vehicle.position.speed
+        self.odometer = entity.vehicle.position.odometer
         # TODO: need to convert to ISO 8601 format
-        self.updated_at.append(datetime.datetime.fromtimestamp(entity.vehicle.timestamp).isoformat())
-        self.stop_id.append(entity.vehicle.stop_id)
-        self.congestion_level.append(entity.vehicle.congestion_level)
+        self.updated_at = datetime.datetime.fromtimestamp(entity.vehicle.timestamp).isoformat()
+        self.stop_id = entity.vehicle.stop_id
+        self.congestion_level = entity.vehicle.congestion_level
 
-        for carriage in entity.vehicle.multi_carriage_details:
-            carriage_obj = next((c for c in self.carriages if c.label == carriage.label), None)
-            if carriage_obj:
-                carriage_obj.Update(carriage)
+        self.carriages: list[Carriage] = [Carriage(c) for c in entity.vehicle.multi_carriage_details]
 
     def checkage(self):
         # checks age of object and returns age in seconds
@@ -68,24 +83,26 @@ class Entity:
 
     # TODO: convert f.write() to export to gobble format
     def save(self):
+
+        gtfs_archive = gtfs.get_current_gtfs_archive()
+        status_str = CURRENT_STATUS_MAP.get(self.current_status)
+        # write the event here
         df = pd.DataFrame(
             [
                 {
                     "service_date": service_date,
-                    "route_id": route_id,
-                    "trip_id": trip_id,
-                    "direction_id": direction_id,
-                    "stop_id": stop_id,
-                    "stop_sequence": current_stop_sequence,
-                    "vehicle_id": "0",  # TODO??
-                    "vehicle_label": vehicle_label,
-                    "event_type": event_type,
-                    "event_time": updated_at,
-                    "vehicle_consist": vehicle_consist,
+                    "route_id": self.route_id,
+                    "trip_id": self.trip_id,
+                    "direction_id": self.direction_id,
+                    "stop_id": self.stop_id,
+                    "stop_sequence": self.current_stop_sequence,
+                    "vehicle_id": self.vehicle_id,
+                    "vehicle_label": self.vehicle_label,
+                    "event_type": status_str,
+                    "event_time": self.updated_at,
                 }
             ],
             index=[0],
         )
-        gtfs_archive = gtfs.get_current_gtfs_archive()
         event = enrich_event(df, gtfs_archive)
         disk.write_event(event)
