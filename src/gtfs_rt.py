@@ -1,5 +1,3 @@
-import os
-import sys
 import time
 from VehiclePositionFeed import VehiclePositionFeed
 from logger import set_up_logging
