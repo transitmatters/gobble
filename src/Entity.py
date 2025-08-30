@@ -47,7 +47,9 @@ class Entity:
         self.odometer: float = entity.vehicle.position.odometer
         self.speed: float = entity.vehicle.position.speed
         self.stop_id: str = entity.vehicle.stop_id
-        self.updated_at: datetime.datetime = datetime.datetime.fromtimestamp(entity.vehicle.timestamp).replace(tzinfo=util.EASTERN_TIME)
+        self.updated_at: datetime.datetime = datetime.datetime.fromtimestamp(entity.vehicle.timestamp).replace(
+            tzinfo=util.EASTERN_TIME
+        )
         self.current_stop_sequence: int = entity.vehicle.current_stop_sequence
         self.coordinates: list[float] = [entity.vehicle.position.longitude, entity.vehicle.position.latitude]
         self.occupancy_status: int = entity.vehicle.occupancy_status

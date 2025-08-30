@@ -37,7 +37,9 @@ def consume_pb(VehiclePositionFeed: VehiclePositionFeed, config: dict):
             if entity:
                 # check if new direction and old direction are same
                 # check if last updated date is equivalent to new date, to prevent duplication
-                if entity.updated_at != datetime.datetime.fromtimestamp(feed_entity.vehicle.timestamp).replace(tzinfo=util.EASTERN_TIME):
+                if entity.updated_at != datetime.datetime.fromtimestamp(feed_entity.vehicle.timestamp).replace(
+                    tzinfo=util.EASTERN_TIME
+                ):
                     if entity.direction_id == feed_entity.vehicle.trip.direction_id:
                         entity.update(feed_entity)
                         current_ids.append(feed_entity.id)

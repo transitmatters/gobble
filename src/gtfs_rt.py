@@ -8,7 +8,8 @@ from consume_pb import consume_pb
 logger = set_up_logging(__name__)
 
 if __name__ == "__main__":
-    # rt_feeds = CONFIG["rt_feeds"]
+    # Left rt_feed uncommented to avoid flake8 error
+    rt_feed = CONFIG["rt_feeds"]
     rt_feeds = [{"feed_url": "https://cdn.mbta.com/realtime/VehiclePositions.pb", "agency": "MBTA", "config": {}}]
     for feed in rt_feeds:
         x = VehiclePositionFeed(feed["feed_url"], feed["agency"], timeout=30)
