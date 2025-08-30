@@ -1,8 +1,6 @@
-import uuid
 import json
 import datetime
 from datetime import date
-import os
 from Carriage import Carriage
 import gtfs
 import pandas as pd
