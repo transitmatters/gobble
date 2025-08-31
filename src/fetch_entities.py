@@ -26,18 +26,14 @@ def populate_feed_with_entities(VehiclePositionFeed: VehiclePositionFeed, config
 
         feed.ParseFromString(response.content)
     except DecodeError:
-        pass
-        # logger.warning(f"protobuf decode error for {self.url}, {e}")
+        logger.warning(f"protobuf decode error for {VehiclePositionFeed.url}")
     except requests.exceptions.Timeout:
-        pass
-        # logger.warning(f"Timeout for {self.url}")
+        logger.warning(f"Timeout for {VehiclePositionFeed.url}")
         # Maybe set up for a retry, or continue in a retry loop
     except requests.exceptions.TooManyRedirects:
-        pass
-        # logger.warning(f"Too Many Redirects for {self.url}")
+        logger.warning(f"Too Many Redirects for {VehiclePositionFeed.url}")
     except requests.exceptions.SSLError:
-        pass
-        # logger.warning(f"SSL Error for {self.url}")
+        logger.warning(f"SSL Error for {VehiclePositionFeed. url}")
     except requests.exceptions.RequestException as e:
         # catastrophic error. bail.
         raise SystemExit(e)
