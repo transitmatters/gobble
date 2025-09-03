@@ -22,9 +22,10 @@ EVENT_TYPE_MAP = {
 CURRENT_STATUS_MAP = {0: "ARR", 1: "ARR", 2: "DEP"}
 
 
-class Entity:
-    def __init__(self, entity):
+class Entity():
+    def __init__(self, entity, agency):
         self.entity_id: str = entity.id
+        self.agency: str = agency
 
         # Static - We do not expect updates to this information
         self.direction_id: int = entity.vehicle.trip.direction_id
@@ -106,4 +107,4 @@ class Entity:
             index=[0],
         )
         event = enrich_event(df, gtfs_archive)
-        disk.write_event(event)
+        disk.write_event(event, agency=self.agency)
