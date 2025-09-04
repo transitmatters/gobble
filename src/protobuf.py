@@ -74,119 +74,58 @@ def produce_dict_from_protobuf(url: str, config: dict):
     else:
         return []
 
+
 def convert_carriage_to_dict(carriage_details):
     label: str = carriage_details.label
     carriage_sequence: int = carriage_details.carriage_sequence
     occupancy_status: list[OccupancyStatus] = [carriage_details.occupancy_status]
-    return {"label":label,"carriage_sequence":carriage_sequence,"occupancy_status":occupancy_status}
-
+    return {"label": label, "carriage_sequence": carriage_sequence, "occupancy_status": occupancy_status}
 
 
 def convert_protobuf_to_dict(entity):
     carriages = [convert_carriage_to_dict(c) for c in entity.vehicle.multi_carriage_details]
-    x = {
-      "attributes": {
-        "bearing": entity.vehicle.position.bearing,
-        "carriages": [],
-        "current_status": entity.vehicle.current_status,
-        "current_stop_sequence": entity.vehicle.current_stop_sequence,
-        "direction_id": entity.vehicle.trip.direction_id,
-        "label": entity.vehicle.vehicle.label,
-        "latitude": entity.vehicle.position.latitude,
-        "longitude": entity.vehicle.position.longitude,
-        "occupancy_status": entity.vehicle.occupancy_status,
-        "revenue": "REVENUE",
-        "speed": None,
-        "updated_at": datetime.datetime.fromtimestamp(entity.timestamp, tz=datetime.tzinfo).isoformat() if entity.HasField("timestamp") else None
-      },
-      "id": entity.vehicle.vehicle.id,
-      "links": {
-        "self": None
-      },
-      "relationships": {
-        "route": {
-          "data": {
-            "id": entity.vehicle.trip.route_id,
-            "type": "route"
-          }
+    template_dict = {
+        "attributes": {
+            "bearing": entity.vehicle.position.bearing,
+            "carriages": carriages,
+            "current_status": entity.vehicle.current_status,
+            "current_stop_sequence": entity.vehicle.current_stop_sequence,
+            "direction_id": entity.vehicle.trip.direction_id,
+            "label": entity.vehicle.vehicle.label,
+            "latitude": entity.vehicle.position.latitude,
+            "longitude": entity.vehicle.position.longitude,
+            "occupancy_status": entity.vehicle.occupancy_status,
+            "revenue": "REVENUE",
+            "odometer": entity.vehicle.position.odometer,
+            "entity_id": entity.id,
+            "schedule_relationship": entity.vehicle.trip.schedule_relationship,
+            "trip_start_date": entity.vehicle.trip.start_date,
+            "trip_start_time": entity.vehicle.trip.start_time,
+            "vehicle_license_plate": entity.vehicle.vehicle.license_plate,
+            "vehicle_timestamp": entity.vehicle.timestamp,
+            "occupancy_percentage": entity.vehicle.occupancy_percentage,
+            "congestion_level": entity.vehicle.congestion_level,
+            "speed": None,
+            "updated_at": (
+                datetime.datetime.fromtimestamp(entity.timestamp, tz=datetime.tzinfo).isoformat()
+                if entity.HasField("timestamp")
+                else None
+            ),
         },
-        "stop": {
-          "data": {
-            "id": entity.vehicle.stop_id,
-            "type": "stop"
-          }
+        "id": entity.vehicle.vehicle.id,
+        "links": {"self": None},
+        "relationships": {
+            "route": {"data": {"id": entity.vehicle.trip.route_id, "type": "route"}},
+            "stop": {"data": {"id": entity.vehicle.stop_id, "type": "stop"}},
+            "trip": {"data": {"id": entity.vehicle.trip.trip_id, "type": "trip"}},
         },
-        "trip": {
-          "data": {
-            "id": entity.vehicle.trip.trip_id,
-            "type": "trip"
-          }
-        }
-      },
-      "type": "vehicle"
+        "type": "vehicle",
     }
-    #
-    #
-    #
-    #         entity.id
-    #         entity.vehicle.trip.schedule_relationship
-    #         entity.vehicle.trip.start_date
-    #         entity.vehicle.trip.start_time
-    #
-    #
-    #         entity.vehicle.vehicle.license_plate
-    #         entity.vehicle.timestamp
-    #
-    #         entity.vehicle.position.odometer
-    #
-    #
-    #
-    #
-    #         entity.vehicle.occupancy_percentage
-    #        entity.vehicle.congestion_level
-    # []
-    #
-    # if len(VehiclePositionFeed.entities) == 0:
-    #     # check if any observations exist, if none create all new objects
-    #     for feed_entity in feed_entities:
-    #         entity = Entity(feed_entity, VehiclePositionFeed.agency)
-    #         VehiclePositionFeed.entities.append(entity)
-    # else:
-    #     current_ids = []
-    #     # find and update entity
-    #     for feed_entity in feed_entities:
-    #         entity = VehiclePositionFeed.find_entity(feed_entity.id)
-    #         if entity:
-    #             # check if new direction and old direction are same
-    #             # check if last updated date is equivalent to new date, to prevent duplication
-    #             if entity.updated_at != datetime.datetime.fromtimestamp(feed_entity.vehicle.timestamp).replace(
-    #                 tzinfo=util.EASTERN_TIME
-    #             ):
-    #                 if entity.direction_id == feed_entity.vehicle.trip.direction_id:
-    #                     entity.update(feed_entity)
-    #                     current_ids.append(feed_entity.id)
-    #                 else:
-    #                     # first remove old
-    #                     # this checks to make sure there are at least 2 measurements
-    #                     entity.save()
-    #                     VehiclePositionFeed.entities.remove(entity)
-    #                     # now create new
-    #                     entity = Entity(feed_entity, VehiclePositionFeed.agency)
-    #                     VehiclePositionFeed.entities.append(entity)
-    #                     current_ids.append(feed_entity.id)
-    #             else:
-    #                 current_ids.append(feed_entity.id)
-    #     # remove and save finished entities
-    #     old_ids = [e.entity_id for e in VehiclePositionFeed.entities]
-    #     ids_to_remove = [x for x in old_ids if x not in current_ids]
-    #     for id in ids_to_remove:
-    #         # move logic onto object
-    #         entity = VehiclePositionFeed.find_entity(id)
-    #         if entity:
-    #             # call save method
-    #             # TODO: update to save to data path
-    #             entity.save()
-    #             # entity.save(self.file_path)
-    #             logger.debug(f"Saving entity {entity.entity_id}")
-    #             # remove from list
-    #             VehiclePositionFeed.entities.remove(entity)
+    return template_dict
+
+
+def get_feed_updates(
+    prev_feed_state: list[gtfs.FeedEntity], current_feed_state: list[gtfs.FeedEntity]
+) -> list[gtfs.FeedEntity]:
+    updates = list(filter(lambda x: x not in prev_feed_state, current_feed_state))
+    return updates
