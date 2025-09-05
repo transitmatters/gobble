@@ -3,7 +3,8 @@
     "v3_api_key": null
   },
   "gtfs": {
-    "dir": null
+    "dir": null,
+    "refresh_interval_days": 7
   },
   "DATADOG_TRACE_ENABLED": false
 }
