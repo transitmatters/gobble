@@ -29,6 +29,7 @@ def consume_pb(VehiclePositionFeed: VehiclePositionFeed, config: dict):
             for feed_entity in feed_entities:
                 entity = Entity(feed_entity, VehiclePositionFeed.agency)
                 VehiclePositionFeed.entities.append(entity)
+                entity.save()
         else:
             current_ids = []
             # find and update entity
@@ -42,6 +43,7 @@ def consume_pb(VehiclePositionFeed: VehiclePositionFeed, config: dict):
                     ):
                         if entity.direction_id == feed_entity.vehicle.trip.direction_id:
                             entity.update(feed_entity)
+                            entity.save()
                             current_ids.append(feed_entity.id)
                         else:
                             # first remove old
