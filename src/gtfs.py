@@ -74,6 +74,7 @@ class GtfsArchive:
 @tracer.wrap()
 def _download_gtfs_archives_list() -> pd.DataFrame:
     """Downloads list of GTFS archive urls. This file will get overwritten."""
+    archives_df = None
     try:
         archives_df = pd.read_csv(urljoin(GTFS_ARCHIVES_PREFIX, GTFS_ARCHIVES_FILENAME))
         archives_df.to_csv(MAIN_DIR / GTFS_ARCHIVES_FILENAME)
@@ -143,7 +144,9 @@ def get_gtfs_archive(dateint: int):
                 refresh_interval = CONFIG["gtfs"]["refresh_interval_days"]
 
                 if days_since_start >= refresh_interval:
-                    logger.info(f"Feed is {days_since_start} days old (>= {refresh_interval} days). Checking for newer archives.")
+                    logger.info(
+                        f"Feed is {days_since_start} days old (>= {refresh_interval} days). Checking for newer archives."
+                    )
                     should_refetch = True
         else:
             should_refetch = True
@@ -188,7 +191,9 @@ def get_gtfs_archive(dateint: int):
             return fallback_archive
         else:
             logger.error("No accessible GTFS archives found. Cannot continue.")
-            raise RuntimeError("No accessible GTFS archives available and cannot download new ones due to permission errors")
+            raise RuntimeError(
+                "No accessible GTFS archives available and cannot download new ones due to permission errors"
+            )
 
     except Exception as e:
         logger.error(f"Unexpected error in get_gtfs_archive: {e}")
