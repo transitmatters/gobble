@@ -30,6 +30,9 @@ jobs:
             "mbta": {
               "v3_api_key": "${{ secrets.MBTA_V3_API_KEY }}"
             },
+            "gtfs": {
+              "refresh_interval_days": 7
+            },
             "DATADOG_TRACE_ENABLED": true
           }
           EOF
