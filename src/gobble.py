@@ -14,6 +14,8 @@ from event import process_event
 from logger import set_up_logging
 from trip_state import TripsStateManager
 import gtfs
+from datetime import datetime
+
 
 logging.basicConfig(level=logging.INFO, filename="gobble.log")
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
@@ -93,10 +95,19 @@ def client_thread(routes: Set[str]):
 def process_events(client: sseclient.SSEClient, trips_state: TripsStateManager):
     for event in client.events():
         try:
-            if event.event != "update":
+            logger.info(f"[{datetime.now().isoformat()}] Recieved {event.event} event")
+            if event.event == "update":
+                update = json.loads(event.data)
+                process_event(update, trips_state)
+            if event.event == "reset":
+                updates = json.loads(event.data)
+                for update in updates:
+                    process_event(update, trips_state)
+            if event.event == "add":
+                update = json.loads(event.data)
+                process_event(update, trips_state)
+            else:
                 continue
-            update = json.loads(event.data)
-            process_event(update, trips_state)
         except Exception:
             if tracer.enabled:
                 logger.exception("Encountered an exception when processing an event", stack_info=True, exc_info=True)
