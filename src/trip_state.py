@@ -16,6 +16,8 @@ class TripState(TypedDict):
     Holds the current state of a single trip
     """
 
+    # What is the id?
+    id: str
     # How far into the trip are we?
     stop_sequence: int
     # What stop are we at?
@@ -173,3 +175,12 @@ class TripsStateManager:
         if route_id not in self.route_states:
             return None
         return self.route_states[route_id].get_trip_state(trip_id)
+
+    def get_trip_by_id(self, target_id: str) -> tuple[Optional[str], Optional[str], Optional[TripState]]:
+        # Find a trip state by trip ID across all routes
+        # for key, val
+        for route_id, route_state in self.route_states.items():
+            for trip_id, trip_state in route_state["trip_states"].items():
+                if trip_state["id"] == target_id:
+                    return (route_id, trip_id, self.get_trip_state(route_id, trip_id))
+        return (None, None, None)
