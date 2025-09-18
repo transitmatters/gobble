@@ -95,7 +95,6 @@ def client_thread(routes: Set[str]):
 def process_events(client: sseclient.SSEClient, trips_state: TripsStateManager):
     for event in client.events():
         try:
-            logger.info(f"[{datetime.now().isoformat()}] Recieved {event.event} event")
             if event.event == "update":
                 update = json.loads(event.data)
                 process_event(update, trips_state)
