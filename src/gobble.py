@@ -10,7 +10,7 @@ from typing import Set
 
 from constants import ROUTES_BUS, ROUTES_CR, ROUTES_RAPID
 from config import CONFIG
-from event import process_event
+from event import process_event, enrich_remove_event
 from logger import set_up_logging
 from trip_state import TripsStateManager
 import gtfs
@@ -93,7 +93,16 @@ def client_thread(routes: Set[str]):
 def process_events(client: sseclient.SSEClient, trips_state: TripsStateManager):
     for event in client.events():
         try:
-            if event.event != "update":
+            logger.info(f"[{datetime.now().isoformat()}] Recieved {event.event} event")
+            if event.event == "update":
+                update = json.loads(event.data)
+                process_event(update, trips_state)
+            if event.event == "remove":
+                update = json.loads(event.data)
+                update = enrich_remove_event(update, trips_state)
+                if update:
+                    process_event(update, trips_state)
+            else:
                 continue
             update = json.loads(event.data)
             process_event(update, trips_state)
