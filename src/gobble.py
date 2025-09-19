@@ -14,7 +14,6 @@ from event import process_event
 from logger import set_up_logging
 from trip_state import TripsStateManager
 import gtfs
-from datetime import datetime
 
 
 logging.basicConfig(level=logging.INFO, filename="gobble.log")
