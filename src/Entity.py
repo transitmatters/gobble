@@ -19,6 +19,18 @@ EVENT_TYPE_MAP = {
 # GTFS Realtime current_status integer mappings
 # 0: "INCOMING_AT", 1: "STOPPED_AT", 2: "IN_TRANSIT_TO"
 CURRENT_STATUS_MAP = {0: "ARR", 1: "ARR", 2: "DEP"}
+CURRENT_STATUS_STRING_MAP = {0: "INCOMING_AT", 1: "STOPPED_AT", 2: "IN_TRANSIT_TO"}
+OCCUPANCY_STATUS_STRING_MAP = {
+    0: "EMPTY",
+    1: "MANY_SEATS_AVAILABLE",
+    2: "FEW_SEATS_AVAILABLE",
+    3: "STANDING_ROOM_ONLY",
+    4: "CRUSHED_STANDING_ROOM_ONLY",
+    5: "FULL",
+    6: "NOT_ACCEPTING_PASSENGERS",
+    7: "NO_DATA_AVAILABLE",
+    8: "NOT_BOARDABLE",
+}
 
 
 class Entity:
@@ -91,31 +103,36 @@ class Entity:
             {
                 "label": carriage.label,
                 "carriage_sequence": carriage.carriage_sequence,
-                "occupancy_status": carriage.occupancy_status,
+                "occupancy_status": OCCUPANCY_STATUS_STRING_MAP.get(carriage.occupancy_status, "NO_DATA_AVAILABLE"),
+                "occupancy_percentage": carriage.occupancy_percentage,
             }
             for carriage in self.carriages
         ]
         template_dict_attributes["bearing"] = self.bearing
         template_dict_attributes["carriages"] = carriage_dicts
-        template_dict_attributes["current_status"] = self.current_status
+        template_dict_attributes["current_status"] = CURRENT_STATUS_STRING_MAP.get(self.current_status, "IN_TRANSIT_TO")
         template_dict_attributes["current_stop_sequence"] = self.current_stop_sequence
         template_dict_attributes["direction_id"] = self.direction_id
         template_dict_attributes["label"] = self.label
-        template_dict_attributes["latitude"] = self.coordinates[0]
-        template_dict_attributes["longitude"] = self.coordinates[1]
-        template_dict_attributes["occupancy_status"] = self.occupancy_status
+        template_dict_attributes["latitude"] = self.coordinates[1]
+        template_dict_attributes["longitude"] = self.coordinates[0]
+        template_dict_attributes["occupancy_status"] = OCCUPANCY_STATUS_STRING_MAP.get(
+            self.occupancy_status, "NO_DATA_AVAILABLE"
+        )
         template_dict_attributes["revenue"] = "REVENUE"
         template_dict_attributes["speed"] = self.speed
-        template_dict_attributes["updated_at"] = self.updated_at
+        template_dict_attributes["updated_at"] = self.updated_at.isoformat()
         template_dict_attributes["id"] = self.entity_id
         template_dict_attributes["links"] = {"self": f"/vehicles/{self.vehicle_id}"}
-        template_dict_attributes["relationships"] = {
+        template_dict_attributes["type"] = "vehicle"
+
+        template_dict_relationships = {
             "route": {"data": {"id": f"{self.route_id}", "type": "route"}},
             "stop": {"data": {"id": f"{self.stop_id}", "type": "stop"}},
             "trip": {"data": {"id": f"{self.trip_id}", "type": "trip"}},
         }
-        template_dict_attributes["type"] = "vehicle"
-        template_dict = {"attributes": template_dict_attributes}
+
+        template_dict = {"attributes": template_dict_attributes, "relationships": template_dict_relationships}
         return json.dumps(template_dict, indent=4)
 
     # TODO: convert f.write() to export to gobble format

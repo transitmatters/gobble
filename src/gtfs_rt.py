@@ -7,20 +7,23 @@ from consume_pb import consume_pb
 from trip_state import TripsStateManager
 from ddtrace import tracer
 import traceback
-
+import gtfs
+import threading
+import json
 
 logger = set_up_logging(__name__)
 
 
 def gtfs_rt_thread():
     trips_state = TripsStateManager()
-    vehicle_postion_feed = VehiclePositionFeed(feed["feed_url"], feed["agency"], timeout=30)
+    vehicle_postion_feed = VehiclePositionFeed("https://cdn.mbta.com/realtime/VehiclePositions.pb", "MBTA", timeout=30)
     while True:
         start_at = time.time()
-        client = None
         try:
-            consume_pb(vehicle_postion_feed)
-            process_event(client, trips_state)
+            for update in consume_pb(vehicle_postion_feed):
+                if update:
+                    update_dict = json.loads(update)
+                    process_event(update_dict, trips_state)
         except requests.exceptions.ChunkedEncodingError:
             # Keep track of how long into connections this occurs, in case it's consistent (a timeout?)
             elapsed = time.time() - start_at
@@ -40,21 +43,12 @@ def gtfs_rt_thread():
 
 
 if __name__ == "__main__":
-    # rt_feed = CONFIG["rt_feeds"]
-    rt_feeds = [
-        {
-            "config": {},
-            "agency": "Denver RTD",
-            "feed_url": "https://open-data.rtd-denver.com/files/gtfs-rt/rtd/VehiclePosition.pb",
-        },
-    ]
-    VehiclePositionFeeds = []
-    for feed in rt_feeds:
-        x = VehiclePositionFeed(feed["feed_url"], feed["agency"], timeout=30)
-        VehiclePositionFeeds.append(x)
-    running = True
+    gtfs.start_watching_gtfs()
 
-    while running:
-        for feed in VehiclePositionFeeds:
-            consume_pb(feed)
-        time.sleep(30)
+    mbta_gtfs_rt_thread = threading.Thread(
+        target=gtfs_rt_thread,
+        args=(),
+        name="gtfs_rt",
+    )
+    mbta_gtfs_rt_thread.start()
+    mbta_gtfs_rt_thread.join()
