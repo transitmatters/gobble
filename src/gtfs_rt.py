@@ -34,7 +34,9 @@ def gtfs_rt_thread():
             else:
                 traceback.print_exc()
         finally:
-            time.sleep(vehicle_postion_feed.timeout)  # Just in case something is borked, to avoid hammering. It doesn't GIL!
+            time.sleep(
+                vehicle_postion_feed.timeout
+            )  # Just in case something is borked, to avoid hammering. It doesn't GIL!
 
 
 if __name__ == "__main__":
