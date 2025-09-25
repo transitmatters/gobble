@@ -10,17 +10,23 @@ import traceback
 import gtfs
 import threading
 import json
+from config import CONFIG
+import logging
 
-logger = set_up_logging(__name__)
+logging.basicConfig(level=logging.INFO, filename="gobble.log")
+tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
+API_KEY = CONFIG["mbta"]["v3_api_key"]
+HEADERS = {"X-API-KEY": API_KEY}
 
 
 def gtfs_rt_thread():
     trips_state = TripsStateManager()
     vehicle_postion_feed = VehiclePositionFeed("https://cdn.mbta.com/realtime/VehiclePositions.pb", "MBTA", timeout=30)
+    config = {"headers": HEADERS}
     while True:
         start_at = time.time()
         try:
-            for update in consume_pb(vehicle_postion_feed):
+            for update in consume_pb(vehicle_postion_feed, config):
                 if update:
                     update_dict = json.loads(update)
                     process_event(update_dict, trips_state)
@@ -43,6 +49,7 @@ def gtfs_rt_thread():
 
 
 if __name__ == "__main__":
+    logger = set_up_logging(__file__)
     gtfs.start_watching_gtfs()
 
     mbta_gtfs_rt_thread = threading.Thread(
@@ -52,3 +59,5 @@ if __name__ == "__main__":
     )
     mbta_gtfs_rt_thread.start()
     mbta_gtfs_rt_thread.join()
+else:
+    logger = set_up_logging(__name__)
