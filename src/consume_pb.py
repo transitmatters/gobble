@@ -1,12 +1,9 @@
 from Entity import Entity
-import datetime
 from logger import set_up_logging
 from ddtrace import tracer
 from config import CONFIG
 from fetch_entities import populate_feed_with_entities, get_vehicles_from_feed
 from VehiclePositionFeed import VehiclePositionFeed
-import util
-from event import process_event
 
 logger = set_up_logging(__name__)
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]

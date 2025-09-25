@@ -5,7 +5,6 @@ import requests
 from logger import set_up_logging
 from ddtrace import tracer
 from config import CONFIG
-import util
 from src.gtfs_types import OccupancyStatus
 
 logger = set_up_logging(__name__)

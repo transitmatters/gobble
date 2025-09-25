@@ -1,7 +1,6 @@
 import time
 from VehiclePositionFeed import VehiclePositionFeed
 from logger import set_up_logging
-from config import CONFIG
 from consume_pb import consume_pb
 
 
