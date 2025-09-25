@@ -26,6 +26,10 @@ class TripState(TypedDict):
     event_type: str
     # What vehicle numbers are included? Will be a pipe delimited string for vehicles with multiple carriages.
     vehicle_consist: str
+    # Track Occupancy as available
+    occupancy_status: str | None
+    # Occupancy Percentage only available on Orange Line
+    occupancy_percentage: str | None
 
 
 def serialize_trip_state(trip_state: TripState) -> Dict[str, str]:

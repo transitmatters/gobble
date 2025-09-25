@@ -55,8 +55,23 @@ def reduce_update_event(update: dict) -> Tuple:
     updated_at = datetime.fromisoformat(update["attributes"]["updated_at"])
     if len(update["attributes"]["carriages"]) > 0:
         vehicle_consist = "|".join([carriage["label"] for carriage in update["attributes"]["carriages"]])
+        if update["attributes"]["carriages"][0]["occupancy_status"] is not None:
+            occupancy_status = "|".join(
+                [carriage["occupancy_status"] for carriage in update["attributes"]["carriages"]]
+            )
+        else:
+            occupancy_status = None
+
+        if update["attributes"]["carriages"][0]["occupancy_percentage"] is not None:
+            occupancy_percentage = "|".join(
+                [str(carriage["occupancy_percentage"]) for carriage in update["attributes"]["carriages"]]
+            )
+        else:
+            occupancy_percentage = None
     else:
         vehicle_consist = update["attributes"]["label"]
+        occupancy_status = update["attributes"]["occupancy_status"]
+        occupancy_percentage = None
 
     try:
         # The vehicle’s current (when current_status is STOPPED_AT) or next stop.
@@ -76,6 +91,8 @@ def reduce_update_event(update: dict) -> Tuple:
         update["attributes"]["label"],
         updated_at,
         vehicle_consist,
+        occupancy_status,
+        occupancy_percentage,
     )
 
 
@@ -93,6 +110,8 @@ def process_event(update, trips_state: TripsStateManager):
         vehicle_label,
         updated_at,
         vehicle_consist,
+        occupancy_status,
+        occupancy_percentage,
     ) = reduce_update_event(update)
 
     # Skip events where the vehicle has no stop associated
@@ -149,6 +168,8 @@ def process_event(update, trips_state: TripsStateManager):
                         "event_type": event_type,
                         "event_time": updated_at,
                         "vehicle_consist": vehicle_consist,
+                        "occupancy_status": occupancy_status,
+                        "occupancy_percentage": occupancy_percentage,
                     }
                 ],
                 index=[0],
@@ -166,6 +187,8 @@ def process_event(update, trips_state: TripsStateManager):
             "updated_at": updated_at,
             "event_type": event_type,
             "vehicle_consist": vehicle_consist,
+            "occupancy_status": occupancy_status,
+            "occupancy_percentage": occupancy_percentage,
         },
     )
 

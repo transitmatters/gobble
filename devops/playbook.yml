@@ -28,7 +28,7 @@
     - name: copy systemd service file
       become: yes
       become_user: root
-      copy:
+      template:
         src: systemd.conf
         dest: /etc/systemd/system/gobble.service
 
@@ -71,11 +71,12 @@
       ansible.builtin.cron:
         name: upload todays events to s3
         minute: "0,30"
-        job: "cd /home/ubuntu/gobble && /home/ubuntu/.local/bin/poetry run ddtrace-run python3 src/s3_upload.py"
+        job: "cd /home/ubuntu/gobble && DD_VERSION={{ git_sha }} DD_GIT_COMMIT_SHA={{ git_sha }} DD_SERVICE=gobble DD_ENV=prod /home/ubuntu/.local/bin/poetry run ddtrace-run python3 src/s3_upload.py"
 
   vars:
     datadog_api_key: "{{ lookup('env', 'DD_API_KEY') }}"
     datadog_site: "datadoghq.com"
+    git_sha: "{{ lookup('env', 'GIT_SHA') }}"
     datadog_config:
       tags:
         - "git.repository_url:github.com/transitmatters/gobble"
