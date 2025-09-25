@@ -9,7 +9,6 @@ from util import service_date
 import util
 import disk
 
-
 # Event type mappings from the main gobble codebase
 EVENT_TYPE_MAP = {
     "IN_TRANSIT_TO": "DEP",
@@ -86,39 +85,38 @@ class Entity:
 
     def to_mbta_json(self):
         # TODO: create dict structure then convert to JSON
-        carriage_template_string = """
-        {
-            "label": "{}",
-            "occupancy_status": "{}",
-            "occupancy_percentage": "{}"
-            }
-        """
-        template_string = """
+        template_dict = {}
+        template_dict_attributes = {}
+        carriage_dicts = [
             {
-                "attributes": {
-                "bearing": "{}",
-                "carriages": [],
-                "current_status": "INCOMING_AT",
-                "current_stop_sequence": 80,
-                "direction_id": 1,
-                "label": "3692-3806",
-                "latitude": 42.3483,
-                "longitude": -71.13686,
-                "occupancy_status": null,
-                "revenue": "REVENUE",
-                "speed": 10.5,
-                "updated_at": "2025-09-24T21:32:33-04:00"
-                },
-                "id": "G-10001",
-                "links": { "self": "/vehicles/G-10001" },
-                "relationships": {
-                "route": { "data": { "id": "Green-B", "type": "route" } },
-                "stop": { "data": { "id": "70128", "type": "stop" } },
-                "trip": { "data": { "id": "71194050", "type": "trip" } }
-                },
-                "type": "vehicle"
+                "label": carriage.label,
+                "carriage_sequence": carriage.carriage_sequence,
+                "occupancy_status": carriage.occupancy_status,
             }
-        """
+            for carriage in self.carriages
+        ]
+        template_dict_attributes["bearing"] = self.bearing
+        template_dict_attributes["carriages"] = carriage_dicts
+        template_dict_attributes["current_status"] = self.current_status
+        template_dict_attributes["current_stop_sequence"] = self.current_stop_sequence
+        template_dict_attributes["direction_id"] = self.direction_id
+        template_dict_attributes["label"] = self.label
+        template_dict_attributes["latitude"] = self.coordinates[0]
+        template_dict_attributes["longitude"] = self.coordinates[1]
+        template_dict_attributes["occupancy_status"] = self.occupancy_status
+        template_dict_attributes["revenue"] = "REVENUE"
+        template_dict_attributes["speed"] = self.speed
+        template_dict_attributes["updated_at"] = self.updated_at
+        template_dict_attributes["id"] = self.entity_id
+        template_dict_attributes["links"] = {"self": f"/vehicles/{self.vehicle_id}"}
+        template_dict_attributes["relationships"] = {
+            "route": {"data": {"id": f"{self.route_id}", "type": "route"}},
+            "stop": {"data": {"id": f"{self.stop_id}", "type": "stop"}},
+            "trip": {"data": {"id": f"{self.trip_id}", "type": "trip"}},
+        }
+        template_dict_attributes["type"] = "vehicle"
+        template_dict = {"attributes": template_dict_attributes}
+        return json.dumps(template_dict, indent=4)
 
     # TODO: convert f.write() to export to gobble format
     def save(self):

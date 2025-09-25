@@ -6,6 +6,7 @@ from config import CONFIG
 from fetch_entities import populate_feed_with_entities, get_vehicles_from_feed
 from VehiclePositionFeed import VehiclePositionFeed
 import util
+from event import process_event
 
 logger = set_up_logging(__name__)
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
@@ -29,7 +30,9 @@ def consume_pb(VehiclePositionFeed: VehiclePositionFeed, config: dict):
             for feed_entity in feed_entities:
                 entity = Entity(feed_entity, VehiclePositionFeed.agency)
                 VehiclePositionFeed.entities.append(entity)
-                entity.save()
+                update = entity.to_mbta_json()
+                yield update
+                # entity.save()
         else:
             # find and update entity
             for feed_entity in feed_entities:
@@ -41,7 +44,9 @@ def consume_pb(VehiclePositionFeed: VehiclePositionFeed, config: dict):
                         # check if last updated date is equivalent to new date, to prevent duplication
                         if entity.last_seen != timestamp:
                             entity.update(feed_entity)
-                            entity.save()
+                            update = entity.to_mbta_json()
+                            yield update
+                            # entity.save()
                         else:
                             continue
                     else:
