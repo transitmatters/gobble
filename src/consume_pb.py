@@ -10,7 +10,7 @@ tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
 
 
 # Similar to main.py
-def consume_pb(VehiclePositionFeed: VehiclePositionFeed, config: dict):
+def consume_pb(VehiclePositionFeed: VehiclePositionFeed, config: dict = {}):
 
     # replace with function from fetch_entities.py
     feed = populate_feed_with_entities(VehiclePositionFeed, config)
