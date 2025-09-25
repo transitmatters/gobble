@@ -22,7 +22,7 @@ EVENT_TYPE_MAP = {
 CURRENT_STATUS_MAP = {0: "ARR", 1: "ARR", 2: "DEP"}
 
 
-class Entity():
+class Entity:
     def __init__(self, entity, agency):
         self.entity_id: str = entity.id
         self.agency: str = agency
@@ -56,7 +56,7 @@ class Entity():
         self.occupancy_status: int = entity.vehicle.occupancy_status
         self.occupancy_percentage: float = entity.vehicle.occupancy_percentage
         self.congestion_level: int = entity.vehicle.congestion_level
-
+        self.last_seen = entity.vehicle.timestamp
         self.carriages: list[Carriage] = [Carriage(c) for c in entity.vehicle.multi_carriage_details]
 
     def update(self, entity):
@@ -73,6 +73,7 @@ class Entity():
         self.updated_at = datetime.datetime.fromtimestamp(entity.vehicle.timestamp).replace(tzinfo=util.EASTERN_TIME)
         self.stop_id = entity.vehicle.stop_id
         self.congestion_level = entity.vehicle.congestion_level
+        self.last_seen = entity.vehicle.timestamp
 
         self.carriages: list[Carriage] = [Carriage(c) for c in entity.vehicle.multi_carriage_details]
 
@@ -82,6 +83,42 @@ class Entity():
 
     def toJSON(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+
+    def to_mbta_json(self):
+        # TODO: create dict structure then convert to JSON
+        carriage_template_string = """
+        {
+            "label": "{}",
+            "occupancy_status": "{}",
+            "occupancy_percentage": "{}"
+            }
+        """
+        template_string = """
+            {
+                "attributes": {
+                "bearing": "{}",
+                "carriages": [],
+                "current_status": "INCOMING_AT",
+                "current_stop_sequence": 80,
+                "direction_id": 1,
+                "label": "3692-3806",
+                "latitude": 42.3483,
+                "longitude": -71.13686,
+                "occupancy_status": null,
+                "revenue": "REVENUE",
+                "speed": 10.5,
+                "updated_at": "2025-09-24T21:32:33-04:00"
+                },
+                "id": "G-10001",
+                "links": { "self": "/vehicles/G-10001" },
+                "relationships": {
+                "route": { "data": { "id": "Green-B", "type": "route" } },
+                "stop": { "data": { "id": "70128", "type": "stop" } },
+                "trip": { "data": { "id": "71194050", "type": "trip" } }
+                },
+                "type": "vehicle"
+            }
+        """
 
     # TODO: convert f.write() to export to gobble format
     def save(self):
