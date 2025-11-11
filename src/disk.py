@@ -33,15 +33,29 @@ DATA_DIR = pathlib.Path("data")
 STATE_FILENAME = "state.json"
 
 
-def write_event(event: dict):
-    dirname = DATA_DIR / pathlib.Path(
-        output_dir_path(
-            event["route_id"],
-            event["direction_id"],
-            event["stop_id"],
-            event["event_time"],
+def write_event(event: dict, agency: str = "MBTA"):
+    if agency == "MBTA":
+        dirname = DATA_DIR / pathlib.Path(
+            output_dir_path(
+                event["route_id"],
+                event["direction_id"],
+                event["stop_id"],
+                event["event_time"],
+            )
         )
-    )
+    else:
+        dirname = (
+            DATA_DIR
+            / agency
+            / pathlib.Path(
+                output_dir_path(
+                    event["route_id"],
+                    event["direction_id"],
+                    event["stop_id"],
+                    event["event_time"],
+                )
+            )
+        )
     dirname.mkdir(parents=True, exist_ok=True)
     pathname = dirname / CSV_FILENAME
     file_exists = os.path.isfile(pathname)
