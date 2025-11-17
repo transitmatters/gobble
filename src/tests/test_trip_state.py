@@ -126,7 +126,9 @@ class TestTripStateFileIO(unittest.TestCase):
 
 class TestTripStateIntegration(unittest.TestCase):
 
-    def test_realistic_workflow(self):
+    @patch("trip_state.write_trips_state_file")
+    @patch("trip_state.read_trips_state_file", return_value=None)
+    def test_realistic_workflow(self, mock_read, mock_write):
         """Test a realistic sequence of operations"""
         state = RouteTripsState("1")
         current_time = datetime.now(EASTERN_TIME)

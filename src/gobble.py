@@ -14,10 +14,14 @@ from event import process_event
 from logger import set_up_logging
 from trip_state import TripsStateManager
 import gtfs
+import gtfs_rt_client
 
 
 logging.basicConfig(level=logging.INFO, filename="gobble.log")
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
+
+# Determine which mode to use: SSE (default) or GTFS-RT
+USE_GTFS_RT = CONFIG.get("use_gtfs_rt", False)
 
 API_KEY = CONFIG["mbta"]["v3_api_key"]
 HEADERS = {"X-API-KEY": API_KEY, "Accept": "text/event-stream"}
@@ -67,6 +71,19 @@ def connect(routes: Set[str]) -> requests.Response:
 
 def client_thread(routes: Set[str]):
     trips_state = TripsStateManager()
+
+    if USE_GTFS_RT:
+        # GTFS-RT mode
+        logger.info(f"Starting GTFS-RT client thread for routes: {routes}")
+        client_thread_gtfs_rt(routes, trips_state)
+    else:
+        # SSE mode (default)
+        logger.info(f"Starting SSE client thread for routes: {routes}")
+        client_thread_sse(routes, trips_state)
+
+
+def client_thread_sse(routes: Set[str], trips_state: TripsStateManager):
+    """Client thread using MBTA SSE API."""
     while True:
         start_at = time.time()
         client = None
@@ -89,6 +106,33 @@ def client_thread(routes: Set[str]):
             if client is not None:
                 client.close()
             time.sleep(0.5)  # Just in case something is borked, to avoid hammering. It doesn't GIL!
+
+
+def client_thread_gtfs_rt(routes: Set[str], trips_state: TripsStateManager):
+    """Client thread using GTFS-RT polling."""
+    client = None
+    try:
+        client = gtfs_rt_client.create_gtfs_rt_client(CONFIG)
+
+        # Continuously poll and process events
+        for event in client.poll_events(routes):
+            try:
+                process_event(event, trips_state)
+            except Exception:
+                if tracer.enabled:
+                    logger.exception("Encountered an exception when processing GTFS-RT event", stack_info=True, exc_info=True)
+                else:
+                    traceback.print_exc()
+                continue
+
+    except Exception:
+        if tracer.enabled:
+            logger.exception("Encountered an exception in GTFS-RT client_thread", stack_info=True, exc_info=True)
+        else:
+            traceback.print_exc()
+    finally:
+        if client is not None:
+            client.close()
 
 
 def process_events(client: sseclient.SSEClient, trips_state: TripsStateManager):

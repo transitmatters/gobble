@@ -6,5 +6,11 @@
     "dir": null,
     "refresh_interval_days": 7
   },
+  "use_gtfs_rt": false,
+  "gtfs_rt": {
+    "feed_url": null,
+    "api_key": null,
+    "polling_interval": 10
+  },
   "DATADOG_TRACE_ENABLED": false
 }

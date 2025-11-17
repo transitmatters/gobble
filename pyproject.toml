@@ -17,6 +17,7 @@ ddtrace = "^3.13.0"
 python-json-logger = "^2.0.7"
 coverage = "^7.6.10"
 debugpy = "^1.8.14"
+gtfs-realtime-bindings = "^1.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pip = ">=24.1"
