@@ -120,7 +120,9 @@ def client_thread_gtfs_rt(routes: Set[str], trips_state: TripsStateManager):
                 process_event(event, trips_state)
             except Exception:
                 if tracer.enabled:
-                    logger.exception("Encountered an exception when processing GTFS-RT event", stack_info=True, exc_info=True)
+                    logger.exception(
+                        "Encountered an exception when processing GTFS-RT event", stack_info=True, exc_info=True
+                    )
                 else:
                     traceback.print_exc()
                 continue
