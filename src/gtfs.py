@@ -24,7 +24,7 @@ tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
 MAIN_DIR = pathlib.Path("./data/gtfs_archives/")
 MAIN_DIR.mkdir(parents=True, exist_ok=True)
 
-GTFS_ARCHIVES_PREFIX = "https://cdn.mbta.com/archive/"
+GTFS_ARCHIVES_PREFIX = CONFIG["GTFS_ARCHIVES_PREFIX"]
 GTFS_ARCHIVES_FILENAME = "archived_feeds.txt"
 
 # defining these columns in particular becasue we use them everywhere
@@ -72,17 +72,20 @@ class GtfsArchive:
 
 
 @tracer.wrap()
-def _download_gtfs_archives_list() -> pd.DataFrame:
+def _download_gtfs_archives_list() -> Optional[pd.DataFrame]:
     """Downloads list of GTFS archive urls. This file will get overwritten."""
     archives_df = None
     try:
         archives_df = pd.read_csv(urljoin(GTFS_ARCHIVES_PREFIX, GTFS_ARCHIVES_FILENAME))
-        archives_df.to_csv(MAIN_DIR / GTFS_ARCHIVES_FILENAME)
+        try:
+            archives_df.to_csv(MAIN_DIR / GTFS_ARCHIVES_FILENAME)
+        except (PermissionError, OSError, IOError) as e:
+            logger.error(f"Failed to write GTFS archives file due to permission error: {e}")
+            logger.warning("Continuing with downloaded archives data without saving to disk")
         return archives_df
-    except (PermissionError, OSError, IOError) as e:
-        logger.error(f"Failed to write GTFS archives file due to permission error: {e}")
-        logger.warning("Continuing with downloaded archives data without saving to disk")
-        return archives_df
+    except Exception as e:
+        logger.error(f"Failed to download GTFS archives list: {e}")
+        return None
 
 
 def to_dateint(date: datetime.date) -> int:
@@ -159,6 +162,18 @@ def get_gtfs_archive(dateint: int):
             else:
                 logger.info("Fetching latest archives to check for updates.")
             archives_df = _download_gtfs_archives_list()
+
+            # If download failed, try to use fallback
+            if archives_df is None:
+                logger.warning("Failed to download GTFS archives list. Attempting to use most recent available archive.")
+                fallback_archive = _find_most_recent_gtfs_archive()
+                if fallback_archive:
+                    logger.info(f"Using fallback GTFS archive: {fallback_archive}")
+                    return fallback_archive
+                else:
+                    logger.error("No accessible GTFS archives found. Cannot continue.")
+                    raise RuntimeError("Cannot download GTFS archives and no local archives available")
+
             matches = archives_df[(archives_df.feed_start_date <= dateint) & (archives_df.feed_end_date >= dateint)]
 
         if len(matches) == 0:
@@ -253,7 +268,7 @@ def read_gtfs(date: datetime.date, routes_filter: Optional[Set[str]] = None) -> 
     if routes_filter:
         trips = trips[trips.route_id.isin(routes_filter)]
 
-    stops = pd.read_csv(archive_dir / "stops.txt")
+    stops = pd.read_csv(archive_dir / "stops.txt", dtype={"stop_id": str})
 
     stop_times = pd.read_csv(
         archive_dir / "stop_times.txt", dtype={"trip_id": str, "stop_id": str}, usecols=STOP_TIMES_COLS
