@@ -1,4 +1,4 @@
-"""SEPTA (Southeastern Pennsylvania Transportation Authority) route constants"""
+"""SEPTA Regional Rail (Southeastern Pennsylvania Transportation Authority) route constants"""
 
 BUS_STOPS = {}
 
