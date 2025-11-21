@@ -1,7 +1,7 @@
 from datetime import datetime
-from unittest import TestCase
 from unittest.mock import Mock, patch
 from google.transit import gtfs_realtime_pb2
+import pytest
 
 from gtfs_rt_client import (
     GtfsRtClient,
@@ -11,23 +11,96 @@ from gtfs_rt_client import (
 )
 
 
-class TestGtfsRtClient(TestCase):
+class TestGtfsRtClient:
     """Test suite for GTFS-RT client functionality."""
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+    def setup(self):
         """Set up test fixtures."""
         self.feed_url = "https://example.com/gtfs-rt/vehicle-positions"
         self.api_key = "test_api_key"
 
     def test_client_initialization(self):
-        """Test GTFS-RT client initialization."""
-        client = GtfsRtClient(feed_url=self.feed_url, api_key=self.api_key, polling_interval=15)
+        """Test GTFS-RT client initialization with default header auth."""
+        client = GtfsRtClient(
+            feed_url=self.feed_url, api_key=self.api_key, polling_interval=15
+        )
 
         assert client.feed_url == self.feed_url
         assert client.api_key == self.api_key
         assert client.polling_interval == 15
+        assert client.api_key_method == "header"
+        assert client.api_key_param_name == "X-API-KEY"
         assert "X-API-KEY" in client.session.headers
         assert client.session.headers["X-API-KEY"] == self.api_key
+
+    def test_client_initialization_with_header_auth(self):
+        """Test GTFS-RT client initialization with custom header authentication."""
+        client = GtfsRtClient(
+            feed_url=self.feed_url,
+            api_key=self.api_key,
+            api_key_method="header",
+            api_key_param_name="api_key",
+        )
+
+        assert client.api_key_method == "header"
+        assert client.api_key_param_name == "api_key"
+        assert "api_key" in client.session.headers
+        assert client.session.headers["api_key"] == self.api_key
+
+    def test_client_initialization_with_query_auth(self):
+        """Test GTFS-RT client initialization with query parameter authentication."""
+        feed_url = "http://api.example.com/gtfs-rt"
+        client = GtfsRtClient(
+            feed_url=feed_url,
+            api_key=self.api_key,
+            api_key_method="query",
+            api_key_param_name="api_key",
+        )
+
+        assert client.api_key_method == "query"
+        assert client.api_key_param_name == "api_key"
+        assert f"api_key={self.api_key}" in client.feed_url
+        # Verify no header was set
+        assert "X-API-KEY" not in client.session.headers
+
+    def test_client_initialization_with_query_auth_existing_params(self):
+        """Test query auth preserves existing URL parameters."""
+        feed_url = "http://api.example.com/gtfs-rt?format=pb&agency=test"
+        client = GtfsRtClient(
+            feed_url=feed_url,
+            api_key="secret123",
+            api_key_method="query",
+            api_key_param_name="key",
+        )
+
+        # Should have both existing params and new key
+        assert "format=pb" in client.feed_url
+        assert "agency=test" in client.feed_url
+        assert "key=secret123" in client.feed_url
+
+    def test_client_initialization_with_bearer_auth(self):
+        """Test GTFS-RT client initialization with bearer token authentication."""
+        client = GtfsRtClient(
+            feed_url=self.feed_url,
+            api_key=self.api_key,
+            api_key_method="bearer",
+        )
+
+        assert client.api_key_method == "bearer"
+        assert "Authorization" in client.session.headers
+        assert client.session.headers["Authorization"] == f"Bearer {self.api_key}"
+
+    def test_client_initialization_with_no_auth(self):
+        """Test GTFS-RT client initialization with no authentication."""
+        client = GtfsRtClient(
+            feed_url=self.feed_url,
+            api_key_method="none",
+        )
+
+        assert client.api_key_method == "none"
+        assert "X-API-KEY" not in client.session.headers
+        assert "Authorization" not in client.session.headers
 
     def test_client_initialization_no_api_key(self):
         """Test client initialization without API key."""
@@ -134,7 +207,10 @@ class TestGtfsRtClient(TestCase):
         assert event is not None
         assert event["attributes"]["occupancy_status"] == "FEW_SEATS_AVAILABLE"
         assert len(event["attributes"]["carriages"]) == 1
-        assert event["attributes"]["carriages"][0]["occupancy_status"] == "FEW_SEATS_AVAILABLE"
+        assert (
+            event["attributes"]["carriages"][0]["occupancy_status"]
+            == "FEW_SEATS_AVAILABLE"
+        )
         assert event["attributes"]["carriages"][0]["occupancy_percentage"] == 75
 
     def test_convert_vehicle_position_missing_trip_id(self):
@@ -510,7 +586,13 @@ class TestGtfsRtClient(TestCase):
                 "direction_id": 0,
                 "label": "1234",
                 "occupancy_status": None,
-                "carriages": [{"label": "1234", "occupancy_status": None, "occupancy_percentage": None}],
+                "carriages": [
+                    {
+                        "label": "1234",
+                        "occupancy_status": None,
+                        "occupancy_percentage": None,
+                    }
+                ],
             },
             "relationships": {
                 "route": {"data": {"id": "Red"}},
@@ -524,8 +606,16 @@ class TestGtfsRtClient(TestCase):
             "attributes": {
                 **old_event["attributes"],
                 "carriages": [
-                    {"label": "1234", "occupancy_status": "EMPTY", "occupancy_percentage": None},
-                    {"label": "5678", "occupancy_status": "FULL", "occupancy_percentage": None},
+                    {
+                        "label": "1234",
+                        "occupancy_status": "EMPTY",
+                        "occupancy_percentage": None,
+                    },
+                    {
+                        "label": "5678",
+                        "occupancy_status": "FULL",
+                        "occupancy_percentage": None,
+                    },
                 ],  # More carriages
             },
         }
@@ -541,6 +631,7 @@ class TestGtfsRtClient(TestCase):
 
         assert client._previous_positions == {}
 
+    @pytest.mark.integration
     @patch("gtfs_rt_client.time.sleep")
     @patch("gtfs_rt_client.requests.Session.get")
     def test_poll_events_deduplication_integration(self, mock_get, mock_sleep):
