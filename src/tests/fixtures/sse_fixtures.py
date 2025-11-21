@@ -36,13 +36,13 @@ def sample_sse_event():
                 "label": "1234",
                 "occupancy_status": "MANY_SEATS_AVAILABLE",
                 "occupancy_percentage": 75,
-                "carriages": []
+                "carriages": [],
             },
             "relationships": {
                 "route": {"data": {"id": "Red"}},
                 "stop": {"data": {"id": "70001"}},
-                "trip": {"data": {"id": "trip_123"}}
-            }
+                "trip": {"data": {"id": "trip_123"}},
+            },
         }
     }
 
@@ -66,13 +66,13 @@ def sample_event_reset_sequence():
                     "label": "1234",
                     "occupancy_status": "MANY_SEATS_AVAILABLE",
                     "occupancy_percentage": 75,
-                    "carriages": []
+                    "carriages": [],
                 },
                 "relationships": {
                     "route": {"data": {"id": "Red"}},
                     "stop": {"data": {"id": "70001"}},
-                    "trip": {"data": {"id": "trip_123"}}
-                }
+                    "trip": {"data": {"id": "trip_123"}},
+                },
             }
         },
         {
@@ -87,13 +87,13 @@ def sample_event_reset_sequence():
                     "label": "5678",
                     "occupancy_status": "SEATS_AVAILABLE",
                     "occupancy_percentage": 50,
-                    "carriages": []
+                    "carriages": [],
                 },
                 "relationships": {
                     "route": {"data": {"id": "Red"}},
                     "stop": {"data": {"id": "70002"}},
-                    "trip": {"data": {"id": "trip_456"}}
-                }
+                    "trip": {"data": {"id": "trip_456"}},
+                },
             }
-        }
+        },
     ]

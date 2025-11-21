@@ -36,13 +36,13 @@ def sample_gtfs_rt_event():
             "label": "1234",
             "occupancy_status": "MANY_SEATS_AVAILABLE",
             "occupancy_percentage": 75,
-            "carriages": []
+            "carriages": [],
         },
         "relationships": {
             "route": {"data": {"id": "Red"}},
             "stop": {"data": {"id": "70001"}},
-            "trip": {"data": {"id": "trip_123"}}
-        }
+            "trip": {"data": {"id": "trip_123"}},
+        },
     }
 
 

@@ -22,9 +22,7 @@ class TestGtfsRtClient:
 
     def test_client_initialization(self):
         """Test GTFS-RT client initialization with default header auth."""
-        client = GtfsRtClient(
-            feed_url=self.feed_url, api_key=self.api_key, polling_interval=15
-        )
+        client = GtfsRtClient(feed_url=self.feed_url, api_key=self.api_key, polling_interval=15)
 
         assert client.feed_url == self.feed_url
         assert client.api_key == self.api_key
@@ -207,10 +205,7 @@ class TestGtfsRtClient:
         assert event is not None
         assert event["attributes"]["occupancy_status"] == "FEW_SEATS_AVAILABLE"
         assert len(event["attributes"]["carriages"]) == 1
-        assert (
-            event["attributes"]["carriages"][0]["occupancy_status"]
-            == "FEW_SEATS_AVAILABLE"
-        )
+        assert event["attributes"]["carriages"][0]["occupancy_status"] == "FEW_SEATS_AVAILABLE"
         assert event["attributes"]["carriages"][0]["occupancy_percentage"] == 75
 
     def test_convert_vehicle_position_missing_trip_id(self):

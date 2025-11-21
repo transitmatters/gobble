@@ -31,9 +31,7 @@ class TestWriteEvent:
             "vehicle_id": "0",
             "vehicle_label": "1234",
             "event_type": "ARR",
-            "event_time": datetime.datetime(
-                2024, 1, 15, 10, 30, 0, tzinfo=EASTERN_TIME
-            ),
+            "event_time": datetime.datetime(2024, 1, 15, 10, 30, 0, tzinfo=EASTERN_TIME),
             "scheduled_headway": 300.0,
             "scheduled_tt": 120,
             "vehicle_consist": "1234",
@@ -75,9 +73,7 @@ class TestWriteEvent:
             "vehicle_id": "0",
             "vehicle_label": "1234",
             "event_type": "ARR",
-            "event_time": datetime.datetime(
-                2024, 1, 15, 10, 30, 0, tzinfo=EASTERN_TIME
-            ),
+            "event_time": datetime.datetime(2024, 1, 15, 10, 30, 0, tzinfo=EASTERN_TIME),
             "scheduled_headway": 300.0,
             "scheduled_tt": 120,
             "vehicle_consist": "1234",
@@ -95,9 +91,7 @@ class TestWriteEvent:
             "vehicle_id": "0",
             "vehicle_label": "5678",
             "event_type": "DEP",
-            "event_time": datetime.datetime(
-                2024, 1, 15, 10, 35, 0, tzinfo=EASTERN_TIME
-            ),
+            "event_time": datetime.datetime(2024, 1, 15, 10, 35, 0, tzinfo=EASTERN_TIME),
             "scheduled_headway": 300.0,
             "scheduled_tt": 180,
             "vehicle_consist": "5678",
@@ -141,9 +135,7 @@ class TestWriteEvent:
             "vehicle_id": "0",
             "vehicle_label": "9999",
             "event_type": "ARR",
-            "event_time": datetime.datetime(
-                2024, 3, 20, 15, 45, 0, tzinfo=EASTERN_TIME
-            ),
+            "event_time": datetime.datetime(2024, 3, 20, 15, 45, 0, tzinfo=EASTERN_TIME),
             "scheduled_headway": 240.0,
             "scheduled_tt": 90,
             "vehicle_consist": "9999",
@@ -178,9 +170,7 @@ class TestWriteEvent:
             "vehicle_id": "0",
             "vehicle_label": "1234",
             "event_type": "ARR",
-            "event_time": datetime.datetime(
-                2024, 1, 15, 10, 30, 0, tzinfo=EASTERN_TIME
-            ),
+            "event_time": datetime.datetime(2024, 1, 15, 10, 30, 0, tzinfo=EASTERN_TIME),
             "scheduled_headway": 300.0,
             "scheduled_tt": 120,
             "vehicle_consist": "1234",
@@ -198,9 +188,7 @@ class TestWriteEvent:
             "vehicle_id": "0",
             "vehicle_label": "1234",
             "event_type": "DEP",
-            "event_time": datetime.datetime(
-                2024, 1, 15, 10, 32, 0, tzinfo=EASTERN_TIME
-            ),
+            "event_time": datetime.datetime(2024, 1, 15, 10, 32, 0, tzinfo=EASTERN_TIME),
             "scheduled_headway": 300.0,
             "scheduled_tt": 120,
             "vehicle_consist": "1234",

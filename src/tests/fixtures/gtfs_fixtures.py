@@ -7,11 +7,6 @@ recreating mock DataFrames in every test function.
 import pytest
 import pandas as pd
 from unittest.mock import Mock
-import sys
-from pathlib import Path
-
-# Add src to path to import gtfs module
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 import gtfs
 
 
