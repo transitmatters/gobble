@@ -8,7 +8,7 @@ from typing import Set, Iterator, Optional, Dict, Any, Literal
 from datetime import datetime, timezone
 from google.transit import gtfs_realtime_pb2
 from ddtrace import tracer
-from urllib.parse import urljoin, urlparse, parse_qs, urlencode
+from urllib.parse import urlparse, parse_qs, urlencode
 
 from config import CONFIG
 from logger import set_up_logging

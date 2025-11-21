@@ -4,7 +4,7 @@ import pandas as pd
 import pathlib
 import shutil
 from zoneinfo import ZoneInfo
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import pytest
 from util import to_dateint
 

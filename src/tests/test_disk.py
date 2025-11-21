@@ -1,8 +1,6 @@
 import csv
 import datetime
 import pathlib
-import tempfile
-import shutil
 import pytest
 
 import disk

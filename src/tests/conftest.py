@@ -2,21 +2,6 @@ import pytest
 import importlib
 
 # Import fixtures from separate fixture modules
-from fixtures.gtfs_rt_fixtures import (
-    gtfs_rt_client_config,
-    sample_gtfs_rt_event,
-    basic_feed_message,
-    vehicle_with_occupancy,
-)
-from fixtures.sse_fixtures import sse_client_config, sample_sse_event, sample_event_reset_sequence
-from fixtures.gtfs_fixtures import (
-    mock_stops_df,
-    mock_trips_df,
-    mock_stop_times_df,
-    mock_gtfs_archive,
-    empty_trips_df,
-    empty_stop_times_df,
-)
 
 
 # MBTA-only configuration (removed agency parametrization)
