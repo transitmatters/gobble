@@ -1,7 +1,7 @@
 {
-  "agency": "septa_regionalrail",
+  "agency": "ctdot",
   "GTFS_ARCHIVES_PREFIX": "http://127.0.0.1:8000",
-  "GTFS_ARCHIVES_FILENAME": "archived_feeds.txt?feed_id=mdb-503",
+  "GTFS_ARCHIVES_FILENAME": "archived_feeds.txt?feed_id=tld-4436",
   "mbta": {
     "v3_api_key": null
   },
@@ -11,10 +11,10 @@
   },
   "use_gtfs_rt": true,
   "gtfs_rt": {
-    "mobility_database_id": "mdb-503",
-    "feed_url": "https://www3.septa.org/gtfsrt/septarail-pa-us/Vehicle/rtVehiclePosition.pb",
+    "mobility_database_id": "tld-4436",
+    "feed_url": "https://cttprdtmgtfs.ctttrpcloud.com/TMGTFSRealTimeWebService/Vehicle/VehiclePositions.pb",
     "api_key": null,
-    "api_key_method": "none",
+    "api_key_method": "header",
     "api_key_param_name": "X-API-KEY",
     "polling_interval": 10
   },

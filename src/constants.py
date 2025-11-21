@@ -21,6 +21,10 @@ AGENCY = CONFIG.get("agency", "mbta").lower()
 AGENCY_MODULES = {
     "mbta": "agencies.mbta_routes",
     "septa_regionalrail": "agencies.septa_rr_routes",
+    "ctdot": "agencies.ctdot_routes",
+    "caltrain": "agencies.caltrain_routes",
+    "denver_rtd": "agencies.denver_rtd_routes",
+    "kingcountymetro": "agencies.kingcountymetro_routes",
 }
 
 if AGENCY not in AGENCY_MODULES:

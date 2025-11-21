@@ -1,6 +1,7 @@
 {
   "agency": "mbta",
   "GTFS_ARCHIVES_PREFIX": "https://cdn.mbta.com/archive/",
+  "GTFS_ARCHIVES_FILENAME": "archived_feeds.txt",
   "mbta": {
     "v3_api_key": null
   },
@@ -12,6 +13,8 @@
   "gtfs_rt": {
     "feed_url": null,
     "api_key": null,
+    "api_key_method": "header",
+    "api_key_param_name": "X-API-KEY",
     "polling_interval": 10
   },
   "DATADOG_TRACE_ENABLED": false
