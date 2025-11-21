@@ -174,6 +174,10 @@ def process_event(update, trips_state: TripsStateManager):
                 ],
                 index=[0],
             )
+            # Ensure dtypes match GTFS data for merge operations
+            df["route_id"] = df["route_id"].astype(str)
+            df["direction_id"] = df["direction_id"].astype(int)
+            df["stop_id"] = df["stop_id"].astype(str)
 
             event = enrich_event(df, gtfs_archive)
             disk.write_event(event)

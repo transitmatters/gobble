@@ -145,12 +145,16 @@ class RouteTripsState:
             del self.trips[trip_id]
 
         if stale_trips:
-            logger.info(f"Cleaned up {len(stale_trips)} stale trip states for route {self.route_id}")
+            logger.info(
+                f"Cleaned up {len(stale_trips)} stale trip states for route {self.route_id}"
+            )
 
     def _purge_trips_state_if_overnight(self) -> None:
         current_service_date = get_current_service_date()
         if self.service_date < current_service_date:
-            logger.info(f"Purging trip state for route {self.route_id} on new service date {current_service_date}")
+            logger.info(
+                f"Purging trip state for route {self.route_id} on new service date {current_service_date}"
+            )
             self.service_date = current_service_date
             self.trips = {}
 
@@ -164,7 +168,9 @@ class TripsStateManager:
     def __init__(self):
         self.route_states = {}
 
-    def set_trip_state(self, route_id: str, trip_id: str, trip_state: TripState) -> None:
+    def set_trip_state(
+        self, route_id: str, trip_id: str, trip_state: TripState
+    ) -> None:
         if route_id not in self.route_states:
             self.route_states[route_id] = RouteTripsState(route_id)
         self.route_states[route_id].set_trip_state(trip_id, trip_state)

@@ -4,10 +4,11 @@ GTFS-RT client for consuming VehiclePositions feeds and converting them to gobbl
 
 import time
 import requests
-from typing import Set, Iterator, Optional, Dict, Any
+from typing import Set, Iterator, Optional, Dict, Any, Literal
 from datetime import datetime, timezone
 from google.transit import gtfs_realtime_pb2
 from ddtrace import tracer
+from urllib.parse import urljoin, urlparse, parse_qs, urlencode
 
 from config import CONFIG
 from logger import set_up_logging
@@ -39,7 +40,14 @@ OCCUPANCY_STATUS_MAP = {
 class GtfsRtClient:
     """Client for fetching and parsing GTFS-RT VehiclePositions feeds."""
 
-    def __init__(self, feed_url: str, api_key: Optional[str] = None, polling_interval: int = 10):
+    def __init__(
+        self,
+        feed_url: str,
+        api_key: Optional[str] = None,
+        polling_interval: int = 10,
+        api_key_method: Literal["header", "query", "bearer", "none"] = "header",
+        api_key_param_name: str = "X-API-KEY",
+    ):
         """
         Initialize GTFS-RT client.
 
@@ -47,19 +55,54 @@ class GtfsRtClient:
             feed_url: URL of the GTFS-RT VehiclePositions feed
             api_key: Optional API key for authentication
             polling_interval: Seconds between polls (default: 10)
+            api_key_method: How to pass the API key ("header", "query", "bearer", "none")
+            api_key_param_name: Header name or query param name for the API key (default: "X-API-KEY")
         """
-        self.feed_url = feed_url
         self.api_key = api_key
         self.polling_interval = polling_interval
+        self.api_key_method = api_key_method
+        self.api_key_param_name = api_key_param_name
         self.session = requests.Session()  # Connection pooling
 
         # Cache previous vehicle positions for de-duplication
         # Key: trip_id, Value: event dict
         self._previous_positions: Dict[str, dict] = {}
 
-        # Set headers
-        if api_key:
-            self.session.headers.update({"X-API-KEY": api_key})
+        # Build the feed URL with authentication if needed
+        self.feed_url = self._build_authenticated_url(feed_url)
+
+        # Set headers for header-based or bearer authentication
+        self._set_authentication_headers()
+
+    def _build_authenticated_url(self, feed_url: str) -> str:
+        """
+        Build the feed URL with query parameter authentication if needed.
+
+        Args:
+            feed_url: The base feed URL
+
+        Returns:
+            The URL with query parameter added if using query method
+        """
+        # Only add query parameter if using query method and have an API key
+        if self.api_key_method == "query" and self.api_key:
+            parsed = urlparse(feed_url)
+            params = parse_qs(parsed.query)
+            # Add API key parameter
+            params[self.api_key_param_name] = [self.api_key]
+            new_query = urlencode(params, doseq=True)
+            return f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{new_query}"
+        return feed_url
+
+    def _set_authentication_headers(self) -> None:
+        """Set up authentication headers based on the authentication method."""
+        if not self.api_key:
+            return
+
+        if self.api_key_method == "header":
+            self.session.headers.update({self.api_key_param_name: self.api_key})
+        elif self.api_key_method == "bearer":
+            self.session.headers.update({"Authorization": f"Bearer {self.api_key}"})
 
     def _has_position_changed(self, trip_id: str, new_event: dict) -> bool:
         """
@@ -85,15 +128,24 @@ class GtfsRtClient:
             return True
 
         # Check if current status changed (e.g., IN_TRANSIT_TO -> STOPPED_AT)
-        if prev["attributes"]["current_status"] != new_event["attributes"]["current_status"]:
+        if (
+            prev["attributes"]["current_status"]
+            != new_event["attributes"]["current_status"]
+        ):
             return True
 
         # Check if stop sequence changed (vehicle progressed through the route)
-        if prev["attributes"]["current_stop_sequence"] != new_event["attributes"]["current_stop_sequence"]:
+        if (
+            prev["attributes"]["current_stop_sequence"]
+            != new_event["attributes"]["current_stop_sequence"]
+        ):
             return True
 
         # Check if occupancy status changed
-        if prev["attributes"]["occupancy_status"] != new_event["attributes"]["occupancy_status"]:
+        if (
+            prev["attributes"]["occupancy_status"]
+            != new_event["attributes"]["occupancy_status"]
+        ):
             return True
 
         # Check if carriages changed (for multi-car consists)
@@ -159,7 +211,9 @@ class GtfsRtClient:
 
                                 # Only yield if position has changed
                                 if self._has_position_changed(trip_id, event):
-                                    logger.debug(f"Position changed for trip {trip_id}, yielding event")
+                                    logger.debug(
+                                        f"Position changed for trip {trip_id}, yielding event"
+                                    )
                                     yield event
 
                                 # Update cached position
@@ -181,7 +235,9 @@ class GtfsRtClient:
 
 
 @tracer.wrap()
-def convert_vehicle_position_to_event(vehicle: gtfs_realtime_pb2.VehiclePosition) -> Optional[dict]:
+def convert_vehicle_position_to_event(
+    vehicle: gtfs_realtime_pb2.VehiclePosition,
+) -> Optional[dict]:
     """
     Convert GTFS-RT VehiclePosition to gobble's internal event format.
 
@@ -196,7 +252,9 @@ def convert_vehicle_position_to_event(vehicle: gtfs_realtime_pb2.VehiclePosition
         trip_id = vehicle.trip.trip_id if vehicle.trip.HasField("trip_id") else None
         route_id = vehicle.trip.route_id if vehicle.trip.HasField("route_id") else None
         stop_id = vehicle.stop_id if vehicle.HasField("stop_id") else None
-        direction_id = vehicle.trip.direction_id if vehicle.trip.HasField("direction_id") else 0
+        direction_id = (
+            vehicle.trip.direction_id if vehicle.trip.HasField("direction_id") else 0
+        )
 
         # Skip if missing critical fields
         if not trip_id or not route_id:
@@ -204,7 +262,9 @@ def convert_vehicle_position_to_event(vehicle: gtfs_realtime_pb2.VehiclePosition
             return None
 
         # Extract current status
-        current_status = VEHICLE_STOP_STATUS_MAP.get(vehicle.current_status, "IN_TRANSIT_TO")
+        current_status = VEHICLE_STOP_STATUS_MAP.get(
+            vehicle.current_status, "IN_TRANSIT_TO"
+        )
 
         # Extract timestamp (GTFS-RT uses Unix epoch seconds)
         if vehicle.HasField("timestamp"):
@@ -217,17 +277,27 @@ def convert_vehicle_position_to_event(vehicle: gtfs_realtime_pb2.VehiclePosition
         updated_at_iso = updated_at.isoformat()
 
         # Extract current stop sequence
-        current_stop_sequence = vehicle.current_stop_sequence if vehicle.HasField("current_stop_sequence") else 0
+        current_stop_sequence = (
+            vehicle.current_stop_sequence
+            if vehicle.HasField("current_stop_sequence")
+            else 0
+        )
 
         # Extract vehicle label
-        vehicle_label = vehicle.vehicle.label if vehicle.vehicle.HasField("label") else vehicle.vehicle.id
+        vehicle_label = (
+            vehicle.vehicle.label
+            if vehicle.vehicle.HasField("label")
+            else vehicle.vehicle.id
+        )
 
         # Extract occupancy information
         occupancy_status = None
         occupancy_percentage = None
 
         if vehicle.HasField("occupancy_status"):
-            occupancy_status = OCCUPANCY_STATUS_MAP.get(vehicle.occupancy_status, "NO_DATA_AVAILABLE")
+            occupancy_status = OCCUPANCY_STATUS_MAP.get(
+                vehicle.occupancy_status, "NO_DATA_AVAILABLE"
+            )
 
         if vehicle.HasField("occupancy_percentage"):
             occupancy_percentage = vehicle.occupancy_percentage
@@ -259,8 +329,13 @@ def convert_vehicle_position_to_event(vehicle: gtfs_realtime_pb2.VehiclePosition
                     )
 
                 # Add occupancy percentage if present and valid (not -1)
-                if carriage.HasField("occupancy_percentage") and carriage.occupancy_percentage >= 0:
-                    carriage_data["occupancy_percentage"] = carriage.occupancy_percentage
+                if (
+                    carriage.HasField("occupancy_percentage")
+                    and carriage.occupancy_percentage >= 0
+                ):
+                    carriage_data["occupancy_percentage"] = (
+                        carriage.occupancy_percentage
+                    )
 
                 # Add carriage sequence (position in train)
                 if carriage.HasField("carriage_sequence"):
@@ -304,11 +379,20 @@ def create_gtfs_rt_client(config: dict) -> GtfsRtClient:
     Returns:
         Configured GtfsRtClient instance
     """
-    feed_url = config.get("gtfs_rt", {}).get("feed_url")
-    api_key = config.get("gtfs_rt", {}).get("api_key")
-    polling_interval = config.get("gtfs_rt", {}).get("polling_interval", 10)
+    gtfs_rt_config = config.get("gtfs_rt", {})
+    feed_url = gtfs_rt_config.get("feed_url")
+    api_key = gtfs_rt_config.get("api_key")
+    polling_interval = gtfs_rt_config.get("polling_interval", 10)
+    api_key_method = gtfs_rt_config.get("api_key_method", "header")
+    api_key_param_name = gtfs_rt_config.get("api_key_param_name", "X-API-KEY")
 
     if not feed_url:
         raise ValueError("GTFS-RT feed_url must be configured")
 
-    return GtfsRtClient(feed_url=feed_url, api_key=api_key, polling_interval=polling_interval)
+    return GtfsRtClient(
+        feed_url=feed_url,
+        api_key=api_key,
+        polling_interval=polling_interval,
+        api_key_method=api_key_method,
+        api_key_param_name=api_key_param_name,
+    )
