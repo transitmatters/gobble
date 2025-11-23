@@ -23,6 +23,7 @@ echo "Deploying Gobble..."
 echo "View stack log here: https://$AWS_REGION.console.aws.amazon.com/cloudformation/home?region=$AWS_REGION"
 
 aws cloudformation deploy --stack-name $STACK_NAME \
+    --tags service=gobble env=prod \
     --template-file cloudformation.json \
     --capabilities CAPABILITY_NAMED_IAM \
     --no-fail-on-empty-changeset
