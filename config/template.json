@@ -5,5 +5,6 @@
   "gtfs": {
     "dir": null
   },
-  "DATADOG_TRACE_ENABLED": false
+  "DATADOG_TRACE_ENABLED": false,
+  "file_retention_days": 180
 }

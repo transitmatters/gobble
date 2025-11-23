@@ -45,6 +45,7 @@ def _compress_and_upload_file(fp: str):
 def upload_todays_events_to_s3():
     """Upload today's events to the TM s3 bucket."""
     start_time = time.time()
+    start_datetime = datetime.datetime.now()
 
     logger.info("Beginning upload of recent events to s3.")
     pull_date = service_date(datetime.datetime.now(EASTERN_TIME))
@@ -63,7 +64,7 @@ def upload_todays_events_to_s3():
     logger.info(f"Uploaded {len(files_updated_today)} files to s3, took {end_time - start_time} seconds.")
 
     # cleanup old files, free up disk space
-    cleanup_old_files()
+    cleanup_old_files(reference_time=start_datetime)
 
 
 if __name__ == "__main__":
