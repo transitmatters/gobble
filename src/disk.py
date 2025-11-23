@@ -29,6 +29,9 @@ CSV_FIELDS = [
     "event_time",
     "scheduled_headway",
     "scheduled_tt",
+    "vehicle_consist",
+    "occupancy_status",
+    "occupancy_percentage",
 ]
 DATA_DIR = pathlib.Path("data")
 STATE_FILENAME = "state.json"

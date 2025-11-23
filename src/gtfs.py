@@ -74,9 +74,15 @@ class GtfsArchive:
 @tracer.wrap()
 def _download_gtfs_archives_list() -> pd.DataFrame:
     """Downloads list of GTFS archive urls. This file will get overwritten."""
-    archives_df = pd.read_csv(urljoin(GTFS_ARCHIVES_PREFIX, GTFS_ARCHIVES_FILENAME))
-    archives_df.to_csv(MAIN_DIR / GTFS_ARCHIVES_FILENAME)
-    return archives_df
+    archives_df = None
+    try:
+        archives_df = pd.read_csv(urljoin(GTFS_ARCHIVES_PREFIX, GTFS_ARCHIVES_FILENAME))
+        archives_df.to_csv(MAIN_DIR / GTFS_ARCHIVES_FILENAME)
+        return archives_df
+    except (PermissionError, OSError, IOError) as e:
+        logger.error(f"Failed to write GTFS archives file due to permission error: {e}")
+        logger.warning("Continuing with downloaded archives data without saving to disk")
+        return archives_df
 
 
 def to_dateint(date: datetime.date) -> int:
@@ -84,40 +90,123 @@ def to_dateint(date: datetime.date) -> int:
     return int(str(date).replace("-", ""))
 
 
+def _find_most_recent_gtfs_archive() -> Optional[pathlib.Path]:
+    """
+    Find the most recent GTFS archive directory that exists and is accessible.
+    Returns None if no accessible archives are found.
+    """
+    try:
+        # Get all directories in the GTFS archives folder
+        archive_dirs = [d for d in MAIN_DIR.iterdir() if d.is_dir() and d.name != "archived_feeds.txt"]
+
+        if not archive_dirs:
+            return None
+
+        # Sort by directory name (which should be date-based) in descending order
+        archive_dirs.sort(key=lambda x: x.name, reverse=True)
+
+        # Return the first accessible directory
+        for archive_dir in archive_dirs:
+            try:
+                # Test if we can read the directory and its contents
+                list(archive_dir.iterdir())
+                return archive_dir
+            except (PermissionError, OSError, IOError):
+                logger.warning(f"Cannot access GTFS archive directory: {archive_dir}")
+                continue
+
+        return None
+    except (PermissionError, OSError, IOError) as e:
+        logger.error(f"Failed to scan GTFS archives directory: {e}")
+        return None
+
+
 @tracer.wrap()
 def get_gtfs_archive(dateint: int):
     """
     Determine which GTFS archive corresponds to the date.
     Returns that archive folder, downloading if it doesn't yet exist.
+    Falls back to most recent available archive if permission errors occur.
     """
     matches = pd.DataFrame()
-    if (MAIN_DIR / GTFS_ARCHIVES_FILENAME).exists():
-        archives_df = pd.read_csv(MAIN_DIR / GTFS_ARCHIVES_FILENAME)
-        matches = archives_df[(archives_df.feed_start_date <= dateint) & (archives_df.feed_end_date >= dateint)]
+    should_refetch = False
 
-    # if there are no matches or we havent downloaded the url list yet,
-    # fetch (or refetch) the archives and seek matches
-    if len(matches) == 0:
-        logger.info("No matches found in existing GTFS archives. Fetching latest archives.")
-        archives_df = _download_gtfs_archives_list()
-        matches = archives_df[(archives_df.feed_start_date <= dateint) & (archives_df.feed_end_date >= dateint)]
+    try:
+        if (MAIN_DIR / GTFS_ARCHIVES_FILENAME).exists():
+            archives_df = pd.read_csv(MAIN_DIR / GTFS_ARCHIVES_FILENAME)
+            matches = archives_df[(archives_df.feed_start_date <= dateint) & (archives_df.feed_end_date >= dateint)]
 
-    archive_url = matches.iloc[0].archive_url
+            # Check if we should refetch based on time since feed start date
+            if len(matches) > 0:
+                current_feed = matches.iloc[0]
+                feed_start_date = datetime.datetime.strptime(str(current_feed.feed_start_date), "%Y%m%d").date()
+                days_since_start = (datetime.date.today() - feed_start_date).days
+                refresh_interval = CONFIG["gtfs"]["refresh_interval_days"]
 
-    archive_name = pathlib.Path(archive_url).stem
+                if days_since_start >= refresh_interval:
+                    logger.info(
+                        f"Feed is {days_since_start} days old (>= {refresh_interval} days). Checking for newer archives."
+                    )
+                    should_refetch = True
+        else:
+            should_refetch = True
 
-    if (MAIN_DIR / archive_name).exists():
-        logger.info(f"GTFS archive for {dateint} already downloaded: {archive_name}")
+        # if there are no matches, we havent downloaded the url list yet, or we should refetch,
+        # fetch (or refetch) the archives and seek matches
+        if len(matches) == 0 or should_refetch:
+            if len(matches) == 0:
+                logger.info("No matches found in existing GTFS archives. Fetching latest archives.")
+            else:
+                logger.info("Fetching latest archives to check for updates.")
+            archives_df = _download_gtfs_archives_list()
+            matches = archives_df[(archives_df.feed_start_date <= dateint) & (archives_df.feed_end_date >= dateint)]
+
+        if len(matches) == 0:
+            raise ValueError(f"No GTFS archive found for date {dateint}")
+
+        archive_url = matches.iloc[0].archive_url
+        archive_name = pathlib.Path(archive_url).stem
+
+        if (MAIN_DIR / archive_name).exists():
+            logger.info(f"GTFS archive for {dateint} already downloaded: {archive_name}")
+            return MAIN_DIR / archive_name
+
+        # else we have to download it
+        logger.info(f"Downloading GTFS archive for {dateint}: {archive_url}")
+        zipfile, _ = urllib.request.urlretrieve(archive_url)
+        shutil.unpack_archive(zipfile, extract_dir=(MAIN_DIR / archive_name), format="zip")
+        # remove temporary zipfile
+        urllib.request.urlcleanup()
+
         return MAIN_DIR / archive_name
 
-    # else we have to download it
-    logger.info(f"Downloading GTFS archive for {dateint}: {archive_url}")
-    zipfile, _ = urllib.request.urlretrieve(archive_url)
-    shutil.unpack_archive(zipfile, extract_dir=(MAIN_DIR / archive_name), format="zip")
-    # remove temporary zipfile
-    urllib.request.urlcleanup()
+    except (PermissionError, OSError, IOError) as e:
+        logger.error(f"Permission error accessing GTFS archives file: {e}")
+        logger.warning("Falling back to most recent available GTFS archive")
 
-    return MAIN_DIR / archive_name
+        # Try to find the most recent available archive
+        fallback_archive = _find_most_recent_gtfs_archive()
+        if fallback_archive:
+            logger.info(f"Using fallback GTFS archive: {fallback_archive}")
+            return fallback_archive
+        else:
+            logger.error("No accessible GTFS archives found. Cannot continue.")
+            raise RuntimeError(
+                "No accessible GTFS archives available and cannot download new ones due to permission errors"
+            )
+
+    except Exception as e:
+        logger.error(f"Unexpected error in get_gtfs_archive: {e}")
+        logger.warning("Attempting to use most recent available GTFS archive as fallback")
+
+        # Try to find the most recent available archive as a last resort
+        fallback_archive = _find_most_recent_gtfs_archive()
+        if fallback_archive:
+            logger.info(f"Using fallback GTFS archive: {fallback_archive}")
+            return fallback_archive
+        else:
+            logger.error("No accessible GTFS archives found. Cannot continue.")
+            raise
 
 
 @tracer.wrap()
@@ -243,6 +332,7 @@ def batch_add_gtfs_headways(events_df: pd.DataFrame, trips: pd.DataFrame, stop_t
     return pd.concat(results)
 
 
+@tracer.wrap()
 def add_gtfs_headways(event_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops: pd.DataFrame) -> pd.DataFrame:
     """
     This will calculate scheduled headway and traveltime information

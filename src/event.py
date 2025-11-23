@@ -48,10 +48,30 @@ def arr_or_dep_event(
     return is_departure_event, is_arrival_event
 
 
+@tracer.wrap()
 def reduce_update_event(update: dict) -> Tuple:
     current_status = update["attributes"]["current_status"]
     event_type = EVENT_TYPE_MAP[current_status]
     updated_at = datetime.fromisoformat(update["attributes"]["updated_at"])
+    if len(update["attributes"]["carriages"]) > 0:
+        vehicle_consist = "|".join([carriage["label"] for carriage in update["attributes"]["carriages"]])
+        if update["attributes"]["carriages"][0]["occupancy_status"] is not None:
+            occupancy_status = "|".join(
+                [carriage["occupancy_status"] for carriage in update["attributes"]["carriages"]]
+            )
+        else:
+            occupancy_status = None
+
+        if update["attributes"]["carriages"][0]["occupancy_percentage"] is not None:
+            occupancy_percentage = "|".join(
+                [str(carriage["occupancy_percentage"]) for carriage in update["attributes"]["carriages"]]
+            )
+        else:
+            occupancy_percentage = None
+    else:
+        vehicle_consist = update["attributes"]["label"]
+        occupancy_status = update["attributes"]["occupancy_status"]
+        occupancy_percentage = None
 
     try:
         # The vehicle’s current (when current_status is STOPPED_AT) or next stop.
@@ -70,6 +90,9 @@ def reduce_update_event(update: dict) -> Tuple:
         update["relationships"]["trip"]["data"]["id"],
         update["attributes"]["label"],
         updated_at,
+        vehicle_consist,
+        occupancy_status,
+        occupancy_percentage,
     )
 
 
@@ -86,7 +109,14 @@ def process_event(update, trips_state: TripsStateManager):
         trip_id,
         vehicle_label,
         updated_at,
+        vehicle_consist,
+        occupancy_status,
+        occupancy_percentage,
     ) = reduce_update_event(update)
+
+    # Skip events where the vehicle has no stop associated
+    if stop_id is None:
+        return
 
     prev_trip_state = trips_state.get_trip_state(route_id, trip_id)
     if prev_trip_state is None:
@@ -100,9 +130,6 @@ def process_event(update, trips_state: TripsStateManager):
     # current_stop_state updated_at is isofmt str, not datetime.
     if isinstance(prev_trip_state["updated_at"], str):
         prev_trip_state["updated_at"] = datetime.fromisoformat(prev_trip_state["updated_at"])
-
-    if stop_id is None:
-        return
 
     is_departure_event, is_arrival_event = arr_or_dep_event(
         prev=prev_trip_state,
@@ -140,6 +167,9 @@ def process_event(update, trips_state: TripsStateManager):
                         "vehicle_label": vehicle_label,
                         "event_type": event_type,
                         "event_time": updated_at,
+                        "vehicle_consist": vehicle_consist,
+                        "occupancy_status": occupancy_status,
+                        "occupancy_percentage": occupancy_percentage,
                     }
                 ],
                 index=[0],
@@ -156,10 +186,14 @@ def process_event(update, trips_state: TripsStateManager):
             "stop_id": stop_id,
             "updated_at": updated_at,
             "event_type": event_type,
+            "vehicle_consist": vehicle_consist,
+            "occupancy_status": occupancy_status,
+            "occupancy_percentage": occupancy_percentage,
         },
     )
 
 
+@tracer.wrap()
 def enrich_event(df: pd.DataFrame, gtfs_archive: gtfs.GtfsArchive):
     """
     Given a dataframe with a single event, enrich it with headway information and return a single event dict
