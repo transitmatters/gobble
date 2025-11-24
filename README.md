@@ -38,28 +38,98 @@ Gobble supports two data ingestion modes:
 
 ### Using GTFS-RT (Generic Transit Agencies)
 
-1. Duplicate `config/template.json` into `config/local.json`, and configure GTFS-RT settings:
+1. Duplicate `config/youragency_template.json` into `config/local.json`, and configure GTFS-RT settings:
 
-   ```json
-   {
-     "use_gtfs_rt": true,
-     "gtfs_rt": {
-       "feed_url": "https://example-transit.com/gtfs-rt/vehicle-positions",
-       "api_key": "YOUR_API_KEY_HERE",
-       "polling_interval": 10
-     },
-     "gtfs": {
-       "dir": null,
-       "refresh_interval_days": 7
-     }
-   }
-   ```
+```json
+{
+  "agency": "septa_regionalrail",
+  "GTFS_ARCHIVES_PREFIX": "http://127.0.0.1:8000",
+  "GTFS_ARCHIVES_FILENAME": "archived_feeds.txt?feed_id=mdb-503",
+  "mbta": {
+    "v3_api_key": null
+  },
+  "gtfs": {
+    "dir": null,
+    "refresh_interval_days": 7
+  },
+  "use_gtfs_rt": true,
+  "gtfs_rt": {
+    "mobility_database_id": "mdb-503",
+    "feed_url": "<https://www3.septa.org/gtfsrt/septarail-pa-us/Vehicle/rtVehiclePosition.pb>",
+    "api_key": null,
+    "api_key_method": "none",
+    "polling_interval": 10
+  },
+  "DATADOG_TRACE_ENABLED": false
+}
+
+```
 
    Configuration options:
 
-   - `feed_url`: URL of the GTFS-RT VehiclePositions feed (required)
-   - `api_key`: API key for authentication (optional, if required by your feed)
-   - `polling_interval`: Seconds between feed polls (default: 10)
+- `feed_url`: URL of the GTFS-RT VehiclePositions feed (required)
+- `api_key`: API key for authentication (optional, if required by your feed)
+- `api_key_method`: How to pass the API key to the server (default: `"header"`)
+  - `"header"`: Pass API key as an HTTP header
+  - `"query"`: Pass API key as a URL query parameter
+  - `"bearer"`: Pass API key as a Bearer token in the Authorization header
+  - `"none"`: No authentication (omit `api_key`)
+- `api_key_param_name`: Header name or query parameter name (default: `"X-API-KEY"`)
+  - Used for `"header"` method: custom header name
+  - Used for `"query"` method: query parameter name
+  - Ignored for `"bearer"` and `"none"` methods
+- `polling_interval`: Seconds between feed polls (default: 10)
+
+#### API Key Authentication Examples
+
+   **Example 1: Header-based authentication (default)**
+
+   ```json
+   "gtfs_rt": {
+     "feed_url": "https://api.example.com/gtfs-rt/positions",
+     "api_key": "your-secret-key",
+     "api_key_method": "header",
+     "api_key_param_name": "X-API-KEY"
+   }
+   ```
+
+   This sends: `X-API-KEY: your-secret-key`
+
+   **Example 2: Query parameter authentication**
+
+   ```json
+   "gtfs_rt": {
+     "feed_url": "https://api.example.com/gtfs-rt/positions",
+     "api_key": "your-secret-key",
+     "api_key_method": "query",
+     "api_key_param_name": "api_key"
+   }
+   ```
+
+   This transforms the URL to: `https://api.example.com/gtfs-rt/positions?api_key=your-secret-key`
+
+   **Example 3: Bearer token authentication**
+
+   ```json
+   "gtfs_rt": {
+     "feed_url": "https://api.example.com/gtfs-rt/positions",
+     "api_key": "your-access-token",
+     "api_key_method": "bearer"
+   }
+   ```
+
+   This sends: `Authorization: Bearer your-access-token`
+
+   **Example 4: No authentication**
+
+   ```json
+   "gtfs_rt": {
+     "feed_url": "https://open-transit.com/gtfs-rt/positions",
+     "api_key_method": "none"
+   }
+   ```
+
+   No API key is sent with requests
 
 2. In the root directory, run `poetry install` to install dependencies
 3. Run `poetry run python3 src/gobble.py` to start.
