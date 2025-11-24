@@ -14,8 +14,7 @@
     "mobility_database_id": "mdb-1847",
     "feed_url": "https://s3.amazonaws.com/kcm-alerts-realtime-prod/vehiclepositions.pb",
     "api_key": null,
-    "api_key_method": "header",
-    "api_key_param_name": "api_key",
+    "api_key_method": "none",
     "polling_interval": 10
   },
   "DATADOG_TRACE_ENABLED": false

@@ -15,7 +15,6 @@
     "feed_url": "https://www3.septa.org/gtfsrt/septarail-pa-us/Vehicle/rtVehiclePosition.pb",
     "api_key": null,
     "api_key_method": "none",
-    "api_key_param_name": "X-API-KEY",
     "polling_interval": 10
   },
   "DATADOG_TRACE_ENABLED": false

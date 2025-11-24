@@ -14,8 +14,7 @@
     "mobility_database_id": "tld-4436",
     "feed_url": "https://cttprdtmgtfs.ctttrpcloud.com/TMGTFSRealTimeWebService/Vehicle/VehiclePositions.pb",
     "api_key": null,
-    "api_key_method": "header",
-    "api_key_param_name": "X-API-KEY",
+    "api_key_method": "none",
     "polling_interval": 10
   },
   "DATADOG_TRACE_ENABLED": false
