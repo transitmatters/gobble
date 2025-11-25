@@ -42,6 +42,7 @@ from typing import Dict, Set, Tuple
 
 class TrimmedDictReader(csv.DictReader):
     """CSV DictReader that strips whitespace from field names."""
+
     @property
     def fieldnames(self):
         return [name.strip() if name else name for name in super().fieldnames]
@@ -76,8 +77,8 @@ def get_zip_file_path(gtfs_zip: str) -> Path:
 def extract_zip_file(zip_path: Path, filename: str) -> str:
     """Extract a file from a zip archive and return its contents."""
     try:
-        with zipfile.ZipFile(zip_path, 'r') as zip_file:
-            return zip_file.read(filename).decode('utf-8')
+        with zipfile.ZipFile(zip_path, "r") as zip_file:
+            return zip_file.read(filename).decode("utf-8")
     except KeyError:
         raise FileNotFoundError(f"File '{filename}' not found in {zip_path}")
     except zipfile.BadZipFile:
@@ -94,9 +95,9 @@ def parse_routes_txt(content: str) -> Dict[str, Tuple[str, str]]:
     routes = {}
     reader = TrimmedDictReader(StringIO(content))
     for row in reader:
-        route_id = row.get('route_id', '').strip()
-        route_type = row.get('route_type', '').strip()
-        route_short_name = row.get('route_short_name', '').strip()
+        route_id = row.get("route_id", "").strip()
+        route_type = row.get("route_type", "").strip()
+        route_short_name = row.get("route_short_name", "").strip()
         if route_id:
             routes[route_id] = (route_short_name, route_type)
     return routes
@@ -111,8 +112,8 @@ def parse_stop_times_txt(content: str) -> Dict[str, Set[str]]:
     trip_stops = defaultdict(set)
     reader = TrimmedDictReader(StringIO(content))
     for row in reader:
-        trip_id = row.get('trip_id', '').strip()
-        stop_id = row.get('stop_id', '').strip()
+        trip_id = row.get("trip_id", "").strip()
+        stop_id = row.get("stop_id", "").strip()
         if trip_id and stop_id:
             trip_stops[trip_id].add(stop_id)
     return dict(trip_stops)
@@ -127,8 +128,8 @@ def parse_trips_txt(content: str) -> Dict[str, str]:
     trips = {}
     reader = TrimmedDictReader(StringIO(content))
     for row in reader:
-        trip_id = row.get('trip_id', '').strip()
-        route_id = row.get('route_id', '').strip()
+        trip_id = row.get("trip_id", "").strip()
+        route_id = row.get("route_id", "").strip()
         if trip_id and route_id:
             trips[trip_id] = route_id
     return trips
@@ -180,7 +181,9 @@ def categorize_routes(
 def format_python_dict(data: Dict[str, Set[str]]) -> str:
     """Format a dict of route_id -> set of stop_ids as a Python dict literal."""
     lines = ["{"]
-    for route_id in sorted(data.keys(), key=lambda x: (int(x) if x.isdigit() else 999999, x)):
+    for route_id in sorted(
+        data.keys(), key=lambda x: (int(x) if x.isdigit() else 999999, x)
+    ):
         stops = data[route_id]
         # Format stops nicely
         stops_str = "{" + ", ".join(f'"{s}"' for s in sorted(stops)) + "}"
@@ -236,46 +239,45 @@ def main():
     parser = argparse.ArgumentParser(
         description="Generate agency route files from GTFS Static data",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__
+        epilog=__doc__,
     )
 
     parser.add_argument(
         "gtfs_zip",
         type=str,
-        help="Path or URL to GTFS Static zip file (e.g., /path/to/file.zip or https://example.com/gtfs.zip)"
+        help="Path or URL to GTFS Static zip file (e.g., /path/to/file.zip or https://example.com/gtfs.zip)",
     )
 
     parser.add_argument(
-        "agency_name",
-        help="Name of the agency (e.g., 'mbta', 'caltrain')"
+        "agency_name", help="Name of the agency (e.g., 'mbta', 'caltrain')"
     )
 
     parser.add_argument(
         "--output-dir",
         type=Path,
         default=Path("src/agencies"),
-        help="Output directory for generated file (default: src/agencies)"
+        help="Output directory for generated file (default: src/agencies)",
     )
 
     parser.add_argument(
         "--route-types-bus",
         type=lambda x: set(x.split(",")),
         default={"3"},
-        help="Comma-separated list of GTFS route_type values for bus (default: 3)"
+        help="Comma-separated list of GTFS route_type values for bus (default: 3)",
     )
 
     parser.add_argument(
         "--route-types-cr",
         type=lambda x: set(x.split(",")) if x else set(),
         default={"2"},
-        help="Comma-separated list of GTFS route_type values for commuter rail (default: 2)"
+        help="Comma-separated list of GTFS route_type values for commuter rail (default: 2)",
     )
 
     parser.add_argument(
         "--route-types-rapid",
         type=lambda x: set(x.split(",")) if x else set(),
         default={"0", "1"},
-        help="Comma-separated list of GTFS route_type values for rapid transit (default: 0,1)"
+        help="Comma-separated list of GTFS route_type values for rapid transit (default: 0,1)",
     )
 
     args = parser.parse_args()

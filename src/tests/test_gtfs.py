@@ -24,7 +24,9 @@ def gtfs_test_data():
     stop_times.arrival_time = pd.to_timedelta(stop_times.arrival_time)
     stop_times.departure_time = pd.to_timedelta(stop_times.departure_time)
 
-    all_trips = pd.read_csv(DATA_DIR / "trips_mini.txt", dtype={"trip_short_name": str, "block_id": str})
+    all_trips = pd.read_csv(
+        DATA_DIR / "trips_mini.txt", dtype={"trip_short_name": str, "block_id": str}
+    )
 
     return {"stop_times": stop_times, "all_trips": all_trips}
 
@@ -50,7 +52,9 @@ class TestGTFS:
         # expected stop info....
         # 60063977,05:10:00,05:10:00,10003,5,,0,0,0,,,
         # on time, slightly late
-        on_time = datetime.datetime(2024, 1, 4, 5, 11, 45, 188670, tzinfo=ZoneInfo(key="US/Eastern"))
+        on_time = datetime.datetime(
+            2024, 1, 4, 5, 11, 45, 188670, tzinfo=ZoneInfo(key="US/Eastern")
+        )
         event = {
             "service_date": datetime.date(2024, 1, 4),
             "route_id": "1",
@@ -89,7 +93,9 @@ class TestGTFS:
         pd.testing.assert_frame_equal(post_df, expected_df)
 
         # little early
-        little_early = datetime.datetime(2024, 1, 4, 5, 9, 45, 188670, tzinfo=ZoneInfo(key="US/Eastern"))
+        little_early = datetime.datetime(
+            2024, 1, 4, 5, 9, 45, 188670, tzinfo=ZoneInfo(key="US/Eastern")
+        )
         event["event_time"] = little_early
         expected["event_time"] = little_early
         df = pd.DataFrame([event], index=[0])
@@ -99,7 +105,9 @@ class TestGTFS:
         pd.testing.assert_frame_equal(post_df, expected_df)
 
         # very late: so late that we use the next stop for headway calcs
-        very_late = datetime.datetime(2024, 1, 4, 5, 26, 45, 188670, tzinfo=ZoneInfo(key="US/Eastern"))
+        very_late = datetime.datetime(
+            2024, 1, 4, 5, 26, 45, 188670, tzinfo=ZoneInfo(key="US/Eastern")
+        )
         event["event_time"] = very_late
         expected["event_time"] = very_late
         expected["scheduled_trip_id"] = "60063980"
@@ -111,7 +119,9 @@ class TestGTFS:
         pd.testing.assert_frame_equal(post_df, expected_df)
 
         # so early youve made the prior bus
-        very_early = datetime.datetime(2024, 1, 4, 4, 45, 45, 188670, tzinfo=ZoneInfo(key="US/Eastern"))
+        very_early = datetime.datetime(
+            2024, 1, 4, 4, 45, 45, 188670, tzinfo=ZoneInfo(key="US/Eastern")
+        )
         event["event_time"] = very_early
         expected["event_time"] = very_early
         expected["scheduled_headway"] = np.nan
@@ -127,7 +137,9 @@ class TestGTFS:
         # expected stop info....
         # 60063977,05:10:00,05:10:00,10003,5,,0,0,0,,,
         # on time, slightly late
-        on_time = datetime.datetime(2024, 1, 4, 5, 11, 45, 188670, tzinfo=ZoneInfo(key="US/Eastern"))
+        on_time = datetime.datetime(
+            2024, 1, 4, 5, 11, 45, 188670, tzinfo=ZoneInfo(key="US/Eastern")
+        )
         event = {
             "service_date": datetime.date(2024, 1, 4),
             "route_id": "1",
@@ -166,7 +178,9 @@ class TestGTFS:
         pd.testing.assert_frame_equal(post_df, expected_df)
 
         # little early
-        little_early = datetime.datetime(2024, 1, 4, 5, 9, 45, 188670, tzinfo=ZoneInfo(key="US/Eastern"))
+        little_early = datetime.datetime(
+            2024, 1, 4, 5, 9, 45, 188670, tzinfo=ZoneInfo(key="US/Eastern")
+        )
         event["event_time"] = little_early
         expected["event_time"] = little_early
         df = pd.DataFrame([event], index=[0])
@@ -176,7 +190,9 @@ class TestGTFS:
         pd.testing.assert_frame_equal(post_df, expected_df)
 
         # very late: so late that we use the next stop for headway calcs
-        very_late = datetime.datetime(2024, 1, 4, 5, 26, 45, 188670, tzinfo=ZoneInfo(key="US/Eastern"))
+        very_late = datetime.datetime(
+            2024, 1, 4, 5, 26, 45, 188670, tzinfo=ZoneInfo(key="US/Eastern")
+        )
         event["event_time"] = very_late
         expected["event_time"] = very_late
         expected["scheduled_trip_id"] = "60063980"
@@ -188,7 +204,9 @@ class TestGTFS:
         pd.testing.assert_frame_equal(post_df, expected_df)
 
         # so early youve made the prior bus
-        very_early = datetime.datetime(2024, 1, 4, 4, 45, 45, 188670, tzinfo=ZoneInfo(key="US/Eastern"))
+        very_early = datetime.datetime(
+            2024, 1, 4, 4, 45, 45, 188670, tzinfo=ZoneInfo(key="US/Eastern")
+        )
         event["event_time"] = very_early
         expected["event_time"] = very_early
         expected["scheduled_headway"] = np.nan
@@ -204,7 +222,9 @@ class TestGTFS:
     @patch("gtfs.urllib.request.urlretrieve")
     @patch("gtfs._download_gtfs_archives_list")
     @patch("gtfs.shutil.unpack_archive")
-    def test_get_gtfs_archive_day_is_feed_returns_dir_of_day(self, mock_unpack, mock_download_list, mock_urlretrieve):
+    def test_get_gtfs_archive_day_is_feed_returns_dir_of_day(
+        self, mock_unpack, mock_download_list, mock_urlretrieve
+    ):
         # just a random day
         day_to_test: int = 20240807
         expected_path: str = f"data/gtfs_archives/{day_to_test}"

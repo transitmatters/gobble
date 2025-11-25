@@ -16,7 +16,9 @@ class TestCompressAndUploadFile:
     @patch("builtins.open", new_callable=mock_open, read_data=b"test,csv,data\n1,2,3\n")
     def test_compress_and_upload_file_basic(self, mock_file, mock_s3_client):
         """Test basic file compression and upload"""
-        test_file_path = str(Path("data/daily-rapid/Red-0/Year=2024/Month=1/Day=15/events.csv"))
+        test_file_path = str(
+            Path("data/daily-rapid/Red-0/Year=2024/Month=1/Day=15/events.csv")
+        )
 
         s3_upload._compress_and_upload_file(test_file_path)
 
@@ -53,7 +55,9 @@ class TestCompressAndUploadFile:
 
     @patch("s3_upload.s3")
     @patch("s3_upload.DATA_DIR", Path("data"))
-    @patch("builtins.open", new_callable=mock_open, read_data=b"route,stop\nRed,Harvard\n")
+    @patch(
+        "builtins.open", new_callable=mock_open, read_data=b"route,stop\nRed,Harvard\n"
+    )
     def test_compress_and_upload_file_correct_s3_path(self, mock_file, mock_s3_client):
         """Test that S3 path is constructed correctly from file path"""
         test_file_path = "data/daily-bus/1-0/Year=2024/Month=3/Day=20/events.csv"
@@ -65,7 +69,9 @@ class TestCompressAndUploadFile:
         s3_key = call_args[1]["Key"]
 
         # Should be Events-live/{relative_path}.gz
-        expected_key = "Events-live/daily-bus/1-0/Year=2024/Month=3/Day=20/events.csv.gz"
+        expected_key = (
+            "Events-live/daily-bus/1-0/Year=2024/Month=3/Day=20/events.csv.gz"
+        )
         assert s3_key == expected_key
 
     @patch("s3_upload.s3")
@@ -107,7 +113,9 @@ class TestUploadTodaysEventsToS3:
     @patch("s3_upload.glob.glob")
     @patch("s3_upload.service_date")
     @patch("s3_upload.datetime")
-    def test_upload_todays_events_basic(self, mock_datetime, mock_service_date, mock_glob, mock_compress_and_upload):
+    def test_upload_todays_events_basic(
+        self, mock_datetime, mock_service_date, mock_glob, mock_compress_and_upload
+    ):
         """Test basic upload of today's events"""
         # Mock current time
         mock_now = datetime.datetime(2024, 1, 15, 14, 30, 0, tzinfo=EASTERN_TIME)
@@ -145,7 +153,9 @@ class TestUploadTodaysEventsToS3:
     @patch("s3_upload.glob.glob")
     @patch("s3_upload.service_date")
     @patch("s3_upload.datetime")
-    def test_upload_todays_events_no_files(self, mock_datetime, mock_service_date, mock_glob, mock_compress_and_upload):
+    def test_upload_todays_events_no_files(
+        self, mock_datetime, mock_service_date, mock_glob, mock_compress_and_upload
+    ):
         """Test upload when no files exist for today"""
         # Mock current time
         mock_now = datetime.datetime(2024, 1, 15, 14, 30, 0, tzinfo=EASTERN_TIME)
@@ -192,7 +202,9 @@ class TestUploadTodaysEventsToS3:
         # Verify upload was called
         mock_compress_and_upload.assert_called_once_with(test_files[0])
 
-    @patch("s3_upload._compress_and_upload_file", side_effect=Exception("S3 upload failed"))
+    @patch(
+        "s3_upload._compress_and_upload_file", side_effect=Exception("S3 upload failed")
+    )
     @patch("s3_upload.glob.glob")
     @patch("s3_upload.service_date")
     @patch("s3_upload.datetime")
@@ -208,7 +220,9 @@ class TestUploadTodaysEventsToS3:
         mock_service_date.return_value = datetime.date(2024, 1, 15)
 
         # Mock glob to return one file
-        mock_glob.return_value = ["data/daily-rapid/Red-0/Year=2024/Month=1/Day=15/events.csv"]
+        mock_glob.return_value = [
+            "data/daily-rapid/Red-0/Year=2024/Month=1/Day=15/events.csv"
+        ]
 
         # Should raise the exception from compress_and_upload
         with pytest.raises(Exception) as context:

@@ -36,15 +36,25 @@ def get_stop_name(stops_df: pd.DataFrame, stop_id: str) -> str:
     else:
         # TODO: An example of this would be stop id ER-0117-01, which was the Lynn Interim stop on the Newburyport/Rockport Line
         # We just use this name for logging purposes so its NBD if we return a raw id.
-        logger.error(f"Encountered stop id {stop_id} without human-readable name. Is this a temporary stop?")
+        logger.error(
+            f"Encountered stop id {stop_id} without human-readable name. Is this a temporary stop?"
+        )
         return stop_id
 
 
 def arr_or_dep_event(
-    prev: dict, current_status: str, current_stop_sequence: int, event_type: str, stop_id: str
+    prev: dict,
+    current_status: str,
+    current_stop_sequence: int,
+    event_type: str,
+    stop_id: str,
 ) -> Tuple[bool, bool]:
-    is_departure_event = prev["stop_id"] != stop_id and prev["stop_sequence"] < current_stop_sequence
-    is_arrival_event = current_status == "STOPPED_AT" and prev.get("event_type", event_type) == "DEP"
+    is_departure_event = (
+        prev["stop_id"] != stop_id and prev["stop_sequence"] < current_stop_sequence
+    )
+    is_arrival_event = (
+        current_status == "STOPPED_AT" and prev.get("event_type", event_type) == "DEP"
+    )
     return is_departure_event, is_arrival_event
 
 
@@ -54,17 +64,25 @@ def reduce_update_event(update: dict) -> Tuple:
     event_type = EVENT_TYPE_MAP[current_status]
     updated_at = datetime.fromisoformat(update["attributes"]["updated_at"])
     if len(update["attributes"]["carriages"]) > 0:
-        vehicle_consist = "|".join([carriage["label"] for carriage in update["attributes"]["carriages"]])
+        vehicle_consist = "|".join(
+            [carriage["label"] for carriage in update["attributes"]["carriages"]]
+        )
         if update["attributes"]["carriages"][0]["occupancy_status"] is not None:
             occupancy_status = "|".join(
-                [carriage["occupancy_status"] for carriage in update["attributes"]["carriages"]]
+                [
+                    carriage["occupancy_status"]
+                    for carriage in update["attributes"]["carriages"]
+                ]
             )
         else:
             occupancy_status = None
 
         if update["attributes"]["carriages"][0]["occupancy_percentage"] is not None:
             occupancy_percentage = "|".join(
-                [str(carriage["occupancy_percentage"]) for carriage in update["attributes"]["carriages"]]
+                [
+                    str(carriage["occupancy_percentage"])
+                    for carriage in update["attributes"]["carriages"]
+                ]
             )
         else:
             occupancy_percentage = None
@@ -77,7 +95,9 @@ def reduce_update_event(update: dict) -> Tuple:
         # The vehicle’s current (when current_status is STOPPED_AT) or next stop.
         stop_id = update["relationships"]["stop"]["data"]["id"]
     except (TypeError, KeyError):
-        logger.error(f"Encountered degenerate stop information. This event will be skipped: {json.dumps(update)}")
+        logger.error(
+            f"Encountered degenerate stop information. This event will be skipped: {json.dumps(update)}"
+        )
         stop_id = None
 
     return (
@@ -129,7 +149,9 @@ def process_event(update, trips_state: TripsStateManager):
 
     # current_stop_state updated_at is isofmt str, not datetime.
     if isinstance(prev_trip_state["updated_at"], str):
-        prev_trip_state["updated_at"] = datetime.fromisoformat(prev_trip_state["updated_at"])
+        prev_trip_state["updated_at"] = datetime.fromisoformat(
+            prev_trip_state["updated_at"]
+        )
 
     is_departure_event, is_arrival_event = arr_or_dep_event(
         prev=prev_trip_state,
@@ -148,7 +170,9 @@ def process_event(update, trips_state: TripsStateManager):
         service_date = util.service_date(updated_at)
 
         # store all commuter rail/subway stops, but only some bus stops
-        if route_id in ROUTES_CR.union(ROUTES_RAPID) or stop_id in BUS_STOPS.get(route_id, {}):
+        if route_id in ROUTES_CR.union(ROUTES_RAPID) or stop_id in BUS_STOPS.get(
+            route_id, {}
+        ):
             logger.info(
                 f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} {event_type} stop={stop_name}"
             )
@@ -210,7 +234,9 @@ def enrich_event(df: pd.DataFrame, gtfs_archive: gtfs.GtfsArchive):
     scheduled_trips_for_route = gtfs_archive.trips_by_route_id(route_id)
     scheduled_stop_times_for_route = gtfs_archive.stop_times_by_route_id(route_id)
 
-    headway_adjusted_df = gtfs.add_gtfs_headways(df, scheduled_trips_for_route, scheduled_stop_times_for_route)
+    headway_adjusted_df = gtfs.add_gtfs_headways(
+        df, scheduled_trips_for_route, scheduled_stop_times_for_route
+    )
     # future warning: returning a series is actually the correct future behavior of to_pydatetime(), can drop the
     # context manager later
     with warnings.catch_warnings():

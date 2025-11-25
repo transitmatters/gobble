@@ -5,8 +5,7 @@ Auto-generated from GTFS Static data. Do not manually edit.
 Regenerate using: python generate_agency_routes.py <gtfs_zip> lirr
 """
 
-BUS_STOPS = {
-}
+BUS_STOPS = {}
 
 # LIRR Bus routes
 ROUTES_BUS = set(BUS_STOPS.keys())

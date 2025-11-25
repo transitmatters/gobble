@@ -22,7 +22,9 @@ def measure_time(report_frequency: float = 1.0, trail_length=1000):
                 std = np.std(exec_times)
                 min = np.min(exec_times)
                 max = np.max(exec_times)
-                print(f"func {fn.__name__}: last={last:.3f}s min={min:.3f} max={max:.3f} avg={avg:.3f}s std={std:.3f}s")
+                print(
+                    f"func {fn.__name__}: last={last:.3f}s min={min:.3f} max={max:.3f} avg={avg:.3f}s std={std:.3f}s"
+                )
             return result
 
         return wrap

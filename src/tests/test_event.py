@@ -61,7 +61,9 @@ class TestArrOrDepEvent:
         event_type = "DEP"
         stop_id = "70002"
 
-        is_dep, is_arr = arr_or_dep_event(prev, current_status, current_stop_sequence, event_type, stop_id)
+        is_dep, is_arr = arr_or_dep_event(
+            prev, current_status, current_stop_sequence, event_type, stop_id
+        )
 
         assert is_dep, "Should be a departure event"
         assert not is_arr, "Should not be an arrival event"
@@ -74,7 +76,9 @@ class TestArrOrDepEvent:
         event_type = "ARR"
         stop_id = "70002"
 
-        is_dep, is_arr = arr_or_dep_event(prev, current_status, current_stop_sequence, event_type, stop_id)
+        is_dep, is_arr = arr_or_dep_event(
+            prev, current_status, current_stop_sequence, event_type, stop_id
+        )
 
         # When moving to a new stop with increased sequence, it's a departure
         assert is_dep, "Should be a departure event (new stop)"
@@ -89,7 +93,9 @@ class TestArrOrDepEvent:
         event_type = "ARR"
         stop_id = "70001"
 
-        is_dep, is_arr = arr_or_dep_event(prev, current_status, current_stop_sequence, event_type, stop_id)
+        is_dep, is_arr = arr_or_dep_event(
+            prev, current_status, current_stop_sequence, event_type, stop_id
+        )
 
         assert not is_dep, "Should not be a departure event"
         assert not is_arr, "Should not be an arrival event"
@@ -102,7 +108,9 @@ class TestArrOrDepEvent:
         event_type = "ARR"
         stop_id = "70002"
 
-        is_dep, is_arr = arr_or_dep_event(prev, current_status, current_stop_sequence, event_type, stop_id)
+        is_dep, is_arr = arr_or_dep_event(
+            prev, current_status, current_stop_sequence, event_type, stop_id
+        )
 
         # Different stop with increased sequence = departure
         assert is_dep, "Should be a departure event"
@@ -181,7 +189,9 @@ class TestReduceUpdateEvent:
         assert result[0] == "STOPPED_AT"
         assert result[1] == "ARR"  # STOPPED_AT maps to ARR
         assert result[9] == "0704|0705"  # vehicle_consist joined with pipe
-        assert result[10] == "MANY_SEATS_AVAILABLE|FEW_SEATS_AVAILABLE"  # occupancy_status
+        assert (
+            result[10] == "MANY_SEATS_AVAILABLE|FEW_SEATS_AVAILABLE"
+        )  # occupancy_status
         assert result[11] == "25|75"  # occupancy_percentage
 
     def test_reduce_update_event_carriages_with_null_occupancy(self):
@@ -446,7 +456,9 @@ class TestProcessEvent:
 
     @patch("event.gtfs.get_current_gtfs_archive")
     @patch("event.disk.write_event")
-    def test_process_event_skips_event_with_no_stop(self, mock_write_event, mock_get_gtfs):
+    def test_process_event_skips_event_with_no_stop(
+        self, mock_write_event, mock_get_gtfs
+    ):
         """Test that events with no stop_id are skipped"""
         update = {
             "attributes": {
@@ -529,7 +541,9 @@ class TestProcessEvent:
 
     @patch("event.gtfs.get_current_gtfs_archive")
     @patch("event.disk.write_event")
-    def test_process_event_no_write_for_non_event(self, mock_write_event, mock_get_gtfs):
+    def test_process_event_no_write_for_non_event(
+        self, mock_write_event, mock_get_gtfs
+    ):
         """Test that no event is written when neither departure nor arrival occurs"""
         update = {
             "attributes": {
@@ -566,7 +580,9 @@ class TestProcessEvent:
 
     @patch("event.gtfs.get_current_gtfs_archive")
     @patch("event.disk.write_event")
-    def test_process_event_first_time_seeing_trip(self, mock_write_event, mock_get_gtfs):
+    def test_process_event_first_time_seeing_trip(
+        self, mock_write_event, mock_get_gtfs
+    ):
         """Test processing event when trip has no previous state (line 123)"""
         # Mock GTFS archive
         mock_gtfs_archive = Mock(spec=gtfs.GtfsArchive)

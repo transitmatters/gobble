@@ -64,7 +64,7 @@ def main():
 
 
 def connect(routes: Set[str]) -> requests.Response:
-    url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(routes)}'
+    url = f"https://api-v3.mbta.com/vehicles?filter[route]={','.join(routes)}"
     logger.info(f"Connecting to {url}...")
     return requests.get(url, headers=HEADERS, stream=True)
 
@@ -95,17 +95,25 @@ def client_thread_sse(routes: Set[str], trips_state: TripsStateManager):
             elapsed = time.time() - start_at
             if tracer.enabled:
                 logger.exception(
-                    f"ChunkedEncodingError (handled) at elapsed={elapsed}s", stack_info=True, exc_info=True
+                    f"ChunkedEncodingError (handled) at elapsed={elapsed}s",
+                    stack_info=True,
+                    exc_info=True,
                 )
         except Exception:
             if tracer.enabled:
-                logger.exception("Encountered an exception in client_thread", stack_info=True, exc_info=True)
+                logger.exception(
+                    "Encountered an exception in client_thread",
+                    stack_info=True,
+                    exc_info=True,
+                )
             else:
                 traceback.print_exc()
         finally:
             if client is not None:
                 client.close()
-            time.sleep(0.5)  # Just in case something is borked, to avoid hammering. It doesn't GIL!
+            time.sleep(
+                0.5
+            )  # Just in case something is borked, to avoid hammering. It doesn't GIL!
 
 
 def client_thread_gtfs_rt(routes: Set[str], trips_state: TripsStateManager):
@@ -121,7 +129,9 @@ def client_thread_gtfs_rt(routes: Set[str], trips_state: TripsStateManager):
             except Exception:
                 if tracer.enabled:
                     logger.exception(
-                        "Encountered an exception when processing GTFS-RT event", stack_info=True, exc_info=True
+                        "Encountered an exception when processing GTFS-RT event",
+                        stack_info=True,
+                        exc_info=True,
                     )
                 else:
                     traceback.print_exc()
@@ -129,7 +139,11 @@ def client_thread_gtfs_rt(routes: Set[str], trips_state: TripsStateManager):
 
     except Exception:
         if tracer.enabled:
-            logger.exception("Encountered an exception in GTFS-RT client_thread", stack_info=True, exc_info=True)
+            logger.exception(
+                "Encountered an exception in GTFS-RT client_thread",
+                stack_info=True,
+                exc_info=True,
+            )
         else:
             traceback.print_exc()
     finally:
@@ -154,7 +168,11 @@ def process_events(client: sseclient.SSEClient, trips_state: TripsStateManager):
                 continue
         except Exception:
             if tracer.enabled:
-                logger.exception("Encountered an exception when processing an event", stack_info=True, exc_info=True)
+                logger.exception(
+                    "Encountered an exception when processing an event",
+                    stack_info=True,
+                    exc_info=True,
+                )
             else:
                 traceback.print_exc()
             continue

@@ -11,7 +11,19 @@ BUS_STOPS = {}
 ROUTES_BUS = set(BUS_STOPS.keys())
 
 # METRA Commuter Rail/Regional Rail lines
-ROUTES_CR = {"BNSF", "HC", "MD-N", "MD-W", "ME", "NCS", "RI", "SWS", "UP-N", "UP-NW", "UP-W"}
+ROUTES_CR = {
+    "BNSF",
+    "HC",
+    "MD-N",
+    "MD-W",
+    "ME",
+    "NCS",
+    "RI",
+    "SWS",
+    "UP-N",
+    "UP-NW",
+    "UP-W",
+}
 
 # METRA Rapid Transit routes
 ROUTES_RAPID = set()

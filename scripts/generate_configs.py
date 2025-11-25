@@ -22,27 +22,24 @@ from typing import Dict, Any, Optional
 import logging
 
 # Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(levelname)s: %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def load_env_file(env_file: str = '.env') -> Dict[str, str]:
+def load_env_file(env_file: str = ".env") -> Dict[str, str]:
     """Load environment variables from .env file."""
     env_vars = {}
     if not os.path.exists(env_file):
         logger.warning(f"No {env_file} file found, will use environment variables only")
         return env_vars
 
-    with open(env_file, 'r') as f:
+    with open(env_file, "r") as f:
         for line in f:
             line = line.strip()
-            if not line or line.startswith('#'):
+            if not line or line.startswith("#"):
                 continue
-            if '=' in line:
-                key, value = line.split('=', 1)
+            if "=" in line:
+                key, value = line.split("=", 1)
                 env_vars[key.strip()] = value.strip()
 
     return env_vars
@@ -51,9 +48,9 @@ def load_env_file(env_file: str = '.env') -> Dict[str, str]:
 def get_agency_name_from_template(template_path: Path) -> Optional[str]:
     """Extract agency name from template JSON file."""
     try:
-        with open(template_path, 'r') as f:
+        with open(template_path, "r") as f:
             data = json.load(f)
-            return data.get('agency')
+            return data.get("agency")
     except (json.JSONDecodeError, KeyError) as e:
         logger.error(f"Failed to extract agency from {template_path}: {e}")
         return None
@@ -64,16 +61,18 @@ def get_api_key_var_name(agency: str) -> str:
     return f"{agency.upper()}_API_KEY"
 
 
-def inject_api_key(config: Dict[str, Any], env_vars: Dict[str, str], agency: str) -> None:
+def inject_api_key(
+    config: Dict[str, Any], env_vars: Dict[str, str], agency: str
+) -> None:
     """
     Inject API key into config if the agency requires one.
 
     Only injects if api_key_method is not "none".
     """
-    gtfs_rt = config.get('gtfs_rt', {})
+    gtfs_rt = config.get("gtfs_rt", {})
 
     # Skip if api_key_method is "none" (no API key required)
-    if gtfs_rt.get('api_key_method') == 'none':
+    if gtfs_rt.get("api_key_method") == "none":
         logger.debug(f"Skipping API key injection for {agency} (api_key_method=none)")
         return
 
@@ -82,16 +81,16 @@ def inject_api_key(config: Dict[str, Any], env_vars: Dict[str, str], agency: str
     api_key = env_vars.get(api_key_var) or os.getenv(api_key_var)
 
     if api_key:
-        config['gtfs_rt']['api_key'] = api_key
+        config["gtfs_rt"]["api_key"] = api_key
         logger.info(f"Injected API key for {agency}")
     else:
-        logger.warning(f"No API key found for {agency} (expected env var: {api_key_var})")
+        logger.warning(
+            f"No API key found for {agency} (expected env var: {api_key_var})"
+        )
 
 
 def generate_config(
-    template_path: Path,
-    output_path: Path,
-    env_vars: Dict[str, str]
+    template_path: Path, output_path: Path, env_vars: Dict[str, str]
 ) -> bool:
     """
     Generate a config file from a template with API keys injected.
@@ -100,11 +99,11 @@ def generate_config(
     """
     try:
         # Load template
-        with open(template_path, 'r') as f:
+        with open(template_path, "r") as f:
             config = json.load(f)
 
         # Extract agency name
-        agency = config.get('agency')
+        agency = config.get("agency")
         if not agency:
             logger.error(f"Template {template_path.name} has no 'agency' field")
             return False
@@ -114,7 +113,7 @@ def generate_config(
 
         # Write output file
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             json.dump(config, f, indent=2)
 
         logger.info(f"Generated {output_path}")
@@ -127,27 +126,22 @@ def generate_config(
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Generate local config files from templates with API keys injected'
+        description="Generate local config files from templates with API keys injected"
     )
     parser.add_argument(
-        '--template',
-        help='Specific template file to process (e.g., template_marta_bus.json)'
+        "--template",
+        help="Specific template file to process (e.g., template_marta_bus.json)",
     )
     parser.add_argument(
-        '--output-dir',
-        default='config/local',
-        help='Output directory for generated configs (default: config/local)'
+        "--output-dir",
+        default="config/local",
+        help="Output directory for generated configs (default: config/local)",
     )
     parser.add_argument(
-        '--env-file',
-        default='.env',
-        help='Path to .env file (default: .env)'
+        "--env-file", default=".env", help="Path to .env file (default: .env)"
     )
     parser.add_argument(
-        '--verbose',
-        '-v',
-        action='store_true',
-        help='Enable verbose logging'
+        "--verbose", "-v", action="store_true", help="Enable verbose logging"
     )
 
     args = parser.parse_args()
@@ -161,7 +155,7 @@ def main():
     env_vars.update(os.environ)
 
     # Find template directory
-    template_dir = Path('config/template')
+    template_dir = Path("config/template")
     if not template_dir.exists():
         logger.error(f"Template directory not found: {template_dir}")
         return 1
@@ -176,12 +170,14 @@ def main():
             logger.error(f"Template not found: {template_path}")
             return 1
 
-        output_path = output_dir / args.template.replace('template_', '').replace('.json', '.json')
+        output_path = output_dir / args.template.replace("template_", "").replace(
+            ".json", ".json"
+        )
         success = generate_config(template_path, output_path, env_vars)
         return 0 if success else 1
     else:
         # Process all templates
-        templates = sorted(template_dir.glob('template_*.json'))
+        templates = sorted(template_dir.glob("template_*.json"))
         if not templates:
             logger.error(f"No templates found in {template_dir}")
             return 1
@@ -191,7 +187,7 @@ def main():
         success_count = 0
         for template_path in templates:
             # Output filename: remove 'template_' prefix, keep .json extension
-            output_filename = template_path.name.replace('template_', '')
+            output_filename = template_path.name.replace("template_", "")
             output_path = output_dir / output_filename
 
             if generate_config(template_path, output_path, env_vars):
@@ -201,5 +197,5 @@ def main():
         return 0 if success_count == len(templates) else 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

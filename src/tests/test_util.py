@@ -21,25 +21,49 @@ class TestUtil:
         assert service_date(datetime(2023, 12, 16, 2, 59, 59)) == date(2023, 12, 15)
 
     def test_localized_datetime(self):
-        assert service_date(datetime(2023, 12, 15, 3, 0, 0, tzinfo=EASTERN_TIME)) == date(2023, 12, 15)
-        assert service_date(datetime(2023, 12, 15, 5, 45, 0, tzinfo=EASTERN_TIME)) == date(2023, 12, 15)
-        assert service_date(datetime(2023, 12, 15, 7, 15, 0, tzinfo=EASTERN_TIME)) == date(2023, 12, 15)
-        assert service_date(datetime(2023, 12, 15, 23, 59, 59, tzinfo=EASTERN_TIME)) == date(2023, 12, 15)
-        assert service_date(datetime(2023, 12, 16, 0, 0, 0, tzinfo=EASTERN_TIME)) == date(2023, 12, 15)
-        assert service_date(datetime(2023, 12, 16, 2, 59, 59, tzinfo=EASTERN_TIME)) == date(2023, 12, 15)
+        assert service_date(
+            datetime(2023, 12, 15, 3, 0, 0, tzinfo=EASTERN_TIME)
+        ) == date(2023, 12, 15)
+        assert service_date(
+            datetime(2023, 12, 15, 5, 45, 0, tzinfo=EASTERN_TIME)
+        ) == date(2023, 12, 15)
+        assert service_date(
+            datetime(2023, 12, 15, 7, 15, 0, tzinfo=EASTERN_TIME)
+        ) == date(2023, 12, 15)
+        assert service_date(
+            datetime(2023, 12, 15, 23, 59, 59, tzinfo=EASTERN_TIME)
+        ) == date(2023, 12, 15)
+        assert service_date(
+            datetime(2023, 12, 16, 0, 0, 0, tzinfo=EASTERN_TIME)
+        ) == date(2023, 12, 15)
+        assert service_date(
+            datetime(2023, 12, 16, 2, 59, 59, tzinfo=EASTERN_TIME)
+        ) == date(2023, 12, 15)
 
     def test_edt_vs_est_datetimes(self):
-        assert service_date(datetime(2023, 11, 5, 23, 59, 59, tzinfo=EASTERN_TIME)) == date(2023, 11, 5)
-        assert service_date(datetime(2023, 11, 6, 0, 0, 0, tzinfo=EASTERN_TIME)) == date(2023, 11, 5)
-        assert service_date(datetime(2023, 11, 6, 1, 0, 0, tzinfo=EASTERN_TIME)) == date(2023, 11, 5)
-        assert service_date(datetime(2023, 11, 6, 2, 0, 0, tzinfo=EASTERN_TIME)) == date(2023, 11, 5)
+        assert service_date(
+            datetime(2023, 11, 5, 23, 59, 59, tzinfo=EASTERN_TIME)
+        ) == date(2023, 11, 5)
+        assert service_date(
+            datetime(2023, 11, 6, 0, 0, 0, tzinfo=EASTERN_TIME)
+        ) == date(2023, 11, 5)
+        assert service_date(
+            datetime(2023, 11, 6, 1, 0, 0, tzinfo=EASTERN_TIME)
+        ) == date(2023, 11, 5)
+        assert service_date(
+            datetime(2023, 11, 6, 2, 0, 0, tzinfo=EASTERN_TIME)
+        ) == date(2023, 11, 5)
         # 3am EST is 4am EDT
-        assert service_date(datetime(2023, 11, 6, 3, 0, 0, tzinfo=EASTERN_TIME)) == date(2023, 11, 6)
+        assert service_date(
+            datetime(2023, 11, 6, 3, 0, 0, tzinfo=EASTERN_TIME)
+        ) == date(2023, 11, 6)
 
     def test_output_dir_path_cr(self):
         # commuter rail uses _ as delimiter
         day_to_test = datetime(2024, 8, 7, 4)
-        expected_suffix = f"/Year={day_to_test.year}/Month={day_to_test.month}/Day={day_to_test.day}"
+        expected_suffix = (
+            f"/Year={day_to_test.year}/Month={day_to_test.month}/Day={day_to_test.day}"
+        )
 
         # Use MBTA CR route
         cr_route = "CR-Fairmount"
@@ -53,7 +77,9 @@ class TestUtil:
     def test_output_dir_path_rapid(self):
         # rapid transit doesn't need to split by direction / line
         day_to_test = datetime(2024, 8, 7, 4)
-        expected_suffix = f"/Year={day_to_test.year}/Month={day_to_test.month}/Day={day_to_test.day}"
+        expected_suffix = (
+            f"/Year={day_to_test.year}/Month={day_to_test.month}/Day={day_to_test.day}"
+        )
 
         # Use MBTA rapid route
         rapid_stop = output_dir_path("Red", "0", "68", day_to_test)
@@ -62,7 +88,9 @@ class TestUtil:
     def test_output_dir_path_bus(self):
         # bus doesn't have underscore but data is split
         day_to_test = datetime(2024, 8, 7, 4)
-        expected_suffix = f"/Year={day_to_test.year}/Month={day_to_test.month}/Day={day_to_test.day}"
+        expected_suffix = (
+            f"/Year={day_to_test.year}/Month={day_to_test.month}/Day={day_to_test.day}"
+        )
 
         bus_stop = output_dir_path("1", "0", "84", day_to_test)
         assert bus_stop == f"daily-bus-data/1-0-84{expected_suffix}"
