@@ -1,0 +1,190 @@
+services:
+  # WMATA Bus (Washington DC Metro)
+  gobble-wmata-bus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gobble-wmata-bus
+    restart: unless-stopped
+    profiles: ["${WMATA_ENABLED:-true}"]
+    user: "1000:1000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data/wmata_bus:/app/data
+      - ./config/local/wmata_bus.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=${WMATA_DD_SERVICE:-gobble-wmata}
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    logging:
+      driver: "${DOCKER_LOG_DRIVER:-json-file}"
+      options:
+        max-size: "${DOCKER_LOG_MAX_SIZE:-50m}"
+        max-file: "${DOCKER_LOG_MAX_FILE:-5}"
+
+  # WMATA Rail (Washington DC Metro)
+  gobble-wmata-rail:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gobble-wmata-rail
+    restart: unless-stopped
+    profiles: ["${WMATA_ENABLED:-true}"]
+    user: "1000:1000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data/wmata_rail:/app/data
+      - ./config/local/wmata_rail.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=${WMATA_DD_SERVICE:-gobble-wmata-rail}
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    logging:
+      driver: "${DOCKER_LOG_DRIVER:-json-file}"
+      options:
+        max-size: "${DOCKER_LOG_MAX_SIZE:-50m}"
+        max-file: "${DOCKER_LOG_MAX_FILE:-5}"
+
+  # SEPTA Rail (Philadelphia Regional Rail)
+  gobble-septa-rail:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gobble-septa-rail
+    restart: unless-stopped
+    profiles: ["${SEPTA_ENABLED:-true}"]
+    user: "1000:1000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data/septa_rail:/app/data
+      - ./config/local/septa_regionalrail.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=${SEPTA_DD_SERVICE:-gobble-septa-rail}
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    logging:
+      driver: "${DOCKER_LOG_DRIVER:-json-file}"
+      options:
+        max-size: "${DOCKER_LOG_MAX_SIZE:-50m}"
+        max-file: "${DOCKER_LOG_MAX_FILE:-5}"
+
+  # SEPTA Bus (Philadelphia Regional Rail)
+  gobble-septa-bus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gobble-septa-bus
+    restart: unless-stopped
+    profiles: ["${SEPTA_ENABLED:-true}"]
+    user: "1000:1000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data/septa_bus:/app/data
+      - ./config/local/septa_bus.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=${SEPTA_DD_SERVICE:-gobble-septa-bus}
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    logging:
+      driver: "${DOCKER_LOG_DRIVER:-json-file}"
+      options:
+        max-size: "${DOCKER_LOG_MAX_SIZE:-50m}"
+        max-file: "${DOCKER_LOG_MAX_FILE:-5}"
+
+  # STM Montreal
+  gobble-stm_montreal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gobble-stm_montreal
+    restart: unless-stopped
+    profiles: ["${STM_ENABLED:-true}"]
+    user: "1000:1000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data/stm_montreal:/app/data
+      - ./config/local/stm_montreal.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=${SEPTA_DD_SERVICE:-gobble-stm_montreal}
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    logging:
+      driver: "${DOCKER_LOG_DRIVER:-json-file}"
+      options:
+        max-size: "${DOCKER_LOG_MAX_SIZE:-50m}"
+        max-file: "${DOCKER_LOG_MAX_FILE:-5}"
+
+  # Denver RTD
+  gobble-denver_rtd:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gobble-denver_rtd
+    restart: unless-stopped
+    profiles: ["${DENVER_RTD_ENABLED:-true}"]
+    user: "1000:1000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data/denver_rtd:/app/data
+      - ./config/local/denver_rtd.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=${DENVER_RTD_DD_SERVICE:-gobble-denver_rtd}
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    logging:
+      driver: "${DOCKER_LOG_DRIVER:-json-file}"
+      options:
+        max-size: "${DOCKER_LOG_MAX_SIZE:-50m}"
+        max-file: "${DOCKER_LOG_MAX_FILE:-5}"
+
+  # Denver RTD
+  gobble-wegostar:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gobble-wegostar
+    restart: unless-stopped
+    profiles: ["${WEGOSTAR_ENABLED:-true}"]
+    user: "1000:1000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data/wegostar:/app/data
+      - ./config/local/wegostar.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=${WEGO_STAR_DD_SERVICE:-gobble-wegostar}
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    logging:
+      driver: "${DOCKER_LOG_DRIVER:-json-file}"
+      options:
+        max-size: "${DOCKER_LOG_MAX_SIZE:-50m}"
+        max-file: "${DOCKER_LOG_MAX_FILE:-5}"
+
+  # Template for adding new agencies (uncomment and modify as needed)
+  # gobble-new-agency:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: gobble-new-agency
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./data/new_agency:/app/data
+  #     - ./config/local/new_agency.json:/app/config/local.json:ro
+  #   environment:
+  #     - DD_SERVICE=gobble-new-agency
+  #     - DD_ENV=${DEPLOYMENT_ENV:-dev}
+  #     - LOG_LEVEL=INFO
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "50m"
+  #       max-file: "5"
+
+volumes: {}

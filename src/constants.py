@@ -30,6 +30,8 @@ AGENCY_MODULES = {
     "wmata_bus": "agencies.wmata_bus_routes",
     "wmata_rail": "agencies.wmata_rail_routes",
     "marta": "agencies.marta_routes",
+    "lirr": "agencies.lirr_routes",
+    "nyc_subway": "agencies.nyc_subway_routes",
 }
 
 if AGENCY not in AGENCY_MODULES:
