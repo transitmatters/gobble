@@ -1,7 +1,7 @@
 {
-  "agency": "metra",
+  "agency": "lirr",
   "GTFS_ARCHIVES_PREFIX": "http://127.0.0.1:8000",
-  "GTFS_ARCHIVES_FILENAME": "archived_feeds.txt?feed_id=mdb-2854",
+  "GTFS_ARCHIVES_FILENAME": "archived_feeds.txt?feed_id=mdb-507",
   "mbta": {
     "v3_api_key": null
   },
@@ -11,8 +11,8 @@
   },
   "use_gtfs_rt": true,
   "gtfs_rt": {
-    "mobility_database_id": "mdb-2854",
-    "feed_url": "https://gtfspublic.metrarr.com/gtfs/public/positions",
+    "mobility_database_id": "mdb-507",
+    "feed_url": "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/lirr%2Fgtfs-lirr",
     "api_key": null,
     "api_key_method": "none",
     "polling_interval": 10
