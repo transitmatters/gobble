@@ -44,8 +44,6 @@ addopts = [
     "--strict-markers",
     "--tb=short",
     "--durations=10",
-    "-n",
-    "auto",
 ]
 markers = [
     "integration: marks tests as integration tests that may download data or perform I/O (deselect with '-m \"not integration\"')",

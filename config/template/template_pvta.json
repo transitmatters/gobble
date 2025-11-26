@@ -15,7 +15,7 @@
     "feed_url": "https://api.goswift.ly/real-time/pioneer-valley-pvta/gtfs-rt-vehicle-positions",
     "api_key": null,
     "api_key_method": "header",
-    "api_key_param_name": "X-API-KEY",
+    "api_key_param_name": "Authorization",
     "polling_interval": 10
   },
   "DATADOG_TRACE_ENABLED": false

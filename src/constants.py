@@ -33,6 +33,8 @@ AGENCY_MODULES = {
     "lirr": "agencies.lirr_routes",
     "nyc_subway": "agencies.nyc_subway_routes",
     "stm_montreal_bus": "agencies.stm_montreal_routes",
+    "pvta": "agencies.pvta_routes",
+    "ripta": "agencies.ripta_routes",
 }
 
 if AGENCY not in AGENCY_MODULES:
