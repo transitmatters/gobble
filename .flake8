@@ -1,4 +1,0 @@
-[flake8]
-ignore = E501,E731,W503,E203,F824
-exclude =
-    .venv

@@ -60,7 +60,7 @@ def main():
 
 
 def connect(routes: Set[str]) -> requests.Response:
-    url = f'https://api-v3.mbta.com/vehicles?filter[route]={",".join(routes)}'
+    url = f"https://api-v3.mbta.com/vehicles?filter[route]={','.join(routes)}"
     logger.info(f"Connecting to {url}...")
     return requests.get(url, headers=HEADERS, stream=True)
 
