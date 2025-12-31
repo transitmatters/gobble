@@ -266,20 +266,29 @@ def get_services(date: datetime.date, archive_dir: pathlib.Path) -> List[str]:
     """
     Read calendar.txt to determine which services ran on the given date.
     Also, incorporate exceptions from calendar_dates.txt for holidays, etc.
+    calendar.txt is optional in GTFS; if missing, rely on calendar_dates.txt only.
     """
     dateint = to_dateint(date)
     day_of_week = date.strftime("%A").lower()
 
-    cal = pd.read_csv(archive_dir / "calendar.txt")
-    current_services = cal[(cal.start_date <= dateint) & (cal.end_date >= dateint)]
-    services = current_services[current_services[day_of_week] == 1].service_id.tolist()
+    services = []
+    calendar_path = archive_dir / "calendar.txt"
+    if calendar_path.exists():
+        cal = pd.read_csv(calendar_path)
+        current_services = cal[(cal.start_date <= dateint) & (cal.end_date >= dateint)]
+        services = current_services[
+            current_services[day_of_week] == 1
+        ].service_id.tolist()
 
-    exceptions = pd.read_csv(archive_dir / "calendar_dates.txt")
-    exceptions = exceptions[exceptions.date == dateint]
-    additions = exceptions[exceptions.exception_type == 1].service_id.tolist()
-    subtractions = exceptions[exceptions.exception_type == 2].service_id.tolist()
+    calendar_dates_path = archive_dir / "calendar_dates.txt"
+    if calendar_dates_path.exists():
+        exceptions = pd.read_csv(calendar_dates_path)
+        exceptions = exceptions[exceptions.date == dateint]
+        additions = exceptions[exceptions.exception_type == 1].service_id.tolist()
+        subtractions = exceptions[exceptions.exception_type == 2].service_id.tolist()
 
-    services = (set(services) - set(subtractions)) | set(additions)
+        services = (set(services) - set(subtractions)) | set(additions)
+
     return list(services)
 
 
@@ -317,12 +326,14 @@ def read_gtfs(
         trips = trips[trips.route_id.isin(routes_filter)]
 
     stops = pd.read_csv(archive_dir / "stops.txt", dtype={"stop_id": str})
+    stops["stop_id"] = stops["stop_id"].str.strip()
 
     stop_times = pd.read_csv(
         archive_dir / "stop_times.txt",
         dtype={"trip_id": str, "stop_id": str},
         usecols=STOP_TIMES_COLS,
     )
+    stop_times["stop_id"] = stop_times["stop_id"].str.strip()
     stop_times = stop_times[stop_times.trip_id.isin(trips.trip_id)]
     stop_times.arrival_time = pd.to_timedelta(stop_times.arrival_time)
     stop_times.departure_time = pd.to_timedelta(stop_times.departure_time)
@@ -462,6 +473,7 @@ def add_gtfs_headways(
     event_df["arrival_time"] = event_df.event_time - pd.Timestamp(
         service_date
     ).tz_localize(EASTERN_TIME)
+    event_df = event_df.sort_values(by="arrival_time")
     augmented_event = pd.merge_asof(
         event_df,
         gtfs_stops[RTE_DIR_STOP + ["arrival_time", "scheduled_headway"]],
@@ -471,7 +483,9 @@ def add_gtfs_headways(
     )
 
     # assign each actual trip a scheduled trip_id, based on when it started the route
-    route_starts = event_df[RTE_DIR_STOP + ["trip_id", "arrival_time"]]
+    route_starts = event_df[RTE_DIR_STOP + ["trip_id", "arrival_time"]].sort_values(
+        by="arrival_time"
+    )
 
     trip_id_map = pd.merge_asof(
         route_starts,

@@ -22,7 +22,7 @@ ROUTES_CR = {
     "FOX",
 }
 
-ROUTES_RAPID = {}
+ROUTES_RAPID = set()
 
 
 ALL_ROUTES = ROUTES_BUS.union(ROUTES_CR).union(ROUTES_RAPID)

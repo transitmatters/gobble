@@ -35,6 +35,10 @@ AGENCY_MODULES = {
     "stm_montreal_bus": "agencies.stm_montreal_routes",
     "pvta": "agencies.pvta_routes",
     "ripta": "agencies.ripta_routes",
+    "metro_transit": "agencies.metro_transit_routes",
+    "meva": "agencies.meva_routes",
+    "cats": "agencies.cats_routes",
+    "ttc": "agencies.ttc_routes",
 }
 
 if AGENCY not in AGENCY_MODULES:

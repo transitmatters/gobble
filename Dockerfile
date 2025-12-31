@@ -26,9 +26,9 @@ RUN mkdir -p /app/data
 RUN useradd -m -u 1000 gobble && \
     chown -R gobble:gobble /app
 
-# Health check - simple file existence check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD test -f /app/data/trip_states || exit 1
+# Health check - check if trip_states directory exists and contains files
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD test -d /app/data/trip_states && [ "$(find /app/data/trip_states -type f | wc -l)" -gt 0 ] || exit 1
 
 # Run the entrypoint script
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

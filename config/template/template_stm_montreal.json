@@ -1,6 +1,6 @@
 {
   "agency": "stm_montreal_bus",
-  "GTFS_ARCHIVES_PREFIX": "http://127.0.0.1:8000",
+  "GTFS_ARCHIVES_PREFIX": "http://host.docker.internal:8000",
   "GTFS_ARCHIVES_FILENAME": "archived_feeds.txt?feed_id=mdb-2126",
   "mbta": {
     "v3_api_key": null

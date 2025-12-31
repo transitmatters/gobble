@@ -131,28 +131,6 @@ services:
         max-size: "${DOCKER_LOG_MAX_SIZE:-50m}"
         max-file: "${DOCKER_LOG_MAX_FILE:-5}"
 
-  # Nashville MTA (Wego Star)
-  gobble-wegostar:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: gobble-wegostar
-    restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - ./data/wegostar:/app/data
-      - ./config/local/wegostar.json:/app/config/local.json:ro
-    environment:
-      - DD_SERVICE=${WEGO_STAR_DD_SERVICE:-gobble-wegostar}
-      - DD_ENV=${DEPLOYMENT_ENV:-dev}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-    logging:
-      driver: "${DOCKER_LOG_DRIVER:-json-file}"
-      options:
-        max-size: "${DOCKER_LOG_MAX_SIZE:-50m}"
-        max-file: "${DOCKER_LOG_MAX_FILE:-5}"
-
   gobble-pvta:
     build:
       context: .
@@ -214,6 +192,29 @@ services:
       options:
         max-size: "50m"
         max-file: "5"
+
+  gobble-metro-transit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gobble-metro-transit
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data/metro_transit:/app/data
+      - ./config/local/metro_transit.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-metro-transit
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=INFO
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+
   # Template for adding new agencies (uncomment and modify as needed)
   # gobble-new-agency:
   #   build:

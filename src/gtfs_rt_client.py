@@ -170,7 +170,8 @@ class GtfsRtClient:
             feed = gtfs_realtime_pb2.FeedMessage()
             feed.ParseFromString(response.content)
 
-            logger.debug(f"Fetched {len(feed.entity)} entities from GTFS-RT feed")
+            if len(feed.entity) > 0:
+                logger.info(f"Fetched {len(feed.entity)} entities from GTFS-RT feed")
             return feed
 
         except requests.exceptions.RequestException as e:
@@ -211,7 +212,7 @@ class GtfsRtClient:
 
                                 # Only yield if position has changed
                                 if self._has_position_changed(trip_id, event):
-                                    logger.debug(
+                                    logger.info(
                                         f"Position changed for trip {trip_id}, yielding event"
                                     )
                                     yield event
