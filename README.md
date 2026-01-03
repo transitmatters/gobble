@@ -8,14 +8,14 @@ Gobble is a service that reads the [MBTA V3 Streaming API](https://www.mbta.com/
 
 ## Requirements to develop locally
 
-- Python 3.12
-- [poetry](https://python-poetry.org/)
+- [`uv`](https://docs.astral.sh/uv/) with Python 3.12
+  - Ensure `uv` is using the correct Python version by running `uv venv --python 3.12`
 
 ## Development Instructions
 
 1. Duplicate `config/template.json` into `config/local.json`, and change the null out with your MBTA V3 API key.
-2. In the root directory, run `poetry install` to install dependencies
-3. Run `poetry run python3 src/gobble.py` to start.
+2. In the root directory, run `uv sync --group dev` to install dependencies followed by `uv run pre-commit install` to install pre-commit hooks
+3. Run `uv run src/gobble.py` to start.
 4. Output will be in `data/` in your current working directory. Good luck!
 
 ### Linting
@@ -23,8 +23,8 @@ Gobble is a service that reads the [MBTA V3 Streaming API](https://www.mbta.com/
 You can run the linter against any code changes with the following commands
 
 ```bash
-$ poetry run flake8 src
-$ poetry run black --check src
+$ uv run ruff check --fix src
+$ uv run ruff format src
 ```
 
 ## Support TransitMatters
