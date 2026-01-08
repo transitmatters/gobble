@@ -33,6 +33,7 @@ jobs:
             "mbta": {
               "v3_api_key": "${{ secrets.MBTA_V3_API_KEY }}"
             },
+            "modes": ["cr", "bus"],
             "gtfs": {
               "refresh_interval_days": 7
             },
