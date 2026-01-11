@@ -5,6 +5,9 @@ output
 
 # python
 __pycache__
+.pytest_cache
+.venv
+.poetry
 
 # misc
 .DS_Store
