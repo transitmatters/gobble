@@ -61,9 +61,7 @@ def get_api_key_var_name(agency: str) -> str:
     return f"{agency.upper()}_API_KEY"
 
 
-def inject_api_key(
-    config: Dict[str, Any], env_vars: Dict[str, str], agency: str
-) -> None:
+def inject_api_key(config: Dict[str, Any], env_vars: Dict[str, str], agency: str) -> None:
     """
     Inject API key into config if the agency requires one.
 
@@ -84,14 +82,10 @@ def inject_api_key(
         config["gtfs_rt"]["api_key"] = api_key
         logger.info(f"Injected API key for {agency}")
     else:
-        logger.warning(
-            f"No API key found for {agency} (expected env var: {api_key_var})"
-        )
+        logger.warning(f"No API key found for {agency} (expected env var: {api_key_var})")
 
 
-def generate_config(
-    template_path: Path, output_path: Path, env_vars: Dict[str, str]
-) -> bool:
+def generate_config(template_path: Path, output_path: Path, env_vars: Dict[str, str]) -> bool:
     """
     Generate a config file from a template with API keys injected.
 
@@ -125,9 +119,7 @@ def generate_config(
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Generate local config files from templates with API keys injected"
-    )
+    parser = argparse.ArgumentParser(description="Generate local config files from templates with API keys injected")
     parser.add_argument(
         "--template",
         help="Specific template file to process (e.g., template_marta_bus.json)",
@@ -137,12 +129,8 @@ def main():
         default="config/local",
         help="Output directory for generated configs (default: config/local)",
     )
-    parser.add_argument(
-        "--env-file", default=".env", help="Path to .env file (default: .env)"
-    )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose logging"
-    )
+    parser.add_argument("--env-file", default=".env", help="Path to .env file (default: .env)")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
 
     args = parser.parse_args()
 
@@ -170,9 +158,7 @@ def main():
             logger.error(f"Template not found: {template_path}")
             return 1
 
-        output_path = output_dir / args.template.replace("template_", "").replace(
-            ".json", ".json"
-        )
+        output_path = output_dir / args.template.replace("template_", "").replace(".json", ".json")
         success = generate_config(template_path, output_path, env_vars)
         return 0 if success else 1
     else:

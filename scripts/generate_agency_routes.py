@@ -181,9 +181,7 @@ def categorize_routes(
 def format_python_dict(data: Dict[str, Set[str]]) -> str:
     """Format a dict of route_id -> set of stop_ids as a Python dict literal."""
     lines = ["{"]
-    for route_id in sorted(
-        data.keys(), key=lambda x: (int(x) if x.isdigit() else 999999, x)
-    ):
+    for route_id in sorted(data.keys(), key=lambda x: (int(x) if x.isdigit() else 999999, x)):
         stops = data[route_id]
         # Format stops nicely
         stops_str = "{" + ", ".join(f'"{s}"' for s in sorted(stops)) + "}"
@@ -248,9 +246,7 @@ def main():
         help="Path or URL to GTFS Static zip file (e.g., /path/to/file.zip or https://example.com/gtfs.zip)",
     )
 
-    parser.add_argument(
-        "agency_name", help="Name of the agency (e.g., 'mbta', 'caltrain')"
-    )
+    parser.add_argument("agency_name", help="Name of the agency (e.g., 'mbta', 'caltrain')")
 
     parser.add_argument(
         "--output-dir",

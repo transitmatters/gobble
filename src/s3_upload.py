@@ -20,9 +20,7 @@ s3 = boto3.client("s3")
 
 S3_BUCKET = "tm-mbta-performance"
 
-LOCAL_DATA_TEMPLATE = str(
-    DATA_DIR / "daily-*/*/Year={year}/Month={month}/Day={day}/events.csv"
-)
+LOCAL_DATA_TEMPLATE = str(DATA_DIR / "daily-*/*/Year={year}/Month={month}/Day={day}/events.csv")
 S3_DATA_TEMPLATE = "Events-live/{relative_path}.gz"
 
 
@@ -57,9 +55,7 @@ def upload_todays_events_to_s3():
     # get files updated for this service date
     # TODO: only update modified files? cant imagine much of a difference if we partition live data by day
     files_updated_today = glob.glob(
-        LOCAL_DATA_TEMPLATE.format(
-            year=pull_date.year, month=pull_date.month, day=pull_date.day
-        )
+        LOCAL_DATA_TEMPLATE.format(year=pull_date.year, month=pull_date.month, day=pull_date.day)
     )
 
     # upload them to s3, gzipped
@@ -67,9 +63,7 @@ def upload_todays_events_to_s3():
         _compress_and_upload_file(fp)
 
     end_time = time.time()
-    logger.info(
-        f"Uploaded {len(files_updated_today)} files to s3, took {end_time - start_time} seconds."
-    )
+    logger.info(f"Uploaded {len(files_updated_today)} files to s3, took {end_time - start_time} seconds.")
 
 
 if __name__ == "__main__":

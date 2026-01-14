@@ -17,9 +17,7 @@ def to_dateint(date: date) -> int:
     return int(str(date).replace("-", ""))
 
 
-def output_dir_path(
-    route_id: str, direction_id: str, stop_id: str, ts: datetime
-) -> str:
+def output_dir_path(route_id: str, direction_id: str, stop_id: str, ts: datetime) -> str:
     date = service_date(ts)
 
     # commuter rail lines have dashes in both route id and stop id, so use underscores as delimiter

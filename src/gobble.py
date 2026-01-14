@@ -192,9 +192,7 @@ def client_thread_sse(routes: Set[str], trips_state: TripsStateManager):
         finally:
             if client is not None:
                 client.close()
-            time.sleep(
-                0.5
-            )  # Just in case something is borked, to avoid hammering. It doesn't GIL!
+            time.sleep(0.5)  # Just in case something is borked, to avoid hammering. It doesn't GIL!
 
 
 def client_thread_gtfs_rt(routes: Set[str], trips_state: TripsStateManager):
@@ -232,9 +230,7 @@ def client_thread_gtfs_rt(routes: Set[str], trips_state: TripsStateManager):
             client.close()
 
 
-def client_thread_gtfs_rt_shared(
-    routes: Set[str], trips_state: TripsStateManager, event_queue: queue.Queue
-):
+def client_thread_gtfs_rt_shared(routes: Set[str], trips_state: TripsStateManager, event_queue: queue.Queue):
     """Client thread consuming from shared GTFS-RT feed."""
     logger.info(f"Starting GTFS-RT consumer thread for {len(routes)} routes")
     try:

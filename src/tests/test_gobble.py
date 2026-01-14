@@ -134,9 +134,7 @@ class TestClientThread:
     @patch("gobble.sseclient.SSEClient")
     @patch("gobble.connect")
     @patch("gobble.process_events")
-    def test_client_thread_creates_connection(
-        self, mock_process_events, mock_connect, mock_sse_client
-    ):
+    def test_client_thread_creates_connection(self, mock_process_events, mock_connect, mock_sse_client):
         """Test that client_thread creates SSE connection and processes events"""
         mock_response = Mock()
         mock_connect.return_value = mock_response
@@ -167,9 +165,7 @@ class TestClientThread:
     @patch("gobble.connect")
     @patch("gobble.process_events")
     @patch("gobble.time.sleep")
-    def test_client_thread_retries_on_error(
-        self, mock_sleep, mock_process_events, mock_connect, mock_sse_client
-    ):
+    def test_client_thread_retries_on_error(self, mock_sleep, mock_process_events, mock_connect, mock_sse_client):
         """Test that client_thread retries on connection errors"""
         mock_response = Mock()
         mock_connect.return_value = mock_response

@@ -92,9 +92,7 @@ class TestTripStateCleanup(unittest.TestCase):
             "event_type": "DEP",
         }
 
-        with patch(
-            "trip_state.get_current_service_date", return_value=date(2024, 1, 2)
-        ):
+        with patch("trip_state.get_current_service_date", return_value=date(2024, 1, 2)):
             state._purge_trips_state_if_overnight()
 
         # All trips should be cleared
@@ -205,9 +203,7 @@ class TestTripStateFilePersistence(unittest.TestCase):
 
             # Verify file exists and can be read
             trip_file_path = temp_data_dir / "trip_states" / "test_route.json"
-            self.assertTrue(
-                trip_file_path.exists(), "Trip state file should exist after cleanup"
-            )
+            self.assertTrue(trip_file_path.exists(), "Trip state file should exist after cleanup")
 
             # Read the file and verify contents
             import json
@@ -223,9 +219,7 @@ class TestTripStateFilePersistence(unittest.TestCase):
             trip_states = file_contents["trip_states"]
             self.assertIn("fresh_trip", trip_states)
             self.assertIn("new_trip", trip_states)
-            self.assertNotIn(
-                "stale_trip", trip_states, "Stale trip should have been cleaned up"
-            )
+            self.assertNotIn("stale_trip", trip_states, "Stale trip should have been cleaned up")
 
     def test_file_updated_after_overnight_purge(self):
         """Test that file is written after overnight purge clears all trips"""
@@ -247,9 +241,7 @@ class TestTripStateFilePersistence(unittest.TestCase):
                 state.trips[f"trip_{i}"] = trip_state
 
             # Mock service date to trigger purge
-            with patch(
-                "trip_state.get_current_service_date", return_value=date(2024, 1, 2)
-            ):
+            with patch("trip_state.get_current_service_date", return_value=date(2024, 1, 2)):
                 # Trigger purge by setting a new trip
                 new_trip = {
                     "stop_sequence": 10,
@@ -261,9 +253,7 @@ class TestTripStateFilePersistence(unittest.TestCase):
 
             # Verify file exists and can be read
             trip_file_path = temp_data_dir / "trip_states" / "test_route.json"
-            self.assertTrue(
-                trip_file_path.exists(), "Trip state file should exist after purge"
-            )
+            self.assertTrue(trip_file_path.exists(), "Trip state file should exist after purge")
 
             # Read file and verify contents
             import json
@@ -310,12 +300,8 @@ class TestTripStateFilePersistence(unittest.TestCase):
 
             for trip_id, original_trip in original_trips.items():
                 loaded_trip = state2.get_trip_state(trip_id)
-                self.assertIsNotNone(
-                    loaded_trip, f"Trip {trip_id} should be loaded from file"
-                )
-                self.assertEqual(
-                    loaded_trip["stop_sequence"], original_trip["stop_sequence"]
-                )
+                self.assertIsNotNone(loaded_trip, f"Trip {trip_id} should be loaded from file")
+                self.assertEqual(loaded_trip["stop_sequence"], original_trip["stop_sequence"])
                 self.assertEqual(loaded_trip["stop_id"], original_trip["stop_id"])
                 self.assertEqual(loaded_trip["event_type"], original_trip["event_type"])
                 # Note: updated_at will be datetime object after loading

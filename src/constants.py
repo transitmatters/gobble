@@ -42,9 +42,7 @@ AGENCY_MODULES = {
 }
 
 if AGENCY not in AGENCY_MODULES:
-    raise ValueError(
-        f"Unknown agency '{AGENCY}'. Supported agencies: {list(AGENCY_MODULES)}."
-    )
+    raise ValueError(f"Unknown agency '{AGENCY}'. Supported agencies: {list(AGENCY_MODULES)}.")
 
 mod = importlib.import_module(AGENCY_MODULES[AGENCY])
 

@@ -128,24 +128,15 @@ class GtfsRtClient:
             return True
 
         # Check if current status changed (e.g., IN_TRANSIT_TO -> STOPPED_AT)
-        if (
-            prev["attributes"]["current_status"]
-            != new_event["attributes"]["current_status"]
-        ):
+        if prev["attributes"]["current_status"] != new_event["attributes"]["current_status"]:
             return True
 
         # Check if stop sequence changed (vehicle progressed through the route)
-        if (
-            prev["attributes"]["current_stop_sequence"]
-            != new_event["attributes"]["current_stop_sequence"]
-        ):
+        if prev["attributes"]["current_stop_sequence"] != new_event["attributes"]["current_stop_sequence"]:
             return True
 
         # Check if occupancy status changed
-        if (
-            prev["attributes"]["occupancy_status"]
-            != new_event["attributes"]["occupancy_status"]
-        ):
+        if prev["attributes"]["occupancy_status"] != new_event["attributes"]["occupancy_status"]:
             return True
 
         # Check if carriages changed (for multi-car consists)
@@ -212,9 +203,7 @@ class GtfsRtClient:
 
                                 # Only yield if position has changed
                                 if self._has_position_changed(trip_id, event):
-                                    logger.info(
-                                        f"Position changed for trip {trip_id}, yielding event"
-                                    )
+                                    logger.info(f"Position changed for trip {trip_id}, yielding event")
                                     yield event
 
                                 # Update cached position
@@ -253,9 +242,7 @@ def convert_vehicle_position_to_event(
         trip_id = vehicle.trip.trip_id if vehicle.trip.HasField("trip_id") else None
         route_id = vehicle.trip.route_id if vehicle.trip.HasField("route_id") else None
         stop_id = vehicle.stop_id if vehicle.HasField("stop_id") else None
-        direction_id = (
-            vehicle.trip.direction_id if vehicle.trip.HasField("direction_id") else 0
-        )
+        direction_id = vehicle.trip.direction_id if vehicle.trip.HasField("direction_id") else 0
 
         # Skip if missing critical fields
         if not trip_id or not route_id:
@@ -263,9 +250,7 @@ def convert_vehicle_position_to_event(
             return None
 
         # Extract current status
-        current_status = VEHICLE_STOP_STATUS_MAP.get(
-            vehicle.current_status, "IN_TRANSIT_TO"
-        )
+        current_status = VEHICLE_STOP_STATUS_MAP.get(vehicle.current_status, "IN_TRANSIT_TO")
 
         # Extract timestamp (GTFS-RT uses Unix epoch seconds)
         if vehicle.HasField("timestamp"):
@@ -278,27 +263,17 @@ def convert_vehicle_position_to_event(
         updated_at_iso = updated_at.isoformat()
 
         # Extract current stop sequence
-        current_stop_sequence = (
-            vehicle.current_stop_sequence
-            if vehicle.HasField("current_stop_sequence")
-            else 0
-        )
+        current_stop_sequence = vehicle.current_stop_sequence if vehicle.HasField("current_stop_sequence") else 0
 
         # Extract vehicle label
-        vehicle_label = (
-            vehicle.vehicle.label
-            if vehicle.vehicle.HasField("label")
-            else vehicle.vehicle.id
-        )
+        vehicle_label = vehicle.vehicle.label if vehicle.vehicle.HasField("label") else vehicle.vehicle.id
 
         # Extract occupancy information
         occupancy_status = None
         occupancy_percentage = None
 
         if vehicle.HasField("occupancy_status"):
-            occupancy_status = OCCUPANCY_STATUS_MAP.get(
-                vehicle.occupancy_status, "NO_DATA_AVAILABLE"
-            )
+            occupancy_status = OCCUPANCY_STATUS_MAP.get(vehicle.occupancy_status, "NO_DATA_AVAILABLE")
 
         if vehicle.HasField("occupancy_percentage"):
             occupancy_percentage = vehicle.occupancy_percentage
@@ -330,13 +305,8 @@ def convert_vehicle_position_to_event(
                     )
 
                 # Add occupancy percentage if present and valid (not -1)
-                if (
-                    carriage.HasField("occupancy_percentage")
-                    and carriage.occupancy_percentage >= 0
-                ):
-                    carriage_data["occupancy_percentage"] = (
-                        carriage.occupancy_percentage
-                    )
+                if carriage.HasField("occupancy_percentage") and carriage.occupancy_percentage >= 0:
+                    carriage_data["occupancy_percentage"] = carriage.occupancy_percentage
 
                 # Add carriage sequence (position in train)
                 if carriage.HasField("carriage_sequence"):
