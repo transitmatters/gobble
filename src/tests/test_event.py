@@ -1,18 +1,19 @@
-from unittest.mock import patch, Mock
 from datetime import datetime
+from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
+
 import pandas as pd
 
+import gtfs
 from event import (
-    get_stop_name,
-    arr_or_dep_event,
-    reduce_update_event,
-    process_event,
-    enrich_event,
     EVENT_TYPE_MAP,
+    arr_or_dep_event,
+    enrich_event,
+    get_stop_name,
+    process_event,
+    reduce_update_event,
 )
 from trip_state import TripsStateManager
-import gtfs
 
 
 class TestGetStopName:
@@ -561,8 +562,8 @@ class TestProcessEvent:
         # No event should be written
         mock_write_event.assert_not_called()
 
-        # But trip state should still be updated
-        self.mock_trips_state.set_trip_state.assert_called_once()
+        # Trip state should not be updated
+        self.mock_trips_state.set_trip_state.assert_not_called()
 
     @patch("event.gtfs.get_current_gtfs_archive")
     @patch("event.disk.write_event")
