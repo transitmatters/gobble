@@ -1,0 +1,65 @@
+# Version control
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# IDEs
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Node (if any)
+node_modules/
+npm-debug.log
+
+# Development
+.env
+.env.local
+.env.*.local
+
+# Data (don't include production data in image)
+data/
+*.log
+
+# Docker
+Dockerfile.dev
+docker-compose.dev.yml
+.dockerignore
+
+# CI/CD
+.circleci
+.travis.yml
+.gitlab-ci.yml
+
+# Documentation
+docs/
+README.md
+LICENSE
+
+# Misc
+*.md
+.editorconfig

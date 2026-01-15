@@ -16,6 +16,12 @@ __pycache__
 config/local.json
 .envrc
 
+# environment files (contain secrets!)
+.env
+.env.local
+.env.*.local
+config/local/*
+
 # logs
 gobble.log
 s3_upload.log

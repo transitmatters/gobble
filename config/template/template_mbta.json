@@ -9,14 +9,14 @@
     "dir": null,
     "refresh_interval_days": 7
   },
-  "use_gtfs_rt": false,
+  "use_gtfs_rt": true,
   "gtfs_rt": {
-    "feed_url": null,
+    "mobility_database_id": "mdb-1602",
+    "feed_url": "https://cdn.mbta.com/realtime/VehiclePositions.pb",
     "api_key": null,
-    "api_key_method": "header",
-    "api_key_param_name": "X-API-KEY",
+    "api_key_method": "query",
+    "api_key_param_name": "api_token",
     "polling_interval": 10
   },
-  "modes": ["rapid", "cr", "bus"],
   "DATADOG_TRACE_ENABLED": false
 }
