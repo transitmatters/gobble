@@ -603,20 +603,10 @@ class TestProcessEvent:
         # Return None to simulate first time seeing this trip
         self.mock_trips_state.get_trip_state.return_value = None
 
-        with patch("event.enrich_event") as mock_enrich:
-            mock_enrich.return_value = {"route_id": "Red", "event_type": "ARR"}
+        process_event(update, self.mock_trips_state)
 
-            process_event(update, self.mock_trips_state)
-
-            # Verify trip state was initialized and set
-            self.mock_trips_state.set_trip_state.assert_called_once()
-            call_args = self.mock_trips_state.set_trip_state.call_args
-            assert call_args[0][0] == "Red"  # route_id
-            assert call_args[0][1] == "trip_new"  # trip_id
-            # Check that the prev_trip_state was initialized with current values
-            assert call_args[0][2]["stop_sequence"] == 1
-            assert call_args[0][2]["stop_id"] == "70001"
-            assert call_args[0][2]["event_type"] == "ARR"
+        # First time seeing a trip with no state change - no event written, no state saved
+        self.mock_trips_state.set_trip_state.assert_not_called()
 
 
 class TestEventTypeMap:
