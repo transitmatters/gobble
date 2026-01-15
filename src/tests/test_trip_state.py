@@ -1,7 +1,8 @@
 import unittest
-from unittest.mock import patch
-from datetime import datetime, date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
+
 from trip_state import RouteTripsState
 from util import EASTERN_TIME
 

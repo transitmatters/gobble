@@ -1,22 +1,22 @@
 import json
-import threading
-import requests
-import sseclient
-import time
 import logging
-import traceback
 import queue
-from ddtrace import tracer
+import threading
+import time
+import traceback
 from typing import Set
 
-from constants import ROUTES_BUS, ROUTES_CR, ROUTES_RAPID
+import requests
+import sseclient
+from ddtrace import tracer
+
+import gtfs
+import gtfs_rt_client
 from config import CONFIG
+from constants import ROUTES_BUS, ROUTES_CR, ROUTES_RAPID
 from event import process_event
 from logger import set_up_logging
 from trip_state import TripsStateManager
-import gtfs
-import gtfs_rt_client
-
 
 logging.basicConfig(level=logging.INFO, filename="gobble.log")
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
@@ -111,37 +111,45 @@ def main():
         for bus_thread in bus_threads:
             bus_thread.join()
     else:
-        # SSE mode: Use existing multi-threaded approach
-        rapid_thread = threading.Thread(
-            target=client_thread,
-            args=(ROUTES_RAPID,),
-            name="rapid_routes",
-        )
+        # Get enabled modes from config, default to all modes if not specified
+        enabled_modes = CONFIG.get("modes", ["rapid", "cr", "bus"])
 
-        cr_thread = threading.Thread(
-            target=client_thread,
-            args=(ROUTES_CR,),
-            name="cr_routes",
-        )
+        threads: list[threading.Thread] = []
 
-        rapid_thread.start()
-        cr_thread.start()
+        if "rapid" in enabled_modes:
+            rapid_thread = threading.Thread(
+                target=client_thread,
+                args=(ROUTES_RAPID,),
+                name="rapid_routes",
+            )
+            threads.append(rapid_thread)
+            rapid_thread.start()
+
+        if "cr" in enabled_modes:
+            cr_thread = threading.Thread(
+                target=client_thread,
+                args=(ROUTES_CR,),
+                name="cr_routes",
+            )
+
+            threads.append(cr_thread)
+            cr_thread.start()
 
         bus_threads: list[threading.Thread] = []
-        for i in range(0, len(list(ROUTES_BUS)), 10):
-            routes_bus_chunk = list(ROUTES_BUS)[i : i + 10]
-            bus_thread = threading.Thread(
-                target=client_thread,
-                args=(set(routes_bus_chunk),),
-                name=f"routes_bus_chunk{i}",
-            )
-            bus_threads.append(bus_thread)
-            bus_thread.start()
 
-        rapid_thread.join()
-        cr_thread.join()
-        for bus_thread in bus_threads:
-            bus_thread.join()
+        if "bus" in enabled_modes:
+            for i in range(0, len(list(ROUTES_BUS)), 10):
+                routes_bus_chunk = list(ROUTES_BUS)[i : i + 10]
+                bus_thread = threading.Thread(
+                    target=client_thread,
+                    args=(set(routes_bus_chunk),),
+                    name=f"routes_bus_chunk{i}",
+                )
+                bus_threads.append(bus_thread)
+                bus_thread.start()
+
+        for thread in threads:
+            thread.join()
 
 
 def connect(routes: Set[str]) -> requests.Response:

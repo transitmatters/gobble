@@ -14,26 +14,14 @@ Gobble supports two data ingestion modes:
 
 ## Requirements to develop locally
 
-- Python 3.12
-- [poetry](https://python-poetry.org/)
+- [`uv`](https://docs.astral.sh/uv/) with Python 3.12
+  - Ensure `uv` is using the correct Python version by running `uv venv --python 3.12`
 
 ## Development Instructions
 
-### Using MBTA SSE API (Default)
-
-1. Duplicate `config/template.json` into `config/local.json`, and add your MBTA V3 API key:
-
-   ```json
-   {
-     "mbta": {
-       "v3_api_key": "YOUR_API_KEY_HERE"
-     },
-     "use_gtfs_rt": false
-   }
-   ```
-
-2. In the root directory, run `poetry install` to install dependencies
-3. Run `poetry run python3 src/gobble.py` to start.
+1. Duplicate `config/template.json` into `config/local.json`, and change the null out with your MBTA V3 API key.
+2. In the root directory, run `uv sync --group dev` to install dependencies followed by `uv run pre-commit install` to install pre-commit hooks
+3. Run `uv run src/gobble.py` to start.
 4. Output will be in `data/` in your current working directory. Good luck!
 
 ### Using GTFS-RT (Generic Transit Agencies)
@@ -157,8 +145,8 @@ poetry run pytest src/tests/
 You can run the linter against any code changes with the following commands
 
 ```bash
-poetry run flake8 src
-poetry run black --check src
+$ uv run ruff check --fix src
+$ uv run ruff format src
 ```
 
 ## Support TransitMatters

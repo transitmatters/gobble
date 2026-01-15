@@ -17,5 +17,6 @@
     "api_key_param_name": "X-API-KEY",
     "polling_interval": 10
   },
+  "modes": ["rapid", "cr", "bus"],
   "DATADOG_TRACE_ENABLED": false
 }

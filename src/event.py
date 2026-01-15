@@ -1,18 +1,18 @@
 import json
+import warnings
 from datetime import datetime
 from typing import Tuple
+
 import pandas as pd
 from ddtrace import tracer
-import warnings
-
-from config import CONFIG
-from constants import BUS_STOPS, ROUTES_BUS, ROUTES_CR, ROUTES_RAPID
-from logger import set_up_logging
-from trip_state import TripsStateManager
 
 import disk
 import gtfs
 import util
+from config import CONFIG
+from constants import ROUTES_BUS, ROUTES_CR, ROUTES_RAPID
+from logger import set_up_logging
+from trip_state import TripsStateManager
 
 logger = set_up_logging(__name__)
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
