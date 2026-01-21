@@ -170,8 +170,6 @@ class TestClientThread:
         mock_response = Mock()
         mock_connect.return_value = mock_response
 
-        
-
         # First call raises error, second call raises KeyboardInterrupt to stop
         mock_process_events.side_effect = [
             requests.exceptions.ChunkedEncodingError(),
