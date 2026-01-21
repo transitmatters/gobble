@@ -24,6 +24,7 @@ dev = [
     "pre-commit>=4.4.0",
     "coverage~=7.13.1",
     "debugpy~=1.8.19",
+    "pytest-cov>=7.0.0",
 ]
 
 [tool.uv]
