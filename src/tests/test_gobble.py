@@ -1,7 +1,6 @@
 from unittest.mock import patch, MagicMock, Mock
 import requests
 from requests.exceptions import ChunkedEncodingError
-import pytest
 from gobble import connect, process_events, client_thread
 
 
