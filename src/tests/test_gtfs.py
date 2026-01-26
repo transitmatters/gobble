@@ -1,15 +1,32 @@
-import unittest
 import datetime
 import numpy as np
 import pandas as pd
 import pathlib
 import shutil
 from zoneinfo import ZoneInfo
+from unittest.mock import patch
+import pytest
 from util import to_dateint
 
 import gtfs
 
 DATA_DIR = pathlib.Path("./src/tests/sample_data")
+
+
+@pytest.fixture(scope="class")
+def gtfs_test_data():
+    """Load GTFS test data once per test class."""
+    stop_times = pd.read_csv(
+        DATA_DIR / "stops_times_mini.txt",
+        dtype={"trip_id": str, "stop_id": str},
+        usecols=gtfs.STOP_TIMES_COLS,
+    )
+    stop_times.arrival_time = pd.to_timedelta(stop_times.arrival_time)
+    stop_times.departure_time = pd.to_timedelta(stop_times.departure_time)
+
+    all_trips = pd.read_csv(DATA_DIR / "trips_mini.txt", dtype={"trip_short_name": str, "block_id": str})
+
+    return {"stop_times": stop_times, "all_trips": all_trips}
 
 
 def _format_expected_headway_df(expected: dict) -> pd.DataFrame:
@@ -22,16 +39,12 @@ def _format_expected_headway_df(expected: dict) -> pd.DataFrame:
     return expected_df
 
 
-class TestGTFS(unittest.TestCase):
-    def setUp(self):
-        # load stop times and trips
-        self.stop_times = pd.read_csv(
-            DATA_DIR / "stops_times_mini.txt", dtype={"trip_id": str, "stop_id": str}, usecols=gtfs.STOP_TIMES_COLS
-        )
-        self.stop_times.arrival_time = pd.to_timedelta(self.stop_times.arrival_time)
-        self.stop_times.departure_time = pd.to_timedelta(self.stop_times.departure_time)
-
-        self.all_trips = pd.read_csv(DATA_DIR / "trips_mini.txt", dtype={"trip_short_name": str, "block_id": str})
+class TestGTFS:
+    @pytest.fixture(autouse=True)
+    def setup(self, gtfs_test_data):
+        """Setup test data for all test methods."""
+        self.stop_times = gtfs_test_data["stop_times"]
+        self.all_trips = gtfs_test_data["all_trips"]
 
     def test_add_gtfs_headways_batch(self):
         # expected stop info....
@@ -187,12 +200,30 @@ class TestGTFS(unittest.TestCase):
         post_df = gtfs.add_gtfs_headways(df, self.all_trips, self.stop_times)
         pd.testing.assert_frame_equal(post_df, expected_df)
 
-    # this is really more of an integration test... should we have an integration tests directory?
-    def test_get_gtfs_archive_day_is_feed_returns_dir_of_day(self):
+    @pytest.mark.integration
+    @patch("gtfs.urllib.request.urlretrieve")
+    @patch("gtfs._download_gtfs_archives_list")
+    @patch("gtfs.shutil.unpack_archive")
+    def test_get_gtfs_archive_day_is_feed_returns_dir_of_day(self, mock_unpack, mock_download_list, mock_urlretrieve):
         # just a random day
-
         day_to_test: int = 20240807
         expected_path: str = f"data/gtfs_archives/{day_to_test}"
+
+        # Mock the archives list to return data for this date
+        mock_archives_df = pd.DataFrame(
+            {
+                "feed_start_date": [20240807],
+                "feed_end_date": [20240813],
+                "archive_url": [f"https://example.com/{day_to_test}.zip"],
+            }
+        )
+        mock_download_list.return_value = mock_archives_df
+
+        # Mock urlretrieve to return a fake zipfile path
+        mock_urlretrieve.return_value = ("/tmp/fake.zip", None)
+
+        # Create the expected directory so pathlib.Path.exists() returns True
+        pathlib.Path(expected_path).mkdir(parents=True, exist_ok=True)
 
         result = gtfs.get_gtfs_archive(day_to_test)
 
@@ -202,12 +233,34 @@ class TestGTFS(unittest.TestCase):
         # cleanup
         shutil.rmtree(expected_path)
 
-    def test_get_gtfs_archive_day_not_feed_returns_dir_of_feed_containing_day(self):
+    @pytest.mark.integration
+    @patch("gtfs.urllib.request.urlretrieve")
+    @patch("gtfs._download_gtfs_archives_list")
+    @patch("gtfs.shutil.unpack_archive")
+    def test_get_gtfs_archive_day_not_feed_returns_dir_of_feed_containing_day(
+        self, mock_unpack, mock_download_list, mock_urlretrieve
+    ):
         # from https://cdn.mbta.com/archive/archived_feeds.txt
         # 20240802,20240806,"Summer 2024, 2024-08-09T21:10:59+00:00, version D",https://cdn.mbtace.com/archive/20240802.zip,fix: Correct wrong-direction stop sequences etc in existing Ashmont-Mattapan shuttle definition; Add shuttle activation for 08/16-18 Mattapan shuttle; Replace Mattapan Line service during 08/16-18 suspension for track work; Add missing 25:00 info to shuttle activation; Fix formatting; Whoops! Change
         day_to_test: int = 20240804
         expected_path: str = "data/gtfs_archives/20240802"
 
+        # Mock the archives list to return a feed that spans the test date
+        mock_archives_df = pd.DataFrame(
+            {
+                "feed_start_date": [20240802],
+                "feed_end_date": [20240806],
+                "archive_url": ["https://example.com/20240802.zip"],
+            }
+        )
+        mock_download_list.return_value = mock_archives_df
+
+        # Mock urlretrieve to return a fake zipfile path
+        mock_urlretrieve.return_value = ("/tmp/fake.zip", None)
+
+        # Create the expected directory so pathlib.Path.exists() returns True
+        pathlib.Path(expected_path).mkdir(parents=True, exist_ok=True)
+
         result = gtfs.get_gtfs_archive(day_to_test)
 
         assert str(result) == expected_path
@@ -216,7 +269,9 @@ class TestGTFS(unittest.TestCase):
         # cleanup
         shutil.rmtree(expected_path)
 
+    @pytest.mark.integration
     def test_read_gtfs_date_exists_feed_is_read(self):
+        # This test uses MBTA-specific route IDs and destinations
         day_to_test = datetime.date(2024, 8, 7)
         expected_path: str = f"data/gtfs_archives/{to_dateint(day_to_test)}"
 
