@@ -1,0 +1,75 @@
+name: container
+
+on:
+    pull_request:
+        paths:
+            - Containerfile
+    push:
+        branches:
+            - main
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        env:
+            MBTA_V3_API_KEY: ${{ secrets.MBTA_V3_API_KEY }}
+        steps:
+            - name: Checkout repo
+              uses: actions/checkout@v3
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Build container image
+              uses: docker/build-push-action@v6
+              with:
+                  context: .
+                  file: ./Containerfile
+                  push: false
+                  tags: gobble:test
+                  load: true
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
+                  build-args: |
+                      GIT_ABR_VERSION=${{ github.sha }}
+
+            - name: Create config file
+              run: |
+                  cat >> ./local.json << EOF
+                  {
+                      "mbta": {
+                          "v3_api_key": "${{ secrets.MBTA_V3_API_KEY }}"
+                      },
+                      "modes": ["cr", "bus"],
+                          "gtfs": {
+                          "refresh_interval_days": 7
+                      },
+                      "DATADOG_TRACE_ENABLED": true
+                  }
+                  EOF
+
+            - name: Test container starts successfully
+              run: |
+                  # Start the container in the background
+                  docker run -d \
+                    -v ./local.json:/app/config/local.json:z \
+                    -v ./data:/app/data:z \
+                    --name gobble \
+                    gobble:test
+
+                  # Wait for the container to start
+                  sleep 10
+
+                  # Check if container is still running
+                  if ! docker ps | grep -q gobble; then
+                    echo "Container failed to start"
+                    docker logs gobble
+                    exit 1
+                  fi
+
+                  # Check if there are any files in data directory
+                  find data -type f -print -quit || exit 1
+
+                  # Cleanup
+                  docker stop gobble
+                  docker rm gobble
