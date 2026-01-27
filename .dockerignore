@@ -1,0 +1,21 @@
+# production
+build
+data
+output
+
+# python
+__pycache__
+.pytest_cache
+.venv
+.poetry
+
+# misc
+.DS_Store
+
+# config
+config/local.json
+.envrc
+
+# logs
+gobble.log
+s3_upload.log
