@@ -1,6 +1,7 @@
 # gobble
 ![lint](https://github.com/transitmatters/gobble/actions/workflows/lint.yml/badge.svg?branch=main)
 ![test](https://github.com/transitmatters/gobble/actions/workflows/test.yml/badge.svg?branch=main)
+![deploy](https://github.com/transitmatters/gobble/actions/workflows/deploy.yml/badge.svg?branch=main)
 
 ![Screenshot in action](docs/screenshot.png)
 
@@ -17,6 +18,20 @@ Gobble is a service that reads the [MBTA V3 Streaming API](https://www.mbta.com/
 2. In the root directory, run `uv sync --group dev` to install dependencies followed by `uv run pre-commit install` to install pre-commit hooks
 3. Run `uv run src/gobble.py` to start.
 4. Output will be in `data/` in your current working directory. Good luck!
+
+### Container
+
+You can also run Gobble inside a container using the following `docker build` and `docker run` commands
+
+```bash
+docker build -t gobble -f Containerfile .
+docker run \
+    -v ./config/local.json:/app/config/local.json:z \
+    -v ./data:/app/data:z \
+    gobble:latest
+```
+
+Output will be in `data/` in your current working directory. Good luck!
 
 ### Linting
 
