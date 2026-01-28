@@ -3,7 +3,7 @@ name = "gobble"
 version = "1.0.0"
 description = "Process MBTA events into a format that can be consumed by the Data Dashboard"
 authors = ["TransitMatters Labs <labs@transitmatters.org>"]
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.13,<3.14"
 license = "MIT"
 readme = "README.md"
 package-mode = false

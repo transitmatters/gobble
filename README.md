@@ -9,8 +9,8 @@ Gobble is a service that reads the [MBTA V3 Streaming API](https://www.mbta.com/
 
 ## Requirements to develop locally
 
-- [`uv`](https://docs.astral.sh/uv/) with Python 3.12
-  - Ensure `uv` is using the correct Python version by running `uv venv --python 3.12`
+- [`uv`](https://docs.astral.sh/uv/) with Python 3.13
+  - Ensure `uv` is using the correct Python version by running `uv venv --python 3.13`
 
 ## Development Instructions
 

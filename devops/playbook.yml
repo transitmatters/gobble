@@ -39,15 +39,15 @@
         repo: ppa:deadsnakes/ppa
         update_cache: yes
 
-    - name: install python3.12
+    - name: install python3.13
       become: yes
       become_user: root
       apt:
-        name: python3.12
+        name: python3.13
         state: latest
 
     - name: install app dependencies
-      shell: /home/ubuntu/.local/bin/uv venv --python 3.12 && /home/ubuntu/.local/bin/uv sync
+      shell: /home/ubuntu/.local/bin/uv venv --python 3.13 && /home/ubuntu/.local/bin/uv sync
       args:
         chdir: /home/ubuntu/gobble
 
