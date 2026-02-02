@@ -50,17 +50,29 @@ def upload_todays_events_to_s3():
     pull_date = service_date(datetime.datetime.now(EASTERN_TIME))
 
     # get files updated for this service date
-    # TODO: only update modified files? cant imagine much of a difference if we partition live data by day
     files_updated_today = glob.glob(
         LOCAL_DATA_TEMPLATE.format(year=pull_date.year, month=pull_date.month, day=pull_date.day)
     )
 
+    # filter to only files modified in the last 2 hours to reduce S3 call costs
+    current_time = time.time()
+    two_hours_ago = current_time - (2 * 60 * 60)
+
+    recently_modified_files = [
+        fp for fp in files_updated_today
+        if os.path.getmtime(fp) >= two_hours_ago
+    ]
+
     # upload them to s3, gzipped
-    for fp in files_updated_today:
+    for fp in recently_modified_files:
         _compress_and_upload_file(fp)
 
     end_time = time.time()
-    logger.info(f"Uploaded {len(files_updated_today)} files to s3, took {end_time - start_time} seconds.")
+    logger.info(
+        f"Uploaded {len(recently_modified_files)} files to s3 "
+        f"({len(files_updated_today) - len(recently_modified_files)} skipped as not recently modified), "
+        f"took {end_time - start_time} seconds."
+    )
 
 
 if __name__ == "__main__":
