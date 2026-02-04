@@ -1,16 +1,12 @@
-FROM python:3.12-slim
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
 
-# Install poetry
-RUN pip install --no-cache-dir poetry==2.0.1
-
 # Copy dependency files
-COPY pyproject.toml poetry.lock ./
+COPY pyproject.toml uv.lock ./
 
 # Install dependencies
-RUN poetry config virtualenvs.create false && \
-    poetry install --only main --no-interaction --no-ansi
+RUN uv sync --frozen --no-dev --no-editable
 
 # Copy application source code
 COPY src/ ./src/
