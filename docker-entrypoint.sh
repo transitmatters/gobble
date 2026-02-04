@@ -21,5 +21,5 @@ echo "Environment: ${DD_ENV:-dev}"
 # Ensure data directory exists with proper permissions
 mkdir -p /app/data/trip_states
 
-# Pass control to Python application
-exec python -u src/gobble.py
+# Pass control to Python application via uv (uses the virtual environment)
+exec uv run python -u src/gobble.py
