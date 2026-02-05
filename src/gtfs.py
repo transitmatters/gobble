@@ -1,3 +1,22 @@
+"""GTFS archive management and schedule data processing.
+
+This module handles downloading, caching, and querying GTFS (General Transit
+Feed Specification) schedule data from the MBTA. It provides functions to:
+- Download and cache GTFS archives based on service date
+- Query trips and stop times for specific routes
+- Calculate scheduled headways and travel times
+- Match real-time events to scheduled values
+
+The module maintains a thread-safe global GTFS archive that is automatically
+updated when the service date changes.
+
+Attributes:
+    MAIN_DIR: Directory for storing downloaded GTFS archives.
+    GTFS_ARCHIVES_PREFIX: Base URL for MBTA GTFS archive downloads.
+    RTE_DIR_STOP: Common column names for route/direction/stop grouping.
+    current_gtfs_archive: Global cached GtfsArchive for the current service date.
+"""
+
 import datetime
 import pandas as pd
 import pathlib
@@ -35,10 +54,27 @@ STOP_TIMES_COLS = ["stop_id", "trip_id", "arrival_time", "departure_time", "stop
 
 
 def _group_df_by_column(df: pd.DataFrame, column_name: str) -> Dict[str, pd.DataFrame]:
+    """Group a DataFrame by a column and return a dictionary of sub-DataFrames.
+
+    Args:
+        df: The DataFrame to group.
+        column_name: The column to group by.
+
+    Returns:
+        Dictionary mapping column values to their corresponding DataFrames.
+    """
     return {key: df_group for key, df_group in df.groupby(column_name)}
 
 
 def _get_empty_df_with_same_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Create an empty DataFrame with the same columns as the input.
+
+    Args:
+        df: The DataFrame whose column structure to copy.
+
+    Returns:
+        An empty DataFrame with the same columns as the input.
+    """
     empty_df = df.copy(deep=False)
     empty_df.drop(empty_df.index, inplace=True)
     return empty_df
@@ -46,6 +82,18 @@ def _get_empty_df_with_same_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 @dataclass
 class GtfsArchive:
+    """Container for GTFS schedule data for a specific service date.
+
+    Holds pre-filtered and indexed GTFS data for efficient lookup during
+    event processing. Data is organized by route for fast access.
+
+    Attributes:
+        trips: DataFrame of all trips for the service date.
+        stop_times: DataFrame of all stop times for all trips.
+        stops: DataFrame of all stop definitions.
+        service_date: The date this archive represents.
+    """
+
     # All trips on all routes
     trips: pd.DataFrame
     # All stop times on all trips
@@ -64,16 +112,47 @@ class GtfsArchive:
             trip_ids_for_route = self._trips_by_route_id[route_id].trip_id
             self._stop_times_by_route_id[route_id] = self.stop_times[self.stop_times.trip_id.isin(trip_ids_for_route)]
 
-    def stop_times_by_route_id(self, route_id: str):
+    def stop_times_by_route_id(self, route_id: str) -> pd.DataFrame:
+        """Get stop times for a specific route.
+
+        Args:
+            route_id: The route identifier to look up.
+
+        Returns:
+            DataFrame of stop times for the route, or an empty DataFrame
+            if the route is not found.
+        """
         return self._stop_times_by_route_id.get(route_id, self._stop_times_empty)
 
-    def trips_by_route_id(self, route_id: str):
+    def trips_by_route_id(self, route_id: str) -> pd.DataFrame:
+        """Get trips for a specific route.
+
+        Args:
+            route_id: The route identifier to look up.
+
+        Returns:
+            DataFrame of trips for the route, or an empty DataFrame
+            if the route is not found.
+        """
         return self._trips_by_route_id.get(route_id, self._trips_empty)
 
 
 @tracer.wrap()
 def _download_gtfs_archives_list() -> pd.DataFrame:
-    """Downloads list of GTFS archive urls. This file will get overwritten."""
+    """Download the list of available GTFS archives from MBTA.
+
+    Fetches the archived_feeds.txt file from the MBTA CDN which contains
+    metadata about all available GTFS archives including date ranges and
+    download URLs.
+
+    Returns:
+        DataFrame containing archive metadata with columns including
+        feed_start_date, feed_end_date, and archive_url.
+
+    Raises:
+        PermissionError: If unable to write the archives file to disk
+            (continues with in-memory data).
+    """
     archives_df = None
     try:
         archives_df = pd.read_csv(urljoin(GTFS_ARCHIVES_PREFIX, GTFS_ARCHIVES_FILENAME))
@@ -86,14 +165,26 @@ def _download_gtfs_archives_list() -> pd.DataFrame:
 
 
 def to_dateint(date: datetime.date) -> int:
-    """turn date into 20220615 e.g."""
+    """Convert a date to an integer in YYYYMMDD format.
+
+    Args:
+        date: A date object to convert.
+
+    Returns:
+        Integer representation of the date (e.g., 20220615 for June 15, 2022).
+    """
     return int(str(date).replace("-", ""))
 
 
 def _find_most_recent_gtfs_archive() -> Optional[pathlib.Path]:
-    """
-    Find the most recent GTFS archive directory that exists and is accessible.
-    Returns None if no accessible archives are found.
+    """Find the most recently downloaded GTFS archive on disk.
+
+    Scans the GTFS archives directory for existing downloads and returns
+    the path to the most recent one based on directory name (date-based).
+
+    Returns:
+        Path to the most recent accessible archive directory, or None if
+        no archives are found or accessible.
     """
     try:
         # Get all directories in the GTFS archives folder
@@ -122,11 +213,23 @@ def _find_most_recent_gtfs_archive() -> Optional[pathlib.Path]:
 
 
 @tracer.wrap()
-def get_gtfs_archive(dateint: int):
-    """
-    Determine which GTFS archive corresponds to the date.
-    Returns that archive folder, downloading if it doesn't yet exist.
-    Falls back to most recent available archive if permission errors occur.
+def get_gtfs_archive(dateint: int) -> pathlib.Path:
+    """Get or download the GTFS archive for a specific date.
+
+    Looks up which GTFS feed covers the specified date and returns the
+    path to that archive, downloading it if not already cached locally.
+    Includes logic to periodically check for newer archives based on
+    the configured refresh interval.
+
+    Args:
+        dateint: Date as an integer in YYYYMMDD format.
+
+    Returns:
+        Path to the GTFS archive directory.
+
+    Raises:
+        ValueError: If no GTFS archive covers the specified date.
+        RuntimeError: If no archives are accessible and download fails.
     """
     matches = pd.DataFrame()
     should_refetch = False
@@ -211,9 +314,18 @@ def get_gtfs_archive(dateint: int):
 
 @tracer.wrap()
 def get_services(date: datetime.date, archive_dir: pathlib.Path) -> List[str]:
-    """
-    Read calendar.txt to determine which services ran on the given date.
-    Also, incorporate exceptions from calendar_dates.txt for holidays, etc.
+    """Determine which service IDs were active on a given date.
+
+    Reads calendar.txt and calendar_dates.txt from the GTFS archive to
+    determine which services ran on the specified date, accounting for
+    the day of week and any exceptions (holidays, special events, etc.).
+
+    Args:
+        date: The date to look up services for.
+        archive_dir: Path to the GTFS archive directory.
+
+    Returns:
+        List of active service IDs for the date.
     """
     dateint = to_dateint(date)
     day_of_week = date.strftime("%A").lower()
@@ -233,12 +345,20 @@ def get_services(date: datetime.date, archive_dir: pathlib.Path) -> List[str]:
 
 @tracer.wrap()
 def read_gtfs(date: datetime.date, routes_filter: Optional[Set[str]] = None) -> GtfsArchive:
-    """
-    Given a date, this function will:
-    - Find the appropriate gtfs archive (downloading if necessary)
-    - Determine which services ran on that date
-    - Return three dataframes containing just the trips and stop_times that ran on that date, and corresponding stop information
-    If a route filter is applied, only return trips and stop information relevent to supplied routes. Otherwise, return all services.
+    """Load GTFS data for a specific date into a GtfsArchive.
+
+    Downloads the appropriate GTFS archive if needed, determines which
+    services ran on the date, and loads the relevant trips and stop times
+    into a GtfsArchive object.
+
+    Args:
+        date: The service date to load GTFS data for.
+        routes_filter: Optional set of route IDs to filter by. If provided,
+            only trips on these routes are included.
+
+    Returns:
+        GtfsArchive containing trips, stop_times, and stops DataFrames
+        for the specified date and routes.
     """
     dateint = to_dateint(date)
     logger.info(f"Reading GTFS archive for {date}")
@@ -267,7 +387,22 @@ def read_gtfs(date: datetime.date, routes_filter: Optional[Set[str]] = None) -> 
 
 @tracer.wrap()
 def batch_add_gtfs_headways(events_df: pd.DataFrame, trips: pd.DataFrame, stop_times: pd.DataFrame) -> pd.DataFrame:
-    """A batch implementation of add_gtfs_headways--this will probably never be used, but we include it just in case."""
+    """Add scheduled headway and travel time data to multiple events.
+
+    Batch version of add_gtfs_headways that processes multiple events
+    grouped by service date. Matches each event to the nearest scheduled
+    stop time and calculates headway and travel time from schedule.
+
+    Args:
+        events_df: DataFrame containing multiple events with route_id,
+            direction_id, stop_id, trip_id, event_time, and service_date.
+        trips: DataFrame of GTFS trips for the relevant routes.
+        stop_times: DataFrame of GTFS stop times for the relevant trips.
+
+    Returns:
+        DataFrame with original events augmented with scheduled_headway
+        and scheduled_tt columns.
+    """
     results = []
 
     # we have to do this day-by-day because gtfs changes so often
@@ -334,19 +469,27 @@ def batch_add_gtfs_headways(events_df: pd.DataFrame, trips: pd.DataFrame, stop_t
 
 @tracer.wrap()
 def add_gtfs_headways(event_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops: pd.DataFrame) -> pd.DataFrame:
-    """
-    This will calculate scheduled headway and traveltime information
-    from gtfs for the routes we care about, and then match our actual
-    events to the scheduled values. This matching is done based on
-    time-of-day, so is not an excact match. Luckily, pandas helps us out
-    with merge_asof.
-    https://pandas.pydata.org/docs/reference/api/pandas.merge_asof.html
-    This function is ADAPTED from historical bus headway calculations
-    https://github.com/transitmatters/t-performance-dash/blob/ebecaca071b39d8140296545f2e5b287915bc60d/server/bus/gtfs_archive.py#L90
+    """Add scheduled headway and travel time data to a single event.
 
-    NB 1: event times are converted to pd timestamps in this fuction for pandas merge manipulation,
-    but will be converted back into datetime.datetime for serialization purposes. careful!
-    NB 2: ensure that all times are in US/Eastern!
+    Matches the event to the nearest scheduled stop time using pandas
+    merge_asof for time-based matching. Calculates the scheduled headway
+    (time since previous scheduled arrival at this stop) and scheduled
+    travel time (time since trip start).
+
+    Args:
+        event_df: DataFrame containing a single event row with route_id,
+            direction_id, stop_id, trip_id, event_time, and service_date.
+        all_trips: DataFrame of GTFS trips for the route.
+        all_stops: DataFrame of GTFS stop times for the route's trips.
+
+    Returns:
+        DataFrame with the event augmented with scheduled_headway and
+        scheduled_tt columns.
+
+    Note:
+        Event times are temporarily converted to pandas Timestamps for
+        merge operations. All times must be in US/Eastern timezone.
+        If event_df contains multiple rows, delegates to batch_add_gtfs_headways.
     """
     # TODO: I think we need to worry about 114/116/117 headways?
     if len(event_df) > 1:
@@ -415,6 +558,12 @@ write_gtfs_archive_lock = Lock()
 
 
 def update_current_gtfs_archive_if_necessary():
+    """Update the global GTFS archive if the service date has changed.
+
+    Thread-safe function that checks if the cached GTFS archive is still
+    valid for the current service date and downloads a new one if needed.
+    Uses a lock to prevent concurrent updates.
+    """
     global current_gtfs_archive
     global write_gtfs_archive_lock
     with write_gtfs_archive_lock:
@@ -429,6 +578,14 @@ def update_current_gtfs_archive_if_necessary():
 
 
 def get_current_gtfs_archive() -> GtfsArchive:
+    """Get the current GTFS archive, loading it if necessary.
+
+    Returns the cached GTFS archive for the current service date. If no
+    archive is cached, triggers an update to load one.
+
+    Returns:
+        The GtfsArchive for the current service date.
+    """
     global current_gtfs_archive
     if current_gtfs_archive is None:
         update_current_gtfs_archive_if_necessary()
@@ -437,11 +594,21 @@ def get_current_gtfs_archive() -> GtfsArchive:
 
 
 def update_gtfs_thread():
+    """Background thread function to periodically update the GTFS archive.
+
+    Runs in an infinite loop, checking every 60 seconds if the GTFS archive
+    needs to be updated for a new service date.
+    """
     while True:
         update_current_gtfs_archive_if_necessary()
         time.sleep(60)
 
 
 def start_watching_gtfs():
+    """Start the background GTFS update thread.
+
+    Spawns a daemon thread that monitors the service date and updates
+    the cached GTFS archive when the date changes (around 3 AM).
+    """
     gtfs_thread = Thread(target=update_gtfs_thread, name="update_gtfs")
     gtfs_thread.start()

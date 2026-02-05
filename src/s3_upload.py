@@ -1,3 +1,14 @@
+"""S3 upload functionality for syncing event data to AWS.
+
+This module handles uploading processed event data to the TransitMatters S3 bucket.
+Files are compressed with gzip before upload to reduce storage costs and transfer time.
+
+Attributes:
+    S3_BUCKET: Name of the S3 bucket for storing event data.
+    LOCAL_DATA_TEMPLATE: Glob pattern for finding local event files by date.
+    S3_DATA_TEMPLATE: Template for generating S3 object keys from local paths.
+"""
+
 import datetime
 import glob
 import boto3
@@ -26,7 +37,14 @@ S3_DATA_TEMPLATE = "Events-live/{relative_path}.gz"
 
 @tracer.wrap()
 def _compress_and_upload_file(fp: str):
-    """Compress a file in-memory and upload to S3."""
+    """Compress a local file with gzip and upload it to S3.
+
+    Reads the file, compresses it in memory, and uploads to S3 with
+    appropriate content headers for serving gzipped CSV data.
+
+    Args:
+        fp: Absolute path to the local file to upload.
+    """
     # generate output location
     rp = os.path.relpath(fp, DATA_DIR)
     s3_key = S3_DATA_TEMPLATE.format(relative_path=rp)
@@ -43,7 +61,13 @@ def _compress_and_upload_file(fp: str):
 
 @tracer.wrap(service="gobble")
 def upload_todays_events_to_s3():
-    """Upload today's events to the TM s3 bucket."""
+    """Upload all event files for today's service date to S3.
+
+    Finds all CSV files matching today's service date across all routes
+    and modes, compresses them, and uploads them to the TransitMatters
+    S3 bucket. This function is typically run periodically to sync
+    live data to the cloud.
+    """
     start_time = time.time()
 
     logger.info("Beginning upload of recent events to s3.")

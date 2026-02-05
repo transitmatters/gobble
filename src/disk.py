@@ -1,3 +1,16 @@
+"""Disk I/O operations for writing transit events to CSV files.
+
+This module handles persisting processed transit events to the local filesystem.
+Events are organized into directories by route, direction, and stop, with each
+directory containing a single events.csv file.
+
+Attributes:
+    CSV_FILENAME: Name of the CSV file used to store events.
+    CSV_FIELDS: List of field names included in the event CSV files.
+    DATA_DIR: Base directory path for storing event data.
+    STATE_FILENAME: Name of the state persistence file.
+"""
+
 import csv
 import os
 import pathlib
@@ -34,6 +47,16 @@ STATE_FILENAME = "state.json"
 
 
 def write_event(event: dict):
+    """Write a transit event to a CSV file on disk.
+
+    Appends the event to an events.csv file in a directory structure organized
+    by route, direction, stop, and date. Creates the directory and file with
+    headers if they don't exist.
+
+    Args:
+        event: Dictionary containing event data with keys matching CSV_FIELDS.
+            Must include 'route_id', 'direction_id', 'stop_id', and 'event_time'.
+    """
     dirname = DATA_DIR / pathlib.Path(
         output_dir_path(
             event["route_id"],

@@ -1,3 +1,13 @@
+"""Main entry point for Gobble - MBTA real-time event streaming service.
+
+Gobble connects to the MBTA V3 Streaming API and processes real-time vehicle
+position updates for rapid transit, commuter rail, and bus routes. Events are
+processed and written to disk for consumption by the TransitMatters Data Dashboard.
+
+The application spawns multiple threads to handle different transit modes
+concurrently, with bus routes further split into chunks due to API limitations.
+"""
+
 import json
 import logging
 import threading
@@ -24,6 +34,15 @@ HEADERS = {"X-API-KEY": API_KEY, "Accept": "text/event-stream"}
 
 
 def main():
+    """Initialize and run the Gobble streaming service.
+
+    Starts the GTFS watcher thread and spawns client threads for each enabled
+    transit mode (rapid transit, commuter rail, bus). Bus routes are split into
+    chunks of 10 routes per thread due to API limitations.
+
+    The function blocks until all client threads complete (which under normal
+    operation means indefinitely, as threads reconnect on failure).
+    """
     # Start downloading GTFS bundles immediately
     gtfs.start_watching_gtfs()
 
@@ -66,12 +85,34 @@ def main():
 
 
 def connect(routes: Set[str]) -> requests.Response:
+    """Establish a streaming connection to the MBTA V3 API.
+
+    Args:
+        routes: Set of route IDs to subscribe to for vehicle updates.
+
+    Returns:
+        A streaming HTTP response from the MBTA API that yields SSE events.
+    """
     url = f"https://api-v3.mbta.com/vehicles?filter[route]={','.join(routes)}"
     logger.info(f"Connecting to {url}...")
     return requests.get(url, headers=HEADERS, stream=True)
 
 
 def client_thread(routes: Set[str]):
+    """Run a persistent SSE client for a set of routes.
+
+    Maintains a long-lived connection to the MBTA streaming API, automatically
+    reconnecting on connection failures. Processes incoming events and manages
+    trip state for the assigned routes.
+
+    Args:
+        routes: Set of route IDs to monitor for vehicle updates.
+
+    Note:
+        This function runs indefinitely and is designed to be executed in a
+        separate thread. It handles ChunkedEncodingError gracefully as these
+        commonly occur when the server closes idle connections.
+    """
     trips_state = TripsStateManager()
     while True:
         start_at = time.time()
@@ -98,6 +139,21 @@ def client_thread(routes: Set[str]):
 
 
 def process_events(client: sseclient.SSEClient, trips_state: TripsStateManager):
+    """Process incoming SSE events from the MBTA streaming API.
+
+    Handles three types of SSE events:
+        - update: A single vehicle position update
+        - reset: A batch of updates (typically sent on initial connection)
+        - add: A new vehicle added to the stream
+
+    Args:
+        client: An SSEClient connected to the MBTA streaming API.
+        trips_state: Manager for tracking trip state across events.
+
+    Raises:
+        Exceptions are caught and logged but not re-raised, allowing the
+        event loop to continue processing subsequent events.
+    """
     for event in client.events():
         try:
             if event.event == "update":

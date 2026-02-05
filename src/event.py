@@ -1,3 +1,14 @@
+"""Event processing logic for MBTA real-time vehicle updates.
+
+This module handles the core logic for processing individual vehicle events
+from the MBTA streaming API. It transforms raw API updates into structured
+event records, determines whether events represent arrivals or departures,
+and enriches events with GTFS schedule data.
+
+Attributes:
+    EVENT_TYPE_MAP: Dictionary mapping MBTA vehicle status codes to event types.
+"""
+
 import json
 from datetime import datetime
 from typing import Tuple
@@ -30,6 +41,17 @@ EVENT_TYPE_MAP = {
 
 
 def get_stop_name(stops_df: pd.DataFrame, stop_id: str) -> str:
+    """Look up the human-readable name for a stop ID.
+
+    Args:
+        stops_df: DataFrame containing GTFS stops data with 'stop_id' and
+            'stop_name' columns.
+        stop_id: The MBTA stop identifier to look up.
+
+    Returns:
+        The human-readable stop name, or the raw stop_id if no matching
+        name is found (which may occur for temporary stops).
+    """
     matching_stops = stops_df[stops_df["stop_id"] == stop_id]
     if len(matching_stops) > 0:
         return matching_stops.iloc[0].stop_name
@@ -43,6 +65,24 @@ def get_stop_name(stops_df: pd.DataFrame, stop_id: str) -> str:
 def arr_or_dep_event(
     prev: dict, current_status: str, current_stop_sequence: int, event_type: str, stop_id: str
 ) -> Tuple[bool, bool]:
+    """Determine if the current update represents an arrival or departure event.
+
+    Compares the current vehicle state to its previous state to detect
+    transitions that indicate arrivals (vehicle stopped at a new stop) or
+    departures (vehicle left a stop for the next one).
+
+    Args:
+        prev: Dictionary containing the previous trip state with 'stop_id',
+            'stop_sequence', and optionally 'event_type'.
+        current_status: The vehicle's current status from the API
+            (e.g., "STOPPED_AT", "IN_TRANSIT_TO").
+        current_stop_sequence: The current stop sequence number.
+        event_type: The event type derived from current_status ("ARR" or "DEP").
+        stop_id: The current stop ID from the API.
+
+    Returns:
+        A tuple of (is_departure_event, is_arrival_event) booleans.
+    """
     is_departure_event = prev["stop_id"] != stop_id and prev["stop_sequence"] < current_stop_sequence
     is_arrival_event = current_status == "STOPPED_AT" and prev.get("event_type", event_type) == "DEP"
     return is_departure_event, is_arrival_event
@@ -50,6 +90,30 @@ def arr_or_dep_event(
 
 @tracer.wrap()
 def reduce_update_event(update: dict) -> Tuple:
+    """Extract relevant fields from a raw MBTA API vehicle update.
+
+    Parses the nested JSON structure of an MBTA vehicle update and extracts
+    the fields needed for event processing, including vehicle status, location,
+    occupancy, and consist information.
+
+    Args:
+        update: Raw vehicle update dictionary from the MBTA API.
+
+    Returns:
+        A tuple containing:
+            - current_status: Vehicle status (STOPPED_AT, IN_TRANSIT_TO, etc.)
+            - event_type: Mapped event type (ARR or DEP)
+            - current_stop_sequence: Stop sequence number
+            - direction_id: Direction of travel (0 or 1)
+            - route_id: Route identifier
+            - stop_id: Current/next stop ID (or None if unavailable)
+            - trip_id: Trip identifier
+            - vehicle_label: Vehicle label/number
+            - updated_at: Timestamp of the update
+            - vehicle_consist: Pipe-separated car numbers for multi-car trains
+            - occupancy_status: Pipe-separated occupancy status per car
+            - occupancy_percentage: Pipe-separated occupancy percentage per car
+    """
     current_status = update["attributes"]["current_status"]
     event_type = EVENT_TYPE_MAP[current_status]
     updated_at = datetime.fromisoformat(update["attributes"]["updated_at"])
@@ -98,7 +162,22 @@ def reduce_update_event(update: dict) -> Tuple:
 
 @tracer.wrap()
 def process_event(update, trips_state: TripsStateManager):
-    """Process a single event from the MBTA's realtime API."""
+    """Process a single vehicle update from the MBTA real-time API.
+
+    This is the main event processing function. It extracts event data,
+    determines if the update represents a meaningful arrival or departure,
+    enriches the event with GTFS schedule data, and writes it to disk.
+
+    Args:
+        update: Raw vehicle update dictionary from the MBTA API containing
+            vehicle position, status, and trip information.
+        trips_state: Manager for tracking trip state across events, used to
+            detect arrivals and departures by comparing current vs previous state.
+
+    Note:
+        Events are filtered to only include commuter rail, rapid transit, and
+        specific monitored bus stops defined in constants.BUS_STOPS.
+    """
     (
         current_status,
         event_type,
@@ -195,8 +274,20 @@ def process_event(update, trips_state: TripsStateManager):
 
 @tracer.wrap()
 def enrich_event(df: pd.DataFrame, gtfs_archive: gtfs.GtfsArchive):
-    """
-    Given a dataframe with a single event, enrich it with headway information and return a single event dict
+    """Enrich an event with GTFS schedule information.
+
+    Adds scheduled headway and travel time information from GTFS data to the
+    event, enabling comparison between actual and scheduled performance.
+
+    Args:
+        df: DataFrame containing a single event row with route_id, trip_id,
+            stop_id, direction_id, and event_time columns.
+        gtfs_archive: GtfsArchive object containing the current GTFS schedule
+            data for looking up scheduled times.
+
+    Returns:
+        Dictionary containing the event data enriched with scheduled_headway
+        and scheduled_tt (travel time) fields.
     """
     # ensure timestamp is always in local time to match the rest of the data
     df["event_time"] = df["event_time"].dt.tz_convert(util.EASTERN_TIME)
