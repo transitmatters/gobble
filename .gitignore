@@ -16,6 +16,9 @@ __pycache__
 config/local.json
 .envrc
 
+# docs
+site
+
 # logs
 gobble.log
 s3_upload.log

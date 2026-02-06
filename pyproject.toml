@@ -27,6 +27,10 @@ dev = [
     "coverage~=7.13.1",
     "debugpy~=1.8.19",
 ]
+docs = [
+    "mkdocs-material>=9.6",
+    "mkdocstrings[python]>=0.27",
+]
 
 [tool.uv]
 package = false

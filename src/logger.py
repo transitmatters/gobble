@@ -8,7 +8,7 @@ import logging
 from pythonjsonlogger import jsonlogger
 
 
-def set_up_logging(name: str):
+def set_up_logging(name: str) -> logging.Logger:
     """Configure and return a logger with JSON formatting.
 
     Creates a logger that outputs logs in JSON format, which enables proper
@@ -19,6 +19,7 @@ def set_up_logging(name: str):
 
     Returns:
         A configured logging.Logger instance with JSON formatting enabled.
+    """
     logger = logging.getLogger(name)
     logHandler = logging.StreamHandler()
     formatter = jsonlogger.JsonFormatter()

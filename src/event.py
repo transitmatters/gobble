@@ -11,7 +11,7 @@ Attributes:
 
 import json
 from datetime import datetime
-from typing import Tuple
+from typing import Any, Tuple
 import pandas as pd
 from ddtrace import tracer
 import warnings
@@ -161,7 +161,7 @@ def reduce_update_event(update: dict) -> Tuple:
 
 
 @tracer.wrap()
-def process_event(update, trips_state: TripsStateManager):
+def process_event(update: dict[str, Any], trips_state: TripsStateManager) -> None:
     """Process a single vehicle update from the MBTA real-time API.
 
     This is the main event processing function. It extracts event data,
@@ -273,7 +273,7 @@ def process_event(update, trips_state: TripsStateManager):
 
 
 @tracer.wrap()
-def enrich_event(df: pd.DataFrame, gtfs_archive: gtfs.GtfsArchive):
+def enrich_event(df: pd.DataFrame, gtfs_archive: gtfs.GtfsArchive) -> dict[str, Any]:
     """Enrich an event with GTFS schedule information.
 
     Adds scheduled headway and travel time information from GTFS data to the

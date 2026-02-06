@@ -4,13 +4,15 @@ This module provides decorators for measuring function execution time,
 useful for identifying performance bottlenecks during development.
 """
 
+from collections.abc import Callable
 from functools import wraps
 from time import time
 from random import random
+from typing import Any
 import numpy as np
 
 
-def measure_time(report_frequency: float = 1.0, trail_length: int = 1000):
+def measure_time(report_frequency: float = 1.0, trail_length: int = 1000) -> Callable[..., Any]:
     """Decorator factory for measuring and reporting function execution time.
 
     Creates a decorator that tracks execution times of the wrapped function

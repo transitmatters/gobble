@@ -146,13 +146,12 @@ def process_events(client: sseclient.SSEClient, trips_state: TripsStateManager):
         - reset: A batch of updates (typically sent on initial connection)
         - add: A new vehicle added to the stream
 
+    Exceptions are caught and logged but not re-raised, allowing the
+    event loop to continue processing subsequent events.
+
     Args:
         client: An SSEClient connected to the MBTA streaming API.
         trips_state: Manager for tracking trip state across events.
-
-    Raises:
-        Exceptions are caught and logged but not re-raised, allowing the
-        event loop to continue processing subsequent events.
     """
     for event in client.events():
         try:
