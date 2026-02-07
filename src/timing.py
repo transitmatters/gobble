@@ -33,6 +33,7 @@ def measure_time(report_frequency: float = 1.0, trail_length: int = 1000) -> Cal
         ... def slow_function():
         ...     time.sleep(1)
     """
+
     def decorator(fn):
         exec_times = []
 
