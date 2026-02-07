@@ -4,40 +4,24 @@
 
 Gobble is a multi-threaded Python service that streams real-time vehicle data from the MBTA, detects meaningful transit events, and writes enriched data to disk for upload to S3.
 
-```
-MBTA V3 Streaming API
-        │
-        ▼
-  ┌─────────────┐
-  │   gobble.py  │  Main entry point — spawns threads per mode
-  └──────┬───────┘
-         │ SSE streams (one per thread)
-         ▼
-  ┌─────────────┐
-  │   event.py   │  Detects arrivals/departures, enriches with GTFS
-  └──────┬───────┘
-         │
-    ┌────┴────┐
-    ▼         ▼
-┌────────┐ ┌──────────┐
-│ disk.py│ │ gtfs.py  │  Writes CSVs / Manages GTFS schedule data
-└────┬───┘ └──────────┘
-     │
-     ▼
-┌────────────┐
-│s3_upload.py│  Cron-triggered upload to S3 (every 30 min)
-└────────────┘
+```mermaid
+graph TD
+    A[MBTA V3 Streaming API] --> B[gobble.py<br>Main entry point — spawns threads per mode]
+    B -->|SSE streams| C[event.py<br>Detects arrivals/departures, enriches with GTFS]
+    C --> D[disk.py<br>Writes CSVs]
+    C --> E[gtfs.py<br>Manages GTFS schedule data]
+    D --> F[s3_upload.py<br>Cron-triggered upload to S3]
 ```
 
 ## Threading model
 
 Gobble spawns one thread per transit mode group:
 
-| Thread | Routes |
-|--------|--------|
-| `rapid_routes` | All rapid transit lines (Red, Blue, Orange, Green-B/C/D/E, Mattapan) |
-| `cr_routes` | All commuter rail lines |
-| `routes_bus_chunk0`, `routes_bus_chunk10`, ... | Bus routes in chunks of 10 (MBTA API limitation) |
+| Thread                                         | Routes                                                               |
+| ---------------------------------------------- | -------------------------------------------------------------------- |
+| `rapid_routes`                                 | All rapid transit lines (Red, Blue, Orange, Green-B/C/D/E, Mattapan) |
+| `cr_routes`                                    | All commuter rail lines                                              |
+| `routes_bus_chunk0`, `routes_bus_chunk10`, ... | Bus routes in chunks of 10 (MBTA API limitation)                     |
 
 Each thread runs `client_thread()`, which maintains a persistent SSE connection that automatically reconnects on failure.
 

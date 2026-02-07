@@ -16,7 +16,11 @@ Gobble is a service that reads the [MBTA V3 Streaming API](https://www.mbta.com/
 
 - **Rapid transit** — Red, Blue, Orange, Green (B/C/D/E), and Mattapan lines
 - **Commuter rail** — All MBTA commuter rail lines
-- **Bus** — A curated set of bus routes with specific monitored stops
+- **Bus** — All bus lines defined in [lines.txt](https://github.com/mbta/gtfs-documentation/blob/master/reference/gtfs.md#linestxt) and all stops defined in [checkpoints.txt](https://github.com/mbta/gtfs-documentation/blob/master/reference/gtfs.md#checkpointstxt)
+
+!!! note "About bus lines"
+    `lines.txt` and `checkpoints.txt` are MBTA-specific extensions to the
+    standard GTFS specification.
 
 ## Quick start
 

@@ -4,13 +4,13 @@ Gobble runs on AWS EC2 and is deployed using CloudFormation, Ansible, and system
 
 ## Infrastructure
 
-| Component | Details |
-|-----------|---------|
-| Instance type | `t4g.small` (ARM/Graviton) |
-| OS | Ubuntu (ARM64 AMI) |
-| Storage | 32 GB gp3 EBS volume |
-| IAM | S3 access to `tm-mbta-performance` bucket |
-| Monitoring | Datadog APM, logs, and profiling |
+| Component     | Details                                   |
+| ------------- | ----------------------------------------- |
+| Instance type | `t4g.small` (ARM/Graviton)                |
+| OS            | Ubuntu (ARM64 AMI)                        |
+| Storage       | 32 GB gp3 EBS volume                      |
+| IAM           | S3 access to `tm-mbta-performance` bucket |
+| Monitoring    | Datadog APM, logs, and profiling          |
 
 ## How to deploy
 

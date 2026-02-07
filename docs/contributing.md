@@ -4,7 +4,7 @@ Thank you for your interest in contributing to Gobble! This guide will help you 
 
 ## Getting started
 
-1. Fork and clone the repository
+1. Clone the repository and create your new branch with `bash git checkout -b my-branch-with-cool-new-features`
 2. Install [uv](https://docs.astral.sh/uv/) and Python 3.13
 3. Set up your environment:
 
@@ -14,7 +14,7 @@ uv sync --group dev
 uv run pre-commit install
 ```
 
-4. Copy `config/template.json` to `config/local.json` and add your [MBTA V3 API key](https://api-v3.mbta.com/)
+1. Copy `config/template.json` to `config/local.json` and add your [MBTA V3 API key](https://api-v3.mbta.com/)
 
 ## Running locally
 
@@ -49,9 +49,11 @@ uv run ruff format src
 
 ## Code style
 
-- All modules and public functions should have Google-style docstrings
-- Type hints are used throughout
 - Ruff handles formatting and lint rules
+- Not required but highly encouraged:
+  - Google-style docstrings
+  - Type hints
+  - Unit Testing with PyTest
 
 ## Pull request workflow
 
