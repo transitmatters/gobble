@@ -1,3 +1,17 @@
+"""Constants for MBTA route and stop definitions.
+
+This module defines the routes and stops tracked by Gobble for the MBTA system.
+It includes bus routes with their monitored stops, commuter rail lines, and
+rapid transit lines.
+
+Attributes:
+    BUS_STOPS: Dictionary mapping bus route IDs to sets of stop IDs to monitor.
+    ROUTES_BUS: Set of all bus route IDs being tracked.
+    ROUTES_CR: Set of all commuter rail route IDs.
+    ROUTES_RAPID: Set of all rapid transit route IDs (subway and trolley).
+    ALL_ROUTES: Combined set of all tracked route IDs.
+"""
+
 BUS_STOPS = {
     "1": {"110", "188", "62", "59", "102", "72", "79", "93", "2", "64", "75", "67", "97", "10590", "187", "108"},
     "4": {
