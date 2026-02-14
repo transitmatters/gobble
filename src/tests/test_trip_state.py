@@ -1,13 +1,13 @@
 import unittest
-from unittest.mock import patch
-from datetime import datetime, date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
+
 from trip_state import RouteTripsState
 from util import EASTERN_TIME
 
 
 class TestTripStatePerformance(unittest.TestCase):
-
     def test_get_trip_state_does_not_call_expensive_operations(self):
         """get_trip_state should be fast and not do cleanup or file writes"""
         state = RouteTripsState("1")
@@ -27,7 +27,6 @@ class TestTripStatePerformance(unittest.TestCase):
             patch.object(state, "_cleanup_trip_states") as mock_cleanup,
             patch("trip_state.write_trips_state_file") as mock_write,
         ):
-
             # Call get_trip_state multiple times
             result1 = state.get_trip_state("trip_123")
             result2 = state.get_trip_state("trip_456")  # Non-existent
@@ -44,7 +43,6 @@ class TestTripStatePerformance(unittest.TestCase):
 
 
 class TestTripStateCleanup(unittest.TestCase):
-
     def test_cleanup_removes_stale_trips(self):
         """Cleanup should remove trips older than 5 hours"""
         state = RouteTripsState("1")
@@ -104,7 +102,6 @@ class TestTripStateCleanup(unittest.TestCase):
 
 
 class TestTripStateFileIO(unittest.TestCase):
-
     @patch("trip_state.write_trips_state_file")
     def test_set_trip_state_writes_once(self, mock_write):
         """set_trip_state should write to file exactly once after all cleanup"""
@@ -125,8 +122,9 @@ class TestTripStateFileIO(unittest.TestCase):
 
 
 class TestTripStateIntegration(unittest.TestCase):
-
-    def test_realistic_workflow(self):
+    @patch("trip_state.write_trips_state_file")
+    @patch("trip_state.read_trips_state_file", return_value=None)
+    def test_realistic_workflow(self, mock_read, mock_write):
         """Test a realistic sequence of operations"""
         state = RouteTripsState("1")
         current_time = datetime.now(EASTERN_TIME)
@@ -154,7 +152,6 @@ class TestTripStateIntegration(unittest.TestCase):
 
 
 class TestTripStateFilePersistence(unittest.TestCase):
-
     def setUp(self):
         """Set up temporary file location for testing"""
         import tempfile

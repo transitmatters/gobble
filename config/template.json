@@ -7,5 +7,6 @@
     "refresh_interval_days": 7
   },
   "DATADOG_TRACE_ENABLED": false,
-  "file_retention_days": 180
+  "file_retention_days": 180,
+  "modes": ["rapid", "cr", "bus"]
 }
