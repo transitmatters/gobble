@@ -190,6 +190,9 @@ class GtfsRtClient:
             if feed is not None:
                 current_trip_ids = set()
 
+                seen_routes = {entity.vehicle.trip.route_id for entity in feed.entity if entity.HasField("vehicle")}
+                logger.info(f"Route IDs in feed: {seen_routes}, filtering for: {routes_filter}")
+
                 for entity in feed.entity:
                     if entity.HasField("vehicle"):
                         vehicle = entity.vehicle
