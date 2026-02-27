@@ -15,6 +15,7 @@ __pycache__
 # config
 config/local.json
 .envrc
+.poetry
 
 # environment files (contain secrets!)
 .env
@@ -25,3 +26,7 @@ config/local/*
 # logs
 gobble.log
 s3_upload.log
+
+# ides
+.cursor
+.vscode

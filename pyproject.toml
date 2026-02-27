@@ -3,7 +3,7 @@ name = "gobble"
 version = "1.0.0"
 description = "Process MBTA events into a format that can be consumed by the Data Dashboard"
 authors = ["TransitMatters Labs <labs@transitmatters.org>"]
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.13,<3.14"
 license = "MIT"
 readme = "README.md"
 package-mode = false
@@ -12,9 +12,11 @@ dependencies = [
     "sseclient-py==1.9.0",
     "requests==2.32.5",
     "boto3~=1.42.24",
-    "ddtrace~=4.1.3",
+    "ddtrace~=4.0.0",
     "python-json-logger~=2.0.7",
     "gtfs-realtime-bindings>=2.0.0",
+    "wheel>=0.46.2",
+    "urllib3>=2.6.3",
 ]
 
 [dependency-groups]

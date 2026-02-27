@@ -1,6 +1,6 @@
 from unittest.mock import patch, MagicMock, Mock
 import requests
-
+from requests.exceptions import ChunkedEncodingError
 from gobble import connect, process_events, client_thread
 
 
@@ -170,9 +170,6 @@ class TestClientThread:
         mock_response = Mock()
         mock_connect.return_value = mock_response
 
-        mock_client = Mock()
-        mock_sse_client.return_value = mock_client
-
         # First call raises error, second call raises KeyboardInterrupt to stop
         mock_process_events.side_effect = [
             requests.exceptions.ChunkedEncodingError(),
@@ -188,3 +185,35 @@ class TestClientThread:
 
         # Verify connection was attempted multiple times
         assert mock_connect.call_count >= 2
+
+    @patch("gobble.sseclient.SSEClient")
+    @patch("gobble.connect")
+    @patch("gobble.process_events")
+    @patch("gobble.time.sleep")
+    @patch("gobble.tracer")
+    def test_log_chunk_error(self, mock_tracer, mock_sleep, mock_process_events, mock_connect, mock_sse_client, caplog):
+        """Test that client_thread retries on connection errors"""
+        mock_response = Mock()
+        mock_connect.return_value = mock_response
+
+        mock_tracer.enabled = True
+
+        mock_client = Mock()
+        mock_sse_client.return_value = mock_client
+
+        mock_process_events.side_effect = [
+            requests.exceptions.ChunkedEncodingError(),
+            Exception("mocked error"),
+            KeyboardInterrupt(),
+        ]
+
+        routes = {"1"}
+
+        try:
+            client_thread(routes)
+        except ChunkedEncodingError:
+            assert "ChunkedEncodingError (handled) at elapsed=" in caplog.text
+        except Exception:
+            assert "Encountered an exception in client_thread" in caplog.text
+        except KeyboardInterrupt:
+            pass

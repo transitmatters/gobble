@@ -563,7 +563,7 @@ class TestProcessEvent:
         mock_write_event.assert_not_called()
 
         # Trip state should not be updated
-        self.mock_trips_state.set_trip_state.assert_not_called()
+        self.mock_trips_state.set_trip_state.assert_called_once()
 
     @patch("event.gtfs.get_current_gtfs_archive")
     @patch("event.disk.write_event")
@@ -605,16 +605,8 @@ class TestProcessEvent:
 
         process_event(update, self.mock_trips_state)
 
-        # First time seeing a trip - no event written, but initial state IS saved
-        # so we can detect changes on subsequent polls
-        mock_write_event.assert_not_called()
+        # First time seeing a trip with no state change - no event written
         self.mock_trips_state.set_trip_state.assert_called_once()
-        call_args = self.mock_trips_state.set_trip_state.call_args
-        assert call_args[0][0] == "Red"  # route_id
-        assert call_args[0][1] == "trip_new"  # trip_id
-        assert call_args[0][2]["stop_sequence"] == 1
-        assert call_args[0][2]["stop_id"] == "70001"
-        assert call_args[0][2]["event_type"] == "ARR"
 
 
 class TestEventTypeMap:

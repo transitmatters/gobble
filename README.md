@@ -2,6 +2,7 @@
 
 ![lint](https://github.com/transitmatters/gobble/actions/workflows/lint.yml/badge.svg?branch=main)
 ![test](https://github.com/transitmatters/gobble/actions/workflows/test.yml/badge.svg?branch=main)
+![deploy](https://github.com/transitmatters/gobble/actions/workflows/deploy.yml/badge.svg?branch=main)
 
 ![Screenshot in action](docs/screenshot.png)
 
@@ -14,8 +15,8 @@ Gobble supports two data ingestion modes:
 
 ## Requirements to develop locally
 
-- [`uv`](https://docs.astral.sh/uv/) with Python 3.12
-  - Ensure `uv` is using the correct Python version by running `uv venv --python 3.12`
+- [`uv`](https://docs.astral.sh/uv/) with Python 3.13
+  - Ensure `uv` is using the correct Python version by running `uv venv --python 3.13`
 
 ## Development Instructions
 
@@ -139,6 +140,20 @@ Run the test suite with:
 ```bash
 poetry run pytest src/tests/
 ```
+
+### Container
+
+You can also run Gobble inside a container using the following `docker build` and `docker run` commands
+
+```bash
+docker build -t gobble -f Containerfile .
+docker run \
+    -v ./config/local.json:/app/config/local.json:z \
+    -v ./data:/app/data:z \
+    gobble:latest
+```
+
+Output will be in `data/` in your current working directory. Good luck!
 
 ### Linting
 
