@@ -40,6 +40,7 @@ AGENCY_MODULES = {
     "cats": "agencies.cats_routes",
     "ttc": "agencies.ttc_routes",
     "soundtransit": "agencies.soundtransit_routes",
+    "mwrta": "agencies.mwrta_routes",
 }
 
 if AGENCY not in AGENCY_MODULES:
