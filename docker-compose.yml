@@ -502,4 +502,25 @@ services:
         max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
         max-file: ${DOCKER_LOG_MAX_FILE:-5}
 
+  gobble-soundtransit:
+    container_name: gobble-soundtransit
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/soundtransit:/app/data
+      - ./config/local/soundtransit.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-soundtransit
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
 volumes: {}

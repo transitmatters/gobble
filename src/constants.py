@@ -39,6 +39,7 @@ AGENCY_MODULES = {
     "meva": "agencies.meva_routes",
     "cats": "agencies.cats_routes",
     "ttc": "agencies.ttc_routes",
+    "soundtransit": "agencies.soundtransit_routes",
 }
 
 if AGENCY not in AGENCY_MODULES:
