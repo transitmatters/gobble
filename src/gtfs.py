@@ -24,8 +24,8 @@ tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
 MAIN_DIR = pathlib.Path("./data/gtfs_archives/")
 MAIN_DIR.mkdir(parents=True, exist_ok=True)
 
-GTFS_ARCHIVES_PREFIX = "https://cdn.mbta.com/archive/"
-GTFS_ARCHIVES_FILENAME = "archived_feeds.txt"
+GTFS_ARCHIVES_PREFIX = CONFIG["GTFS_ARCHIVES_PREFIX"]
+GTFS_ARCHIVES_FILENAME = CONFIG["GTFS_ARCHIVES_FILENAME"]
 
 # defining these columns in particular becasue we use them everywhere
 RTE_DIR_STOP = ["route_id", "direction_id", "stop_id"]

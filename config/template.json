@@ -1,4 +1,11 @@
 {
+  "agency": "mbta",
+  "GTFS_ARCHIVES_PREFIX": "https://cdn.mbta.com/archive/",
+  "GTFS_ARCHIVES_FILENAME": "archived_feeds.txt",
+  "sse": {
+    "base_url": "https://api-v3.mbta.com/vehicles",
+    "api_key": null
+  },
   "mbta": {
     "v3_api_key": null
   },
