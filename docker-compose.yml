@@ -1,0 +1,526 @@
+services:
+  gobble-wmata-bus:
+    container_name: gobble-wmata-bus
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/wmata_bus:/app/data
+      - ./config/local/wmata_bus.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=${WMATA_DD_SERVICE:-gobble-wmata}
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  gobble-wmata-rail:
+    container_name: gobble-wmata-rail
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/wmata_rail:/app/data
+      - ./config/local/wmata_rail.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=${WMATA_DD_SERVICE:-gobble-wmata-rail}
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  gobble-septa-rail:
+    container_name: gobble-septa-rail
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/septa_rail:/app/data
+      - ./config/local/septa_regionalrail.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=${SEPTA_DD_SERVICE:-gobble-septa-rail}
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  gobble-septa-bus:
+    container_name: gobble-septa-bus
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/septa_bus:/app/data
+      - ./config/local/septa_bus.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=${SEPTA_DD_SERVICE:-gobble-septa-bus}
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  gobble-stm_montreal:
+    container_name: gobble-stm_montreal
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/stm_montreal:/app/data
+      - ./config/local/stm_montreal.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=${SEPTA_DD_SERVICE:-gobble-stm_montreal}
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  gobble-denver_rtd:
+    container_name: gobble-denver_rtd
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/denver_rtd:/app/data
+      - ./config/local/denver_rtd.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=${DENVER_RTD_DD_SERVICE:-gobble-denver_rtd}
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  gobble-pvta:
+    container_name: gobble-pvta
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/pvta:/app/data
+      - ./config/local/pvta.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-pvta
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=INFO
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: "5"
+
+  gobble-kingcountymetro:
+    container_name: gobble-kingcountymetro
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/kingcountymetro:/app/data
+      - ./config/local/kingcountymetro.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-kingcountymetro
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=INFO
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: "5"
+
+  gobble-ripta:
+    container_name: gobble-ripta
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/ripta:/app/data
+      - ./config/local/ripta.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-ripta
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=INFO
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: "5"
+
+  gobble-metro-transit:
+    container_name: gobble-metro-transit
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/metro_transit:/app/data
+      - ./config/local/metro_transit.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-metro-transit
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=INFO
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: "5"
+
+  gobble-mbta:
+    container_name: gobble-mbta
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/mbta:/app/data
+      - ./config/local/mbta.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-mbta-gtfs-rt
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=INFO
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: "5"
+
+  gobble-portland_me:
+    container_name: gobble-portland_me
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/portland_me:/app/data
+      - ./config/local/portland_me.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-portland_me-gtfs-rt
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=INFO
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: "5"
+  gobble-caltrain:
+    container_name: gobble-caltrain
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/caltrain:/app/data
+      - ./config/local/caltrain.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-caltrain
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  gobble-cats:
+    container_name: gobble-cats
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/cats:/app/data
+      - ./config/local/cats.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-cats
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  gobble-ctdot:
+    container_name: gobble-ctdot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/ctdot:/app/data
+      - ./config/local/ctdot.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-ctdot
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  gobble-lirr:
+    container_name: gobble-lirr
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/lirr:/app/data
+      - ./config/local/lirr.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-lirr
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  gobble-marta_bus:
+    container_name: gobble-marta_bus
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/marta_bus:/app/data
+      - ./config/local/marta_bus.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-marta_bus
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  gobble-metra:
+    container_name: gobble-metra
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/metra:/app/data
+      - ./config/local/metra.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-metra
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  gobble-metro_north:
+    container_name: gobble-metro_north
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/metro_north:/app/data
+      - ./config/local/metro_north.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-metro_north
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  gobble-meva:
+    container_name: gobble-meva
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/meva:/app/data
+      - ./config/local/meva.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-meva
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  gobble-nyc_g:
+    container_name: gobble-nyc_g
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/nyc_g:/app/data
+      - ./config/local/nyc_g.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-nyc_g
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  gobble-nyc_irt:
+    container_name: gobble-nyc_irt
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/nyc_irt:/app/data
+      - ./config/local/nyc_irt.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-nyc_irt
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  gobble-ttc:
+    container_name: gobble-ttc
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/ttc:/app/data
+      - ./config/local/ttc.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-ttc
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  gobble-wegostar:
+    container_name: gobble-wegostar
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/wegostar:/app/data
+      - ./config/local/wegostar.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-wegostar
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  gobble-soundtransit:
+    container_name: gobble-soundtransit
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./data/soundtransit:/app/data
+      - ./config/local/soundtransit.json:/app/config/local.json:ro
+    environment:
+      - DD_SERVICE=gobble-soundtransit
+      - DD_ENV=${DEPLOYMENT_ENV:-dev}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    logging:
+      driver: ${DOCKER_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-50m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+volumes: {}

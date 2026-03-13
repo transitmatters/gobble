@@ -24,14 +24,21 @@ tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
 MAIN_DIR = pathlib.Path("./data/gtfs_archives/")
 MAIN_DIR.mkdir(parents=True, exist_ok=True)
 
-GTFS_ARCHIVES_PREFIX = "https://cdn.mbta.com/archive/"
-GTFS_ARCHIVES_FILENAME = "archived_feeds.txt"
+GTFS_ARCHIVES_PREFIX = CONFIG["GTFS_ARCHIVES_PREFIX"]
+GTFS_ARCHIVES_FILENAME = CONFIG["GTFS_ARCHIVES_FILENAME"]
 
 # defining these columns in particular becasue we use them everywhere
 RTE_DIR_STOP = ["route_id", "direction_id", "stop_id"]
 
 # only fetch required columns from gtfs csv's to reduce memory usage
-STOP_TIMES_COLS = ["stop_id", "trip_id", "arrival_time", "departure_time", "stop_id", "stop_sequence"]
+STOP_TIMES_COLS = [
+    "stop_id",
+    "trip_id",
+    "arrival_time",
+    "departure_time",
+    "stop_id",
+    "stop_sequence",
+]
 
 
 def _group_df_by_column(df: pd.DataFrame, column_name: str) -> Dict[str, pd.DataFrame]:
@@ -72,17 +79,20 @@ class GtfsArchive:
 
 
 @tracer.wrap()
-def _download_gtfs_archives_list() -> pd.DataFrame:
+def _download_gtfs_archives_list() -> Optional[pd.DataFrame]:
     """Downloads list of GTFS archive urls. This file will get overwritten."""
     archives_df = None
     try:
         archives_df = pd.read_csv(urljoin(GTFS_ARCHIVES_PREFIX, GTFS_ARCHIVES_FILENAME))
-        archives_df.to_csv(MAIN_DIR / GTFS_ARCHIVES_FILENAME)
+        try:
+            archives_df.to_csv(MAIN_DIR / GTFS_ARCHIVES_FILENAME)
+        except (PermissionError, OSError, IOError) as e:
+            logger.error(f"Failed to write GTFS archives file due to permission error: {e}")
+            logger.warning("Continuing with downloaded archives data without saving to disk")
         return archives_df
-    except (PermissionError, OSError, IOError) as e:
-        logger.error(f"Failed to write GTFS archives file due to permission error: {e}")
-        logger.warning("Continuing with downloaded archives data without saving to disk")
-        return archives_df
+    except Exception as e:
+        logger.error(f"Failed to download GTFS archives list: {e}")
+        return None
 
 
 def to_dateint(date: datetime.date) -> int:
@@ -139,7 +149,7 @@ def get_gtfs_archive(dateint: int):
             # Check if we should refetch based on time since feed start date
             if len(matches) > 0:
                 current_feed = matches.iloc[0]
-                feed_start_date = datetime.datetime.strptime(str(current_feed.feed_start_date), "%Y%m%d").date()
+                feed_start_date = datetime.datetime.strptime(str(int(current_feed.feed_start_date)), "%Y%m%d").date()
                 days_since_start = (datetime.date.today() - feed_start_date).days
                 refresh_interval = CONFIG["gtfs"]["refresh_interval_days"]
 
@@ -159,6 +169,20 @@ def get_gtfs_archive(dateint: int):
             else:
                 logger.info("Fetching latest archives to check for updates.")
             archives_df = _download_gtfs_archives_list()
+
+            # If download failed, try to use fallback
+            if archives_df is None:
+                logger.warning(
+                    "Failed to download GTFS archives list. Attempting to use most recent available archive."
+                )
+                fallback_archive = _find_most_recent_gtfs_archive()
+                if fallback_archive:
+                    logger.info(f"Using fallback GTFS archive: {fallback_archive}")
+                    return fallback_archive
+                else:
+                    logger.error("No accessible GTFS archives found. Cannot continue.")
+                    raise RuntimeError("Cannot download GTFS archives and no local archives available")
+
             matches = archives_df[(archives_df.feed_start_date <= dateint) & (archives_df.feed_end_date >= dateint)]
 
         if len(matches) == 0:
@@ -214,20 +238,27 @@ def get_services(date: datetime.date, archive_dir: pathlib.Path) -> List[str]:
     """
     Read calendar.txt to determine which services ran on the given date.
     Also, incorporate exceptions from calendar_dates.txt for holidays, etc.
+    calendar.txt is optional in GTFS; if missing, rely on calendar_dates.txt only.
     """
     dateint = to_dateint(date)
     day_of_week = date.strftime("%A").lower()
 
-    cal = pd.read_csv(archive_dir / "calendar.txt")
-    current_services = cal[(cal.start_date <= dateint) & (cal.end_date >= dateint)]
-    services = current_services[current_services[day_of_week] == 1].service_id.tolist()
+    services = []
+    calendar_path = archive_dir / "calendar.txt"
+    if calendar_path.exists():
+        cal = pd.read_csv(calendar_path)
+        current_services = cal[(cal.start_date <= dateint) & (cal.end_date >= dateint)]
+        services = current_services[current_services[day_of_week] == 1].service_id.tolist()
 
-    exceptions = pd.read_csv(archive_dir / "calendar_dates.txt")
-    exceptions = exceptions[exceptions.date == dateint]
-    additions = exceptions[exceptions.exception_type == 1].service_id.tolist()
-    subtractions = exceptions[exceptions.exception_type == 2].service_id.tolist()
+    calendar_dates_path = archive_dir / "calendar_dates.txt"
+    if calendar_dates_path.exists():
+        exceptions = pd.read_csv(calendar_dates_path)
+        exceptions = exceptions[exceptions.date == dateint]
+        additions = exceptions[exceptions.exception_type == 1].service_id.tolist()
+        subtractions = exceptions[exceptions.exception_type == 2].service_id.tolist()
 
-    services = (set(services) - set(subtractions)) | set(additions)
+        services = (set(services) - set(subtractions)) | set(additions)
+
     return list(services)
 
 
@@ -247,17 +278,30 @@ def read_gtfs(date: datetime.date, routes_filter: Optional[Set[str]] = None) -> 
     services = get_services(date, archive_dir)
 
     # specify dtypes to avoid warnings
-    trips = pd.read_csv(archive_dir / "trips.txt", dtype={"trip_short_name": str, "block_id": str})
+    trips = pd.read_csv(
+        archive_dir / "trips.txt",
+        dtype={
+            "trip_short_name": str,
+            "block_id": str,
+            "route_id": str,
+            "direction_id": int,
+            "trip_id": str,
+        },
+    )
     trips = trips[trips.service_id.isin(services)]
     # filter by routes
     if routes_filter:
         trips = trips[trips.route_id.isin(routes_filter)]
 
-    stops = pd.read_csv(archive_dir / "stops.txt")
+    stops = pd.read_csv(archive_dir / "stops.txt", dtype={"stop_id": str})
+    stops["stop_id"] = stops["stop_id"].str.strip()
 
     stop_times = pd.read_csv(
-        archive_dir / "stop_times.txt", dtype={"trip_id": str, "stop_id": str}, usecols=STOP_TIMES_COLS
+        archive_dir / "stop_times.txt",
+        dtype={"trip_id": str, "stop_id": str},
+        usecols=STOP_TIMES_COLS,
     )
+    stop_times["stop_id"] = stop_times["stop_id"].str.strip()
     stop_times = stop_times[stop_times.trip_id.isin(trips.trip_id)]
     stop_times.arrival_time = pd.to_timedelta(stop_times.arrival_time)
     stop_times.departure_time = pd.to_timedelta(stop_times.departure_time)
@@ -278,6 +322,9 @@ def batch_add_gtfs_headways(events_df: pd.DataFrame, trips: pd.DataFrame, stop_t
         # take only the stops from those trips (adding route and dir info)
         trip_info = relevant_trips[["trip_id", "route_id", "direction_id"]]
         gtfs_stops = stop_times.merge(trip_info, on="trip_id", how="right")
+
+        # drop rows with null values in merge key columns to prevent merge_asof failures
+        gtfs_stops = gtfs_stops.dropna(subset=RTE_DIR_STOP + ["arrival_time"])
 
         # calculate gtfs headways
         gtfs_stops = gtfs_stops.sort_values(by="arrival_time")
@@ -361,6 +408,9 @@ def add_gtfs_headways(event_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops
     trip_info = relevant_trips[["trip_id", "route_id", "direction_id"]]
     gtfs_stops = all_stops.merge(trip_info, on="trip_id", how="right")
 
+    # drop rows with null values in merge key columns to prevent merge_asof failures
+    gtfs_stops = gtfs_stops.dropna(subset=RTE_DIR_STOP + ["arrival_time"])
+
     # calculate gtfs headways
     gtfs_stops = gtfs_stops.sort_values(by="arrival_time")
     headways = gtfs_stops.groupby(RTE_DIR_STOP).arrival_time.diff()
@@ -375,6 +425,7 @@ def add_gtfs_headways(event_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops
     # assign each actual timepoint a scheduled headway
     # merge_asof 'backward' matches the previous scheduled value of 'arrival_time'
     event_df["arrival_time"] = event_df.event_time - pd.Timestamp(service_date).tz_localize(EASTERN_TIME)
+    event_df = event_df.sort_values(by="arrival_time")
     augmented_event = pd.merge_asof(
         event_df,
         gtfs_stops[RTE_DIR_STOP + ["arrival_time", "scheduled_headway"]],
@@ -384,7 +435,7 @@ def add_gtfs_headways(event_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops
     )
 
     # assign each actual trip a scheduled trip_id, based on when it started the route
-    route_starts = event_df[RTE_DIR_STOP + ["trip_id", "arrival_time"]]
+    route_starts = event_df[RTE_DIR_STOP + ["trip_id", "arrival_time"]].sort_values(by="arrival_time")
 
     trip_id_map = pd.merge_asof(
         route_starts,

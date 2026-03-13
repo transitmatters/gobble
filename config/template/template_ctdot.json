@@ -1,0 +1,21 @@
+{
+  "agency": "ctdot",
+  "GTFS_ARCHIVES_PREFIX": "http://host.docker.internal:8000",
+  "GTFS_ARCHIVES_FILENAME": "archived_feeds.txt?feed_id=tld-4436",
+  "mbta": {
+    "v3_api_key": null
+  },
+  "gtfs": {
+    "dir": null,
+    "refresh_interval_days": 7
+  },
+  "use_gtfs_rt": true,
+  "gtfs_rt": {
+    "mobility_database_id": "tld-4436",
+    "feed_url": "https://cttprdtmgtfs.ctttrpcloud.com/TMGTFSRealTimeWebService/Vehicle/VehiclePositions.pb",
+    "api_key": null,
+    "api_key_method": "none",
+    "polling_interval": 10
+  },
+  "DATADOG_TRACE_ENABLED": false
+}

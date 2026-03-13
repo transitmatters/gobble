@@ -1,18 +1,18 @@
 import json
+import warnings
 from datetime import datetime
 from typing import Tuple
+
 import pandas as pd
 from ddtrace import tracer
-import warnings
-
-from config import CONFIG
-from constants import BUS_STOPS, ROUTES_CR, ROUTES_RAPID
-from logger import set_up_logging
-from trip_state import TripsStateManager
 
 import disk
 import gtfs
 import util
+from config import CONFIG
+from constants import ROUTES_BUS, ROUTES_CR, ROUTES_RAPID
+from logger import set_up_logging
+from trip_state import TripsStateManager
 
 logger = set_up_logging(__name__)
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
@@ -41,9 +41,18 @@ def get_stop_name(stops_df: pd.DataFrame, stop_id: str) -> str:
 
 
 def arr_or_dep_event(
-    prev: dict, current_status: str, current_stop_sequence: int, event_type: str, stop_id: str
+    prev: dict,
+    current_status: str,
+    current_stop_sequence: int,
+    event_type: str,
+    stop_id: str,
 ) -> Tuple[bool, bool]:
-    is_departure_event = prev["stop_id"] != stop_id and prev["stop_sequence"] < current_stop_sequence
+    # Departure event: moving to a new stop (different stop_id and advancing stop_sequence)
+    # OR transitioning to IN_TRANSIT_TO from a STOPPED_AT (prev event was arrival)
+    is_departure_event = (prev["stop_id"] != stop_id and prev["stop_sequence"] < current_stop_sequence) or (
+        event_type == "DEP" and prev.get("event_type") == "ARR"
+    )
+    # Arrival event: vehicle is stopped at a stop after having departed
     is_arrival_event = current_status == "STOPPED_AT" and prev.get("event_type", event_type) == "DEP"
     return is_departure_event, is_arrival_event
 
@@ -116,9 +125,11 @@ def process_event(update, trips_state: TripsStateManager):
 
     # Skip events where the vehicle has no stop associated
     if stop_id is None:
+        logger.info(f"Skipping event for trip {trip_id}: no stop associated")
         return
 
     prev_trip_state = trips_state.get_trip_state(route_id, trip_id)
+    is_first_observation = prev_trip_state is None
     if prev_trip_state is None:
         prev_trip_state = {
             "stop_sequence": current_stop_sequence,
@@ -139,6 +150,29 @@ def process_event(update, trips_state: TripsStateManager):
         stop_id=stop_id,
     )
 
+    if not (is_departure_event or is_arrival_event):
+        # On first observation, save initial state so we can detect changes on subsequent polls
+        if is_first_observation:
+            logger.info(f"First observation of trip {trip_id} on route {route_id}, saving initial state")
+            trips_state.set_trip_state(
+                route_id,
+                trip_id,
+                {
+                    "stop_sequence": current_stop_sequence,
+                    "stop_id": stop_id,
+                    "updated_at": updated_at,
+                    "event_type": event_type,
+                    "vehicle_consist": vehicle_consist,
+                    "occupancy_status": occupancy_status,
+                    "occupancy_percentage": occupancy_percentage,
+                },
+            )
+        else:
+            logger.info(
+                f"Skipping event for trip {trip_id} on route {route_id}: not an arrival/departure event (dep={is_departure_event}, arr={is_arrival_event}, status={current_status})"
+            )
+        return
+
     if is_departure_event or is_arrival_event:
         if is_departure_event:
             stop_id = prev_trip_state["stop_id"]
@@ -147,8 +181,8 @@ def process_event(update, trips_state: TripsStateManager):
         stop_name = get_stop_name(gtfs_archive.stops, stop_id)
         service_date = util.service_date(updated_at)
 
-        # store all commuter rail/subway stops, but only some bus stops
-        if route_id in ROUTES_CR.union(ROUTES_RAPID) or stop_id in BUS_STOPS.get(route_id, {}):
+        # store all commuter rail/subway/bus stops
+        if route_id in ROUTES_CR.union(ROUTES_RAPID).union(ROUTES_BUS):
             logger.info(
                 f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} {event_type} stop={stop_name}"
             )
@@ -174,6 +208,10 @@ def process_event(update, trips_state: TripsStateManager):
                 ],
                 index=[0],
             )
+            # Ensure dtypes match GTFS data for merge operations
+            df["route_id"] = df["route_id"].astype(str)
+            df["direction_id"] = df["direction_id"].astype(int)
+            df["stop_id"] = df["stop_id"].astype(str)
 
             event = enrich_event(df, gtfs_archive)
             disk.write_event(event)
