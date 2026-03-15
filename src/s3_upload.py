@@ -20,7 +20,7 @@ tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
 
 s3 = boto3.client("s3")
 
-S3_BUCKET = "tm-mbta-performance"
+S3_BUCKET = "mwrta-performance-data"
 
 LOCAL_DATA_TEMPLATE = str(DATA_DIR / "daily-*/*/Year={year}/Month={month}/Day={day}/events.csv")
 S3_DATA_TEMPLATE = "Events-live/{relative_path}.gz"
