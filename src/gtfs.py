@@ -162,7 +162,15 @@ def get_gtfs_archive(dateint: int):
             matches = archives_df[(archives_df.feed_start_date <= dateint) & (archives_df.feed_end_date >= dateint)]
 
         if len(matches) == 0:
-            raise ValueError(f"No GTFS archive found for date {dateint}")
+            # Fall back to the most recent archive whose coverage period ended closest to dateint
+            past_archives = archives_df[archives_df.feed_end_date <= dateint]
+            if len(past_archives) == 0:
+                raise ValueError(f"No GTFS archive found for date {dateint}")
+            matches = past_archives.sort_values("feed_end_date", ascending=False).head(1)
+            logger.warning(
+                f"No GTFS archive found for date {dateint}. "
+                f"Falling back to most recent archive ending {matches.iloc[0].feed_end_date}."
+            )
 
         archive_url = matches.iloc[0].archive_url
         archive_name = pathlib.Path(archive_url).stem
@@ -247,7 +255,7 @@ def read_gtfs(date: datetime.date, routes_filter: Optional[Set[str]] = None) -> 
     services = get_services(date, archive_dir)
 
     # specify dtypes to avoid warnings
-    trips = pd.read_csv(archive_dir / "trips.txt", dtype={"trip_short_name": str, "block_id": str})
+    trips = pd.read_csv(archive_dir / "trips.txt", dtype={"trip_short_name": str, "block_id": str, "route_id": str})
     trips = trips[trips.service_id.isin(services)]
     # filter by routes
     if routes_filter:
@@ -278,6 +286,8 @@ def batch_add_gtfs_headways(events_df: pd.DataFrame, trips: pd.DataFrame, stop_t
         # take only the stops from those trips (adding route and dir info)
         trip_info = relevant_trips[["trip_id", "route_id", "direction_id"]]
         gtfs_stops = stop_times.merge(trip_info, on="trip_id", how="right")
+        gtfs_stops = gtfs_stops.dropna(subset=RTE_DIR_STOP + ["arrival_time"])
+        gtfs_stops["direction_id"] = gtfs_stops["direction_id"].astype(int)
 
         # calculate gtfs headways
         gtfs_stops = gtfs_stops.sort_values(by="arrival_time")
@@ -293,6 +303,7 @@ def batch_add_gtfs_headways(events_df: pd.DataFrame, trips: pd.DataFrame, stop_t
         # assign each actual timepoint a scheduled headway
         # merge_asof 'backward' matches the previous scheduled value of 'arrival_time'
         days_events["arrival_time"] = days_events.event_time - pd.Timestamp(service_date).tz_localize(EASTERN_TIME)
+        days_events["direction_id"] = pd.to_numeric(days_events["direction_id"], errors="coerce").fillna(-1).astype(int)
         augmented_events = pd.merge_asof(
             days_events.sort_values(by="arrival_time"),
             gtfs_stops[RTE_DIR_STOP + ["arrival_time", "scheduled_headway"]],
@@ -360,6 +371,8 @@ def add_gtfs_headways(event_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops
     # take only the stops from those trips (adding route and dir info)
     trip_info = relevant_trips[["trip_id", "route_id", "direction_id"]]
     gtfs_stops = all_stops.merge(trip_info, on="trip_id", how="right")
+    gtfs_stops = gtfs_stops.dropna(subset=RTE_DIR_STOP + ["arrival_time"])
+    gtfs_stops["direction_id"] = gtfs_stops["direction_id"].astype(int)
 
     # calculate gtfs headways
     gtfs_stops = gtfs_stops.sort_values(by="arrival_time")
@@ -375,6 +388,7 @@ def add_gtfs_headways(event_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops
     # assign each actual timepoint a scheduled headway
     # merge_asof 'backward' matches the previous scheduled value of 'arrival_time'
     event_df["arrival_time"] = event_df.event_time - pd.Timestamp(service_date).tz_localize(EASTERN_TIME)
+    event_df["direction_id"] = pd.to_numeric(event_df["direction_id"], errors="coerce").fillna(-1).astype(int)
     augmented_event = pd.merge_asof(
         event_df,
         gtfs_stops[RTE_DIR_STOP + ["arrival_time", "scheduled_headway"]],

@@ -49,7 +49,8 @@ def deserialize_trip_state(trip_state: Dict[str, str]) -> TripState:
 def write_trips_state_file(route_id: str, state: "RouteTripsState") -> None:
     trips_states_dir = DATA_DIR / "trip_states"
     trips_states_dir.mkdir(exist_ok=True)
-    trip_file_path = trips_states_dir / f"{route_id}.json"
+    safe_route_id = route_id.replace("/", "_")
+    trip_file_path = trips_states_dir / f"{safe_route_id}.json"
     trip_states = {trip_id: serialize_trip_state(trip_state) for trip_id, trip_state in state.trips.items()}
     file_contents = {
         "service_date": state.service_date.isoformat(),
@@ -60,7 +61,8 @@ def write_trips_state_file(route_id: str, state: "RouteTripsState") -> None:
 
 
 def read_trips_state_file(route_id: str) -> Dict[str, TripState]:
-    trip_file_path = DATA_DIR / "trip_states" / f"{route_id}.json"
+    safe_route_id = route_id.replace("/", "_")
+    trip_file_path = DATA_DIR / "trip_states" / f"{safe_route_id}.json"
     if trip_file_path.exists():
         with open(trip_file_path, "r") as trip_file:
             try:
@@ -80,6 +82,10 @@ def read_trips_state_file(route_id: str) -> Dict[str, TripState]:
     return None
 
 
+TRIP_STATE_WRITE_INTERVAL_SECS = 30
+TRIP_STATE_CLEANUP_INTERVAL_SECS = 300  # 5 minutes
+
+
 @dataclass
 class RouteTripsState:
     """
@@ -92,6 +98,9 @@ class RouteTripsState:
     service_date: date = None
     # A dict to hold all the TripStates
     trips: Dict[str, TripState] = None
+    # Throttle how often we write to disk and run cleanup
+    _last_written_at: Optional[datetime] = None
+    _last_cleanup_at: Optional[datetime] = None
 
     def __post_init__(self):
         state_file = read_trips_state_file(self.route_id)
@@ -105,11 +114,20 @@ class RouteTripsState:
 
     @tracer.wrap()
     def set_trip_state(self, trip_id: str, trip_state: TripState) -> None:
-        # Do cleanup first, before adding the new trip
-        self._cleanup_trip_states()
+        now = datetime.now(EASTERN_TIME)
+
+        # Run cleanup at most once every 5 minutes
+        if self._last_cleanup_at is None or (now - self._last_cleanup_at).total_seconds() >= TRIP_STATE_CLEANUP_INTERVAL_SECS:
+            self._cleanup_trip_states()
+            self._last_cleanup_at = now
+
         # Now add the new trip - it won't be cleared by purge
         self.trips[trip_id] = trip_state
-        write_trips_state_file(self.route_id, self)
+
+        # Write to disk at most once every 30 seconds
+        if self._last_written_at is None or (now - self._last_written_at).total_seconds() >= TRIP_STATE_WRITE_INTERVAL_SECS:
+            write_trips_state_file(self.route_id, self)
+            self._last_written_at = now
 
     @tracer.wrap()
     def get_trip_state(self, trip_id: str) -> Optional[TripState]:

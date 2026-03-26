@@ -378,6 +378,7 @@ class TestProcessEvent:
         self.mock_trips_state = Mock(spec=TripsStateManager)
         self.mock_trips_state.get_trip_state.return_value = None
 
+    @patch("event.ROUTES_RAPID", {"Red"})
     @patch("event.gtfs.get_current_gtfs_archive")
     @patch("event.disk.write_event")
     def test_process_event_first_departure(self, mock_write_event, mock_get_gtfs):
@@ -441,9 +442,9 @@ class TestProcessEvent:
             assert call_args[0][0] == "Red"  # route_id
             assert call_args[0][1] == "trip_123"  # trip_id
             assert call_args[0][2]["stop_sequence"] == 2
-            # Note: Due to line 144 in event.py, stop_id gets reassigned to prev stop for departures
-            # This affects both the event written AND the trip state update
-            assert call_args[0][2]["stop_id"] == "70001"
+            # After a departure, trip state should store the current destination (70002),
+            # not the departed stop (70001)
+            assert call_args[0][2]["stop_id"] == "70002"
 
     @patch("event.gtfs.get_current_gtfs_archive")
     @patch("event.disk.write_event")
@@ -607,6 +608,77 @@ class TestProcessEvent:
 
         # First time seeing a trip with no state change - no event written
         self.mock_trips_state.set_trip_state.assert_called_once()
+
+
+def _make_update(current_status, stop_id, stop_sequence, updated_at_str, route_id="TEST-ROUTE", trip_id="trip-1"):
+    return {
+        "attributes": {
+            "current_status": current_status,
+            "updated_at": updated_at_str,
+            "current_stop_sequence": stop_sequence,
+            "direction_id": 0,
+            "label": "1234",
+            "occupancy_status": None,
+            "occupancy_percentage": None,
+            "carriages": [],
+        },
+        "relationships": {
+            "route": {"data": {"id": route_id}},
+            "stop": {"data": {"id": stop_id}},
+            "trip": {"data": {"id": trip_id}},
+        },
+    }
+
+
+class TestProcessEventDEPDeduplication:
+    """
+    Regression tests for duplicate DEP events.
+
+    When a vehicle moves to a new stop and a DEP fires, the stored stop_id must be the new
+    destination — not the departed stop. If the old stop is stored, every subsequent poll
+    while the vehicle is still in transit to the same stop re-triggers a DEP.
+    """
+
+    @patch("event.gtfs.get_current_gtfs_archive")
+    def test_trip_state_stores_current_destination_after_departure(self, mock_gtfs):
+        """After a DEP event, stored stop_id must be the new destination, not the departed stop."""
+        mock_archive = Mock(spec=gtfs.GtfsArchive)
+        mock_archive.stops = pd.DataFrame(columns=["stop_id", "stop_name"])
+        mock_gtfs.return_value = mock_archive
+        trips_state = TripsStateManager()
+
+        # Poll 1: vehicle first seen heading to stop-B
+        process_event(_make_update("IN_TRANSIT_TO", "stop-B", 2, "2024-01-15T10:00:00-05:00"), trips_state)
+
+        # Poll 2: vehicle now heading to stop-C — DEP for stop-B fires
+        process_event(_make_update("IN_TRANSIT_TO", "stop-C", 3, "2024-01-15T10:02:00-05:00"), trips_state)
+
+        state = trips_state.get_trip_state("TEST-ROUTE", "trip-1")
+        assert state["stop_id"] == "stop-C", (
+            "After departure from stop-B, stored stop_id should be stop-C (new destination), not stop-B"
+        )
+
+    @patch("event.gtfs.get_current_gtfs_archive")
+    def test_dep_does_not_repeat_for_same_stop(self, mock_gtfs):
+        """A repeated IN_TRANSIT_TO for the same stop should not trigger another DEP."""
+        mock_archive = Mock(spec=gtfs.GtfsArchive)
+        mock_archive.stops = pd.DataFrame(columns=["stop_id", "stop_name"])
+        mock_gtfs.return_value = mock_archive
+        trips_state = TripsStateManager()
+
+        # Poll 1: first sighting
+        process_event(_make_update("IN_TRANSIT_TO", "stop-B", 2, "2024-01-15T10:00:00-05:00"), trips_state)
+
+        # Poll 2: vehicle advances — DEP fires (get_current_gtfs_archive called once)
+        process_event(_make_update("IN_TRANSIT_TO", "stop-C", 3, "2024-01-15T10:02:00-05:00"), trips_state)
+        calls_after_dep = mock_gtfs.call_count
+        assert calls_after_dep == 1
+
+        # Poll 3: same stop-C data polled again — no new event should fire
+        process_event(_make_update("IN_TRANSIT_TO", "stop-C", 3, "2024-01-15T10:02:00-05:00"), trips_state)
+        assert mock_gtfs.call_count == calls_after_dep, (
+            "No additional event should fire when IN_TRANSIT_TO stop does not change"
+        )
 
 
 class TestEventTypeMap:

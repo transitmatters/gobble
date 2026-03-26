@@ -43,7 +43,10 @@ def get_stop_name(stops_df: pd.DataFrame, stop_id: str) -> str:
 def arr_or_dep_event(
     prev: dict, current_status: str, current_stop_sequence: int, event_type: str, stop_id: str
 ) -> Tuple[bool, bool]:
-    is_departure_event = prev["stop_id"] != stop_id and prev["stop_sequence"] < current_stop_sequence
+    prev_seq = prev["stop_sequence"]
+    is_departure_event = prev["stop_id"] != stop_id and (
+        prev_seq is None or current_stop_sequence is None or prev_seq < current_stop_sequence
+    )
     is_arrival_event = current_status == "STOPPED_AT" and prev.get("event_type", event_type) == "DEP"
     return is_departure_event, is_arrival_event
 
@@ -140,15 +143,14 @@ def process_event(update, trips_state: TripsStateManager):
     )
 
     if is_departure_event or is_arrival_event:
-        if is_departure_event:
-            stop_id = prev_trip_state["stop_id"]
+        event_stop_id = prev_trip_state["stop_id"] if is_departure_event else stop_id
 
         gtfs_archive = gtfs.get_current_gtfs_archive()
-        stop_name = get_stop_name(gtfs_archive.stops, stop_id)
+        stop_name = get_stop_name(gtfs_archive.stops, event_stop_id)
         service_date = util.service_date(updated_at)
 
         # store all commuter rail/subway stops, but only some bus stops
-        if route_id in ROUTES_CR.union(ROUTES_RAPID) or stop_id in BUS_STOPS.get(route_id, {}):
+        if route_id in ROUTES_CR.union(ROUTES_RAPID) or event_stop_id in BUS_STOPS.get(route_id, {}):
             logger.info(
                 f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} {event_type} stop={stop_name}"
             )
@@ -161,7 +163,7 @@ def process_event(update, trips_state: TripsStateManager):
                         "route_id": route_id,
                         "trip_id": trip_id,
                         "direction_id": direction_id,
-                        "stop_id": stop_id,
+                        "stop_id": event_stop_id,
                         "stop_sequence": current_stop_sequence,
                         "vehicle_id": "0",  # TODO??
                         "vehicle_label": vehicle_label,

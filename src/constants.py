@@ -9,6 +9,7 @@ For example SEPTA maintains seperate GTFS bundles for Regional Rail and Bus/Trol
 Supported agencies:
 - mbta: Massachusetts Bay Transportation Authority
 - septa_regionalrail: Southeastern Pennsylvania Transportation Authority Regional Rail
+- ccrta, frta, gatra, lrta, mart, pvta, vta, wrta: Massachusetts RTAs
 """
 
 import importlib
@@ -41,6 +42,16 @@ AGENCY_MODULES = {
     "ttc": "agencies.ttc_routes",
     "soundtransit": "agencies.soundtransit_routes",
     "mwrta": "agencies.mwrta_routes",
+    "brta": "agencies.brta_routes",
+    "ccrta": "agencies.ccrta_routes",
+    "frta": "agencies.frta_routes",
+    "gatra": "agencies.gatra_routes",
+    "lrta": "agencies.lrta_routes",
+    "mart": "agencies.mart_routes",
+    "vta": "agencies.vta_routes",
+    "wrta": "agencies.wrta_routes",
+    "gptd": "agencies.gptd_routes",
+    "gcrta": "agencies.gcrta_routes",
 }
 
 if AGENCY not in AGENCY_MODULES:

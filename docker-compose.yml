@@ -1,32 +1,317 @@
+x-agency-base: &agency-base
+  build:
+    context: .
+    dockerfile: Containerfile
+  environment:
+    - AWS_ACCESS_KEY_ID
+    - AWS_SECRET_ACCESS_KEY
+    - AWS_DEFAULT_REGION
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+x-s3-upload-base: &s3-upload-base
+  build:
+    context: .
+    dockerfile: Containerfile
+  entrypoint: >
+    sh -c 'while true; do
+      sleep $(( 3600 - $(date +%s) % 3600 ));
+      uv run python3 src/s3_upload.py;
+    done'
+  environment:
+    - AWS_ACCESS_KEY_ID
+    - AWS_SECRET_ACCESS_KEY
+    - AWS_DEFAULT_REGION
+
 services:
   mwrta:
-    build:
-      context: .
-      dockerfile: Containerfile
+    <<: *agency-base
+    profiles: [ma, massachusetts]
     volumes:
       - ./config/local.json:/app/config/local.json:ro
-      - ./data:/app/data
-    environment:
-      - AWS_ACCESS_KEY_ID
-      - AWS_SECRET_ACCESS_KEY
-      - AWS_DEFAULT_REGION
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - ./data/mwrta:/app/data
 
-  s3-upload:
-    build:
-      context: .
-      dockerfile: Containerfile
-    entrypoint: >
-      sh -c 'while true; do
-        sleep $(( 3600 - $(date +%s) % 3600 ));
-        uv run python3 src/s3_upload.py;
-      done'
+  gptd:
+    <<: *agency-base
+    profiles: [me, maine]
+    volumes:
+      - ./config/local/gptd.json:/app/config/local.json:ro
+      - ./data/gptd:/app/data
+
+  brta:
+    <<: *agency-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/brta.json:/app/config/local.json:ro
+      - ./data/brta:/app/data
+
+  ccrta:
+    <<: *agency-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/ccrta.json:/app/config/local.json:ro
+      - ./data/ccrta:/app/data
+
+  frta:
+    <<: *agency-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/frta.json:/app/config/local.json:ro
+      - ./data/frta:/app/data
+
+  gatra:
+    <<: *agency-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/gatra.json:/app/config/local.json:ro
+      - ./data/gatra:/app/data
+
+  lrta:
+    <<: *agency-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/lrta.json:/app/config/local.json:ro
+      - ./data/lrta:/app/data
+
+  mart:
+    <<: *agency-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/mart.json:/app/config/local.json:ro
+      - ./data/mart:/app/data
+    
+  meva:
+    <<: *agency-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/meva.json:/app/config/local.json:ro
+      - ./data/meva:/app/data
+
+  pvta:
+    <<: *agency-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/pvta.json:/app/config/local.json:ro
+      - ./data/pvta:/app/data
+
+  vta:
+    <<: *agency-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/vta.json:/app/config/local.json:ro
+      - ./data/vta:/app/data
+
+  wrta:
+    <<: *agency-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/wrta.json:/app/config/local.json:ro
+      - ./data/wrta:/app/data
+
+  s3-upload-mwrta:
+    <<: *s3-upload-base
+    profiles: [ma, massachusetts]
     volumes:
       - ./config/local.json:/app/config/local.json:ro
-      - ./data:/app/data
+      - ./data/mwrta:/app/data
       - ~/.aws:/root/.aws:ro
-    environment:
-      - AWS_ACCESS_KEY_ID
-      - AWS_SECRET_ACCESS_KEY
-      - AWS_DEFAULT_REGION
+
+  s3-upload-ccrta:
+    <<: *s3-upload-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/ccrta.json:/app/config/local.json:ro
+      - ./data/ccrta:/app/data
+      - ~/.aws:/root/.aws:ro
+
+  s3-upload-brta:
+    <<: *s3-upload-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/brta.json:/app/config/local.json:ro
+      - ./data/brta:/app/data
+      - ~/.aws:/root/.aws:ro
+
+  s3-upload-frta:
+    <<: *s3-upload-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/frta.json:/app/config/local.json:ro
+      - ./data/frta:/app/data
+      - ~/.aws:/root/.aws:ro
+
+  s3-upload-gatra:
+    <<: *s3-upload-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/gatra.json:/app/config/local.json:ro
+      - ./data/gatra:/app/data
+      - ~/.aws:/root/.aws:ro
+
+  s3-upload-lrta:
+    <<: *s3-upload-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/lrta.json:/app/config/local.json:ro
+      - ./data/lrta:/app/data
+      - ~/.aws:/root/.aws:ro
+
+  s3-upload-mart:
+    <<: *s3-upload-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/mart.json:/app/config/local.json:ro
+      - ./data/mart:/app/data
+      - ~/.aws:/root/.aws:ro
+
+  s3-upload-pvta:
+    <<: *s3-upload-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/pvta.json:/app/config/local.json:ro
+      - ./data/pvta:/app/data
+      - ~/.aws:/root/.aws:ro
+
+  s3-upload-vta:
+    <<: *s3-upload-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/vta.json:/app/config/local.json:ro
+      - ./data/vta:/app/data
+      - ~/.aws:/root/.aws:ro
+
+  s3-upload-wrta:
+    <<: *s3-upload-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/wrta.json:/app/config/local.json:ro
+      - ./data/wrta:/app/data
+      - ~/.aws:/root/.aws:ro
+
+  s3-upload-gptd:
+    <<: *s3-upload-base
+    profiles: [ma, massachusetts]
+    volumes:
+      - ./config/local/gptd.json:/app/config/local.json:ro
+      - ./data/gptd:/app/data
+      - ~/.aws:/root/.aws:ro
+
+  nyct-ace:
+    <<: *agency-base
+    profiles: [nyc, new-york]
+    volumes:
+      - ./config/local/nyct-ace.json:/app/config/local.json:ro
+      - ./data/nyct-ace:/app/data
+
+  nyct-bdfm:
+    <<: *agency-base
+    profiles: [nyc, new-york]
+    volumes:
+      - ./config/local/nyct-bdfm.json:/app/config/local.json:ro
+      - ./data/nyct-bdfm:/app/data
+
+  nyct-g:
+    <<: *agency-base
+    profiles: [nyc, new-york]
+    volumes:
+      - ./config/local/nyct-g.json:/app/config/local.json:ro
+      - ./data/nyct-g:/app/data
+
+  nyct-jz:
+    <<: *agency-base
+    profiles: [nyc, new-york]
+    volumes:
+      - ./config/local/nyct-jz.json:/app/config/local.json:ro
+      - ./data/nyct-jz:/app/data
+
+  nyct-nqrw:
+    <<: *agency-base
+    profiles: [nyc, new-york]
+    volumes:
+      - ./config/local/nyct-nqrw.json:/app/config/local.json:ro
+      - ./data/nyct-nqrw:/app/data
+
+  nyct-l:
+    <<: *agency-base
+    profiles: [nyc, new-york]
+    volumes:
+      - ./config/local/nyct-l.json:/app/config/local.json:ro
+      - ./data/nyct-l:/app/data
+
+  nyct-1234567s:
+    <<: *agency-base
+    profiles: [nyc, new-york]
+    volumes:
+      - ./config/local/nyct-1234567s.json:/app/config/local.json:ro
+      - ./data/nyct-1234567s:/app/data
+
+  nyct-sir:
+    <<: *agency-base
+    profiles: [nyc, new-york]
+    volumes:
+      - ./config/local/nyct-sir.json:/app/config/local.json:ro
+      - ./data/nyct-sir:/app/data
+
+  s3-upload-nyct-ace:
+    <<: *s3-upload-base
+    profiles: [nyc, new-york]
+    volumes:
+      - ./config/local/nyct-ace.json:/app/config/local.json:ro
+      - ./data/nyct-ace:/app/data
+      - ~/.aws:/root/.aws:ro
+
+  s3-upload-nyct-bdfm:
+    <<: *s3-upload-base
+    profiles: [nyc, new-york]
+    volumes:
+      - ./config/local/nyct-bdfm.json:/app/config/local.json:ro
+      - ./data/nyct-bdfm:/app/data
+      - ~/.aws:/root/.aws:ro
+
+  s3-upload-nyct-g:
+    <<: *s3-upload-base
+    profiles: [nyc, new-york]
+    volumes:
+      - ./config/local/nyct-g.json:/app/config/local.json:ro
+      - ./data/nyct-g:/app/data
+      - ~/.aws:/root/.aws:ro
+
+  s3-upload-nyct-jz:
+    <<: *s3-upload-base
+    profiles: [nyc, new-york]
+    volumes:
+      - ./config/local/nyct-jz.json:/app/config/local.json:ro
+      - ./data/nyct-jz:/app/data
+      - ~/.aws:/root/.aws:ro
+
+  s3-upload-nyct-nqrw:
+    <<: *s3-upload-base
+    profiles: [nyc, new-york]
+    volumes:
+      - ./config/local/nyct-nqrw.json:/app/config/local.json:ro
+      - ./data/nyct-nqrw:/app/data
+      - ~/.aws:/root/.aws:ro
+
+  s3-upload-nyct-l:
+    <<: *s3-upload-base
+    profiles: [nyc, new-york]
+    volumes:
+      - ./config/local/nyct-l.json:/app/config/local.json:ro
+      - ./data/nyct-l:/app/data
+      - ~/.aws:/root/.aws:ro
+
+  s3-upload-nyct-1234567s:
+    <<: *s3-upload-base
+    profiles: [nyc, new-york]
+    volumes:
+      - ./config/local/nyct-1234567s.json:/app/config/local.json:ro
+      - ./data/nyct-1234567s:/app/data
+      - ~/.aws:/root/.aws:ro
+
+  s3-upload-nyct-sir:
+    <<: *s3-upload-base
+    profiles: [nyc, new-york]
+    volumes:
+      - ./config/local/nyct-sir.json:/app/config/local.json:ro
+      - ./data/nyct-sir:/app/data
+      - ~/.aws:/root/.aws:ro
