@@ -117,7 +117,10 @@ class RouteTripsState:
         now = datetime.now(EASTERN_TIME)
 
         # Run cleanup at most once every 5 minutes
-        if self._last_cleanup_at is None or (now - self._last_cleanup_at).total_seconds() >= TRIP_STATE_CLEANUP_INTERVAL_SECS:
+        if (
+            self._last_cleanup_at is None
+            or (now - self._last_cleanup_at).total_seconds() >= TRIP_STATE_CLEANUP_INTERVAL_SECS
+        ):
             self._cleanup_trip_states()
             self._last_cleanup_at = now
 
@@ -125,7 +128,10 @@ class RouteTripsState:
         self.trips[trip_id] = trip_state
 
         # Write to disk at most once every 30 seconds
-        if self._last_written_at is None or (now - self._last_written_at).total_seconds() >= TRIP_STATE_WRITE_INTERVAL_SECS:
+        if (
+            self._last_written_at is None
+            or (now - self._last_written_at).total_seconds() >= TRIP_STATE_WRITE_INTERVAL_SECS
+        ):
             write_trips_state_file(self.route_id, self)
             self._last_written_at = now
 
