@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-from trip_state import RouteTripsState
+from trip_state import RouteTripsState, write_trips_state_file
 from util import EASTERN_TIME
 
 
@@ -129,15 +129,17 @@ class TestTripStateIntegration(unittest.TestCase):
         state = RouteTripsState("1")
         current_time = datetime.now(EASTERN_TIME)
 
-        # Add several trips over time
+        # Populate trips at various ages directly, then run cleanup as would
+        # happen periodically in production (set_trip_state throttles cleanup
+        # to once per 5 min, so calling it in a tight loop can't test staleness)
         for i in range(10):
-            trip_state = {
+            state.trips[f"trip_{i}"] = {
                 "stop_sequence": i,
                 "stop_id": f"stop_{i}",
                 "updated_at": current_time - timedelta(hours=i),
                 "event_type": "ARR" if i % 2 == 0 else "DEP",
             }
-            state.set_trip_state(f"trip_{i}", trip_state)
+        state._cleanup_trip_states()
 
         # Verify recent trips are accessible
         recent_trip = state.get_trip_state("trip_0")  # 0 hours old
@@ -292,6 +294,10 @@ class TestTripStateFilePersistence(unittest.TestCase):
                 }
                 state1.set_trip_state(f"trip_{i}", trip_state)
                 original_trips[f"trip_{i}"] = trip_state
+
+            # Force all trips to disk — set_trip_state throttles writes to once
+            # per 30s, so only trip_0 would be persisted in a tight loop.
+            write_trips_state_file("test_route", state1)
 
             # Create new state for same route - should read from file
             state2 = RouteTripsState("test_route")

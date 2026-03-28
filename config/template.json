@@ -15,5 +15,6 @@
   },
   "DATADOG_TRACE_ENABLED": false,
   "file_retention_days": 180,
-  "modes": ["rapid", "cr", "bus"]
+  "modes": ["rapid", "cr", "bus"],
+  "s3_bucket": "tm-mbta-performance"
 }
