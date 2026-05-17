@@ -1990,6 +1990,7 @@ ROUTES_CR = {
     "CR-Providence",
     "CR-Foxboro",
     "CR-NewBedford",
+    "CapeFlyer"
 }
 
 ROUTES_RAPID = {
