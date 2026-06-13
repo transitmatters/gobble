@@ -1,4 +1,5 @@
 import datetime
+import os
 import numpy as np
 import pandas as pd
 import pathlib
@@ -296,3 +297,61 @@ class TestGTFS:
         assert "Harvard" in result.trips_by_route_id("1")["trip_headsign"].values
 
         shutil.rmtree(expected_path)
+
+
+class TestCleanupOldGtfsArchives:
+    """Test cleanup_old_gtfs_archives function"""
+
+    @pytest.fixture
+    def temp_gtfs_dir(self, tmp_path, monkeypatch):
+        """Point the GTFS archive dir at a temp directory with a known retention."""
+        monkeypatch.setattr(gtfs, "MAIN_DIR", tmp_path)
+        monkeypatch.setattr(gtfs, "GTFS_ARCHIVE_RETENTION_DAYS", 90)
+        return tmp_path
+
+    def _make_archive(self, base: pathlib.Path, name: str, age_days: int) -> pathlib.Path:
+        """Create a fake archive directory whose mtime is age_days in the past."""
+        archive_dir = base / name
+        archive_dir.mkdir()
+        (archive_dir / "trips.txt").write_text("trip_id\n")
+        mtime = (datetime.datetime.now() - datetime.timedelta(days=age_days)).timestamp()
+        os.utime(archive_dir, (mtime, mtime))
+        return archive_dir
+
+    def test_deletes_archives_older_than_retention(self, temp_gtfs_dir):
+        self._make_archive(temp_gtfs_dir, "20200101", age_days=200)
+        self._make_archive(temp_gtfs_dir, "20260601", age_days=1)
+
+        deleted = gtfs.cleanup_old_gtfs_archives()
+
+        assert deleted == 1
+        assert not (temp_gtfs_dir / "20200101").exists()
+        assert (temp_gtfs_dir / "20260601").exists()
+
+    def test_keeps_archives_within_retention(self, temp_gtfs_dir):
+        self._make_archive(temp_gtfs_dir, "20260501", age_days=30)
+        self._make_archive(temp_gtfs_dir, "20260601", age_days=1)
+
+        deleted = gtfs.cleanup_old_gtfs_archives()
+
+        assert deleted == 0
+        assert len([d for d in temp_gtfs_dir.iterdir() if d.is_dir()]) == 2
+
+    def test_always_keeps_most_recent_archive(self, temp_gtfs_dir):
+        # Only one archive and it is very old—it must still be retained as the active feed.
+        self._make_archive(temp_gtfs_dir, "20190101", age_days=500)
+
+        deleted = gtfs.cleanup_old_gtfs_archives()
+
+        assert deleted == 0
+        assert (temp_gtfs_dir / "20190101").exists()
+
+    def test_ignores_archived_feeds_file(self, temp_gtfs_dir):
+        (temp_gtfs_dir / gtfs.GTFS_ARCHIVES_FILENAME).write_text("data")
+        self._make_archive(temp_gtfs_dir, "20200101", age_days=200)
+        self._make_archive(temp_gtfs_dir, "20260601", age_days=1)
+
+        deleted = gtfs.cleanup_old_gtfs_archives()
+
+        assert deleted == 1
+        assert (temp_gtfs_dir / gtfs.GTFS_ARCHIVES_FILENAME).exists()
