@@ -472,8 +472,6 @@ def update_current_gtfs_archive_if_necessary():
             else:
                 logger.info(f"Updating GTFS archive from {current_gtfs_archive.service_date} to {gtfs_service_date}")
             current_gtfs_archive = read_gtfs(gtfs_service_date, routes_filter=ALL_ROUTES)
-            # Prune old archives now that the active feed is loaded into memory.
-            cleanup_old_gtfs_archives()
 
 
 def get_current_gtfs_archive() -> GtfsArchive:
