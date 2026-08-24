@@ -12,6 +12,7 @@ from ddtrace import tracer
 
 from config import CONFIG
 from disk import DATA_DIR, cleanup_old_files
+from gtfs import cleanup_old_gtfs_archives
 from logger import set_up_logging
 from util import EASTERN_TIME, service_date
 
@@ -65,8 +66,9 @@ def upload_todays_events_to_s3():
     end_time = time.time()
     logger.info(f"Uploaded {len(files_updated_today)} files to s3, took {end_time - start_time} seconds.")
 
-    # cleanup old files, free up disk space
+    # cleanup old files and GTFS archives, free up disk space
     cleanup_old_files(reference_time=start_datetime)
+    cleanup_old_gtfs_archives(reference_time=start_datetime)
 
 
 @tracer.wrap(service="gobble")

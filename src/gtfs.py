@@ -27,6 +27,10 @@ MAIN_DIR.mkdir(parents=True, exist_ok=True)
 GTFS_ARCHIVES_PREFIX = "https://cdn.mbta.com/archive/"
 GTFS_ARCHIVES_FILENAME = "archived_feeds.txt"
 
+# Number of days to retain downloaded GTFS archives before cleanup.
+# The most recent archive is always kept regardless of age.
+GTFS_ARCHIVE_RETENTION_DAYS = CONFIG["gtfs"].get("archive_retention_days", 90)
+
 # defining these columns in particular becasue we use them everywhere
 RTE_DIR_STOP = ["route_id", "direction_id", "stop_id"]
 
@@ -119,6 +123,48 @@ def _find_most_recent_gtfs_archive() -> Optional[pathlib.Path]:
     except (PermissionError, OSError, IOError) as e:
         logger.error(f"Failed to scan GTFS archives directory: {e}")
         return None
+
+
+@tracer.wrap()
+def cleanup_old_gtfs_archives(reference_time: Optional[datetime.datetime] = None) -> int:
+    """Delete downloaded GTFS archives older than the configured retention period.
+
+    The most recent archive is always retained—even if older than the cutoff—since
+    it is the active feed and the fallback used when newer archives can't be fetched.
+
+    Args:
+        reference_time: Datetime used as the reference for the cutoff.
+                        Defaults to the current time.
+
+    Returns:
+        Number of archive directories deleted.
+    """
+    logger.info("Starting cleanup of old GTFS archives")
+    if reference_time is None:
+        reference_time = datetime.datetime.now()
+    cutoff = reference_time - datetime.timedelta(days=GTFS_ARCHIVE_RETENTION_DAYS)
+
+    try:
+        archive_dirs = [d for d in MAIN_DIR.iterdir() if d.is_dir()]
+    except (PermissionError, OSError, IOError) as e:
+        logger.error(f"Failed to scan GTFS archives directory: {e}")
+        return 0
+
+    # Sort by name (date-based) descending and always keep the most recent archive.
+    archive_dirs.sort(key=lambda d: d.name, reverse=True)
+
+    deleted = 0
+    for archive_dir in archive_dirs[1:]:
+        try:
+            if datetime.datetime.fromtimestamp(archive_dir.stat().st_mtime) < cutoff:
+                shutil.rmtree(archive_dir)
+                deleted += 1
+                logger.info(f"Deleted old GTFS archive: {archive_dir}")
+        except (PermissionError, OSError, IOError) as e:
+            logger.warning(f"Skipping {archive_dir}: {e}")
+
+    logger.info(f"Completed GTFS archive cleanup — deleted {deleted} archive(s)")
+    return deleted
 
 
 @tracer.wrap()
