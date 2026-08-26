@@ -56,7 +56,7 @@
         state: latest
 
     - name: install app dependencies
-      shell: /home/ubuntu/.local/bin/uv venv --python 3.13 && /home/ubuntu/.local/bin/uv sync
+      shell: /home/ubuntu/.local/bin/uv sync --python 3.13
       args:
         chdir: /home/ubuntu/gobble
 
