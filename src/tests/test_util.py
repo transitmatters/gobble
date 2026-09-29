@@ -67,6 +67,14 @@ class TestUtil:
         bus_stop = output_dir_path("1", "0", "84", day_to_test)
         assert bus_stop == f"daily-bus-data/1-0-84{expected_suffix}"
 
+    def test_output_dir_path_ferry(self):
+        # ferry uses _ as delimiter, like commuter rail
+        day_to_test = datetime(2024, 8, 7, 4)
+        expected_suffix = f"/Year={day_to_test.year}/Month={day_to_test.month}/Day={day_to_test.day}"
+
+        ferry_stop = output_dir_path("Boat-F4", "0", "Boat-Charlestown", day_to_test)
+        assert ferry_stop == f"daily-ferry-data/Boat-F4_0_Boat-Charlestown{expected_suffix}"
+
     def test_to_date_int(self):
         assert to_dateint(date(2024, 8, 19)) == 20240819
 

@@ -6,7 +6,7 @@ from ddtrace import tracer
 import warnings
 
 from config import CONFIG
-from constants import BUS_STOPS, ROUTES_CR, ROUTES_RAPID
+from constants import BUS_STOPS, ROUTES_CR, ROUTES_FERRY, ROUTES_RAPID
 from logger import set_up_logging
 from trip_state import TripsStateManager
 
@@ -147,8 +147,8 @@ def process_event(update, trips_state: TripsStateManager):
         stop_name = get_stop_name(gtfs_archive.stops, stop_id)
         service_date = util.service_date(updated_at)
 
-        # store all commuter rail/subway stops, but only some bus stops
-        if route_id in ROUTES_CR.union(ROUTES_RAPID) or stop_id in BUS_STOPS.get(route_id, {}):
+        # store all commuter rail/subway/ferry stops, but only some bus stops
+        if route_id in ROUTES_CR.union(ROUTES_RAPID).union(ROUTES_FERRY) or stop_id in BUS_STOPS.get(route_id, {}):
             logger.info(
                 f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} {event_type} stop={stop_name}"
             )
