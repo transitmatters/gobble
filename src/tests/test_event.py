@@ -148,6 +148,31 @@ class TestReduceUpdateEvent:
         assert result[10] == "MANY_SEATS_AVAILABLE"  # occupancy_status
         assert result[11] is None  # occupancy_percentage
 
+    def test_reduce_update_event_ferry_null_label(self):
+        """Test that ferries with no label fall back to the vehicle id (the boat name)"""
+        update = {
+            "id": "RUTH E HUGHES",
+            "attributes": {
+                "current_status": "IN_TRANSIT_TO",
+                "updated_at": "2026-09-29T10:25:44-04:00",
+                "current_stop_sequence": 1,
+                "direction_id": 0,
+                "label": None,
+                "carriages": [],
+                "occupancy_status": None,
+            },
+            "relationships": {
+                "stop": {"data": {"id": "Boat-Hingham"}},
+                "route": {"data": {"id": "Boat-F1"}},
+                "trip": {"data": {"id": "Boat-F1-1000-Rowes-F1-B-Weekday-Summer-26"}},
+            },
+        }
+
+        result = reduce_update_event(update)
+
+        assert result[7] == "RUTH E HUGHES"  # vehicle_label
+        assert result[9] == "RUTH E HUGHES"  # vehicle_consist
+
     def test_reduce_update_event_with_carriages(self):
         """Test event reduction with multi-carriage consist"""
         update = {
