@@ -2004,4 +2004,15 @@ ROUTES_RAPID = {
     "Mattapan",
 }
 
-ALL_ROUTES = ROUTES_BUS.union(ROUTES_CR).union(ROUTES_RAPID)
+ROUTES_FERRY = {
+    "Boat-F1",
+    "Boat-F2H",
+    "Boat-F4",
+    "Boat-F6",
+    "Boat-F7",
+    "Boat-F10",
+    "Boat-EastBoston",
+    "Boat-Lynn",
+}
+
+ALL_ROUTES = ROUTES_BUS.union(ROUTES_CR).union(ROUTES_RAPID).union(ROUTES_FERRY)

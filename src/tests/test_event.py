@@ -148,6 +148,31 @@ class TestReduceUpdateEvent:
         assert result[10] == "MANY_SEATS_AVAILABLE"  # occupancy_status
         assert result[11] is None  # occupancy_percentage
 
+    def test_reduce_update_event_ferry_null_label(self):
+        """Test that ferries with no label fall back to the vehicle id (the boat name)"""
+        update = {
+            "id": "RUTH E HUGHES",
+            "attributes": {
+                "current_status": "IN_TRANSIT_TO",
+                "updated_at": "2026-09-29T10:25:44-04:00",
+                "current_stop_sequence": 1,
+                "direction_id": 0,
+                "label": None,
+                "carriages": [],
+                "occupancy_status": None,
+            },
+            "relationships": {
+                "stop": {"data": {"id": "Boat-Hingham"}},
+                "route": {"data": {"id": "Boat-F1"}},
+                "trip": {"data": {"id": "Boat-F1-1000-Rowes-F1-B-Weekday-Summer-26"}},
+            },
+        }
+
+        result = reduce_update_event(update)
+
+        assert result[7] == "RUTH E HUGHES"  # vehicle_label
+        assert result[9] == "RUTH E HUGHES"  # vehicle_consist
+
     def test_reduce_update_event_with_carriages(self):
         """Test event reduction with multi-carriage consist"""
         update = {
@@ -527,6 +552,54 @@ class TestProcessEvent:
 
                 # Should write event for configured bus stop (departure from 10000)
                 mock_write_event.assert_called_once()
+
+    @patch("event.gtfs.get_current_gtfs_archive")
+    @patch("event.disk.write_event")
+    def test_process_event_writes_ferry_stops(self, mock_write_event, mock_get_gtfs):
+        """Test that ferry events are written for all stops"""
+        mock_gtfs_archive = Mock(spec=gtfs.GtfsArchive)
+        mock_stops_df = pd.DataFrame(
+            [
+                {"stop_id": "Boat-Long", "stop_name": "Long Wharf (North) - Gate 5A"},
+                {"stop_id": "Boat-Charlestown", "stop_name": "Charlestown Navy Yard"},
+            ]
+        )
+        mock_gtfs_archive.stops = mock_stops_df
+        mock_gtfs_archive.trips_by_route_id.return_value = pd.DataFrame()
+        mock_gtfs_archive.stop_times_by_route_id.return_value = pd.DataFrame()
+        mock_get_gtfs.return_value = mock_gtfs_archive
+
+        # Update showing boat in transit to Charlestown (creates departure from Long Wharf)
+        update = {
+            "attributes": {
+                "current_status": "IN_TRANSIT_TO",
+                "updated_at": "2024-01-15T10:30:00-05:00",
+                "current_stop_sequence": 2,
+                "direction_id": 0,
+                "label": "Ferry1",
+                "carriages": [],
+                "occupancy_status": None,
+            },
+            "relationships": {
+                "stop": {"data": {"id": "Boat-Charlestown"}},
+                "route": {"data": {"id": "Boat-F4"}},
+                "trip": {"data": {"id": "ferry_trip_123"}},
+            },
+        }
+
+        self.mock_trips_state.get_trip_state.return_value = {
+            "stop_sequence": 1,
+            "stop_id": "Boat-Long",
+            "updated_at": "2024-01-15T10:25:00-05:00",
+            "event_type": "ARR",
+        }
+
+        with patch("event.enrich_event") as mock_enrich:
+            mock_enrich.return_value = {"route_id": "Boat-F4", "event_type": "DEP"}
+
+            process_event(update, self.mock_trips_state)
+
+            mock_write_event.assert_called_once()
 
     @patch("event.gtfs.get_current_gtfs_archive")
     @patch("event.disk.write_event")

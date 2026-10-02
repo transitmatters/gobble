@@ -6,7 +6,7 @@ from ddtrace import tracer
 import warnings
 
 from config import CONFIG
-from constants import BUS_STOPS, ROUTES_CR, ROUTES_RAPID
+from constants import BUS_STOPS, ROUTES_CR, ROUTES_FERRY, ROUTES_RAPID
 from logger import set_up_logging
 from trip_state import TripsStateManager
 
@@ -53,6 +53,8 @@ def reduce_update_event(update: dict) -> Tuple:
     current_status = update["attributes"]["current_status"]
     event_type = EVENT_TYPE_MAP[current_status]
     updated_at = datetime.fromisoformat(update["attributes"]["updated_at"])
+    # ferries have no label, but their vehicle id is the boat name (ex, "RUTH E HUGHES")
+    vehicle_label = update["attributes"]["label"] or update.get("id")
     if len(update["attributes"]["carriages"]) > 0:
         vehicle_consist = "|".join([carriage["label"] for carriage in update["attributes"]["carriages"]])
         if update["attributes"]["carriages"][0]["occupancy_status"] is not None:
@@ -69,7 +71,7 @@ def reduce_update_event(update: dict) -> Tuple:
         else:
             occupancy_percentage = None
     else:
-        vehicle_consist = update["attributes"]["label"]
+        vehicle_consist = vehicle_label
         occupancy_status = update["attributes"]["occupancy_status"]
         occupancy_percentage = None
 
@@ -88,7 +90,7 @@ def reduce_update_event(update: dict) -> Tuple:
         update["relationships"]["route"]["data"]["id"],
         stop_id,
         update["relationships"]["trip"]["data"]["id"],
-        update["attributes"]["label"],
+        vehicle_label,
         updated_at,
         vehicle_consist,
         occupancy_status,
@@ -147,8 +149,8 @@ def process_event(update, trips_state: TripsStateManager):
         stop_name = get_stop_name(gtfs_archive.stops, stop_id)
         service_date = util.service_date(updated_at)
 
-        # store all commuter rail/subway stops, but only some bus stops
-        if route_id in ROUTES_CR.union(ROUTES_RAPID) or stop_id in BUS_STOPS.get(route_id, {}):
+        # store all commuter rail/subway/ferry stops, but only some bus stops
+        if route_id in ROUTES_CR.union(ROUTES_RAPID).union(ROUTES_FERRY) or stop_id in BUS_STOPS.get(route_id, {}):
             logger.info(
                 f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} {event_type} stop={stop_name}"
             )
