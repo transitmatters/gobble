@@ -3,6 +3,7 @@ import logging
 import threading
 import time
 import traceback
+from datetime import datetime
 from typing import Set
 
 import requests
@@ -12,9 +13,10 @@ from ddtrace import tracer
 import gtfs
 from config import CONFIG
 from constants import ROUTES_BUS, ROUTES_CR, ROUTES_FERRY, ROUTES_RAPID
-from event import process_event
+from event import process_event, process_remove
 from logger import set_up_logging
 from trip_state import TripsStateManager
+from util import EASTERN_TIME
 
 logging.basicConfig(level=logging.INFO, filename="gobble.log")
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
@@ -119,6 +121,8 @@ def process_events(client: sseclient.SSEClient, trips_state: TripsStateManager):
             if event.event == "add":
                 update = json.loads(event.data)
                 process_event(update, trips_state)
+            if event.event == "remove":
+                process_remove(json.loads(event.data), trips_state, datetime.now(EASTERN_TIME))
             else:
                 continue
         except Exception:
