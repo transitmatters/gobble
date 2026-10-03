@@ -184,6 +184,7 @@ def process_event(update, trips_state: TripsStateManager):
             "vehicle_consist": vehicle_consist,
             "occupancy_status": occupancy_status,
             "occupancy_percentage": occupancy_percentage,
+            "terminal_arrival_written": prev_trip_state.get("terminal_arrival_written", False),
         },
     )
 
@@ -219,7 +220,8 @@ def write_terminal_arrival_if_due(route_id: str, trip_id: str, trips_state: Trip
     if route_id not in ROUTES_CR:
         return
     trip_state = trips_state.get_trip_state(route_id, trip_id)
-    if trip_state is None or trip_state["event_type"] != "DEP":
+    # The feed can drop a train, bring it back on the same trip and drop it again; keep the first arrival
+    if trip_state is None or trip_state["event_type"] != "DEP" or trip_state.get("terminal_arrival_written"):
         return
     if arrived_at - trip_state["updated_at"] > TERMINAL_ARRIVAL_MAX_WAIT:
         return
@@ -231,7 +233,8 @@ def write_terminal_arrival_if_due(route_id: str, trip_id: str, trips_state: Trip
     scheduled_stops = scheduled_stops[scheduled_stops.trip_id == trip_id]
     if scheduled_trip.empty or scheduled_stops.empty:
         return
-    if trip_state["stop_sequence"] != scheduled_stops.stop_sequence.max():
+    last_stop = scheduled_stops.loc[scheduled_stops.stop_sequence.idxmax()]
+    if trip_state["stop_sequence"] != last_stop.stop_sequence:
         return
 
     write_event(
@@ -239,7 +242,8 @@ def write_terminal_arrival_if_due(route_id: str, trip_id: str, trips_state: Trip
             "route_id": route_id,
             "trip_id": trip_id,
             "direction_id": int(scheduled_trip.direction_id.iloc[0]),
-            "stop_id": trip_state["stop_id"],
+            # After a departure the trip state holds the stop departed from, so use the scheduled last stop
+            "stop_id": last_stop.stop_id,
             "stop_sequence": trip_state["stop_sequence"],
             # Commuter Rail reports no carriages, so the consist is the cab car's label
             "vehicle_label": trip_state.get("vehicle_consist"),
@@ -250,7 +254,11 @@ def write_terminal_arrival_if_due(route_id: str, trip_id: str, trips_state: Trip
             "occupancy_percentage": trip_state.get("occupancy_percentage"),
         }
     )
-    trips_state.set_trip_state(route_id, trip_id, {**trip_state, "event_type": "ARR", "updated_at": arrived_at})
+    trips_state.set_trip_state(
+        route_id,
+        trip_id,
+        {**trip_state, "event_type": "ARR", "updated_at": arrived_at, "terminal_arrival_written": True},
+    )
 
 
 @tracer.wrap()

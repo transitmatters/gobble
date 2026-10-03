@@ -30,6 +30,8 @@ class TripState(TypedDict):
     occupancy_status: str | None
     # Occupancy Percentage only available on Orange Line
     occupancy_percentage: str | None
+    # Commuter Rail: whether we've recorded this trip's arrival at its last stop
+    terminal_arrival_written: bool
 
 
 def serialize_trip_state(trip_state: TripState) -> Dict[str, str]:
