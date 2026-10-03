@@ -1,7 +1,7 @@
 import json
 from datetime import date, datetime, timedelta
 from dataclasses import dataclass
-from typing import Dict, TypedDict, Optional
+from typing import Dict, TypedDict, Optional, Tuple
 from ddtrace import tracer
 
 from logger import set_up_logging
@@ -30,6 +30,8 @@ class TripState(TypedDict):
     occupancy_status: str | None
     # Occupancy Percentage only available on Orange Line
     occupancy_percentage: str | None
+    # Commuter Rail: whether we've recorded this trip's arrival at its last stop
+    terminal_arrival_written: bool
 
 
 def serialize_trip_state(trip_state: TripState) -> Dict[str, str]:
@@ -163,6 +165,17 @@ class TripsStateManager:
 
     def __init__(self):
         self.route_states = {}
+        # vehicle id -> (route id, trip id) of the trip it's currently running
+        self.vehicle_trips: Dict[str, Tuple[str, str]] = {}
+
+    def vehicle_trip(self, vehicle_id: str) -> Optional[Tuple[str, str]]:
+        return self.vehicle_trips.get(vehicle_id)
+
+    def set_vehicle_trip(self, vehicle_id: str, route_id: str, trip_id: str) -> None:
+        self.vehicle_trips[vehicle_id] = (route_id, trip_id)
+
+    def pop_vehicle_trip(self, vehicle_id: str) -> Optional[Tuple[str, str]]:
+        return self.vehicle_trips.pop(vehicle_id, None)
 
     def set_trip_state(self, route_id: str, trip_id: str, trip_state: TripState) -> None:
         if route_id not in self.route_states:
