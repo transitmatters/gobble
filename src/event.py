@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Tuple
 import pandas as pd
 from ddtrace import tracer
@@ -27,6 +27,9 @@ EVENT_TYPE_MAP = {
     # we include it for completeness and in case it is ever used
     "INCOMING_AT": "ARR",
 }
+
+# A train last seen more than this long before it ended its trip may not have reached the last stop
+TERMINAL_ARRIVAL_MAX_WAIT = timedelta(minutes=30)
 
 
 def get_stop_name(stops_df: pd.DataFrame, stop_id: str) -> str:
@@ -120,6 +123,13 @@ def process_event(update, trips_state: TripsStateManager):
     if stop_id is None:
         return
 
+    vehicle_id = update.get("id")
+    if vehicle_id is not None:
+        previous_trip = trips_state.vehicle_trip(vehicle_id)
+        if previous_trip is not None and previous_trip != (route_id, trip_id):
+            write_terminal_arrival_if_due(*previous_trip, trips_state, updated_at)
+        trips_state.set_vehicle_trip(vehicle_id, route_id, trip_id)
+
     prev_trip_state = trips_state.get_trip_state(route_id, trip_id)
     if prev_trip_state is None:
         prev_trip_state = {
@@ -145,40 +155,23 @@ def process_event(update, trips_state: TripsStateManager):
         if is_departure_event:
             stop_id = prev_trip_state["stop_id"]
 
-        gtfs_archive = gtfs.get_current_gtfs_archive()
-        stop_name = get_stop_name(gtfs_archive.stops, stop_id)
-        service_date = util.service_date(updated_at)
-
         # store all commuter rail/subway/ferry stops, but only some bus stops
         if route_id in ROUTES_CR.union(ROUTES_RAPID).union(ROUTES_FERRY) or stop_id in BUS_STOPS.get(route_id, {}):
-            logger.info(
-                f"[{updated_at.isoformat()}] Event: route={route_id} trip_id={trip_id} {event_type} stop={stop_name}"
+            write_event(
+                {
+                    "route_id": route_id,
+                    "trip_id": trip_id,
+                    "direction_id": direction_id,
+                    "stop_id": stop_id,
+                    "stop_sequence": current_stop_sequence,
+                    "vehicle_label": vehicle_label,
+                    "event_type": event_type,
+                    "event_time": updated_at,
+                    "vehicle_consist": vehicle_consist,
+                    "occupancy_status": occupancy_status,
+                    "occupancy_percentage": occupancy_percentage,
+                }
             )
-
-            # write the event here
-            df = pd.DataFrame(
-                [
-                    {
-                        "service_date": service_date,
-                        "route_id": route_id,
-                        "trip_id": trip_id,
-                        "direction_id": direction_id,
-                        "stop_id": stop_id,
-                        "stop_sequence": current_stop_sequence,
-                        "vehicle_id": "0",  # TODO??
-                        "vehicle_label": vehicle_label,
-                        "event_type": event_type,
-                        "event_time": updated_at,
-                        "vehicle_consist": vehicle_consist,
-                        "occupancy_status": occupancy_status,
-                        "occupancy_percentage": occupancy_percentage,
-                    }
-                ],
-                index=[0],
-            )
-
-            event = enrich_event(df, gtfs_archive)
-            disk.write_event(event)
 
     trips_state.set_trip_state(
         route_id,
@@ -191,7 +184,80 @@ def process_event(update, trips_state: TripsStateManager):
             "vehicle_consist": vehicle_consist,
             "occupancy_status": occupancy_status,
             "occupancy_percentage": occupancy_percentage,
+            "terminal_arrival_written": prev_trip_state.get("terminal_arrival_written", False),
         },
+    )
+
+
+def write_event(event: dict) -> None:
+    """Enrich a single arrival or departure with scheduled values and write it to disk."""
+    gtfs_archive = gtfs.get_current_gtfs_archive()
+    event_time = event["event_time"]
+    stop_name = get_stop_name(gtfs_archive.stops, event["stop_id"])
+    logger.info(
+        f"[{event_time.isoformat()}] Event: route={event['route_id']} trip_id={event['trip_id']} "
+        f"{event['event_type']} stop={stop_name}"
+    )
+    df = pd.DataFrame(
+        [{"service_date": util.service_date(event_time), "vehicle_id": "0", **event}],  # TODO?? vehicle_id
+        index=[0],
+    )
+    disk.write_event(enrich_event(df, gtfs_archive))
+
+
+@tracer.wrap()
+def process_remove(removal: dict, trips_state: TripsStateManager, removed_at: datetime) -> None:
+    """A vehicle left the feed. Commuter Rail trains do this at the end of a trip, often without
+    ever reporting STOPPED_AT their last stop, so this is when we learn they arrived."""
+    vehicle_trip = trips_state.pop_vehicle_trip(removal["id"])
+    if vehicle_trip is not None:
+        write_terminal_arrival_if_due(*vehicle_trip, trips_state, removed_at)
+
+
+def write_terminal_arrival_if_due(route_id: str, trip_id: str, trips_state: TripsStateManager, arrived_at: datetime):
+    """Record the arrival at a Commuter Rail trip's last stop when the train was last seen heading
+    there and then ended the trip (left the feed or started its next trip)."""
+    if route_id not in ROUTES_CR:
+        return
+    trip_state = trips_state.get_trip_state(route_id, trip_id)
+    # The feed can drop a train, bring it back on the same trip and drop it again; keep the first arrival
+    if trip_state is None or trip_state["event_type"] != "DEP" or trip_state.get("terminal_arrival_written"):
+        return
+    if arrived_at - trip_state["updated_at"] > TERMINAL_ARRIVAL_MAX_WAIT:
+        return
+
+    gtfs_archive = gtfs.get_current_gtfs_archive()
+    scheduled_trips = gtfs_archive.trips_by_route_id(route_id)
+    scheduled_trip = scheduled_trips[scheduled_trips.trip_id == trip_id]
+    scheduled_stops = gtfs_archive.stop_times_by_route_id(route_id)
+    scheduled_stops = scheduled_stops[scheduled_stops.trip_id == trip_id]
+    if scheduled_trip.empty or scheduled_stops.empty:
+        return
+    last_stop = scheduled_stops.loc[scheduled_stops.stop_sequence.idxmax()]
+    if trip_state["stop_sequence"] != last_stop.stop_sequence:
+        return
+
+    write_event(
+        {
+            "route_id": route_id,
+            "trip_id": trip_id,
+            "direction_id": int(scheduled_trip.direction_id.iloc[0]),
+            # After a departure the trip state holds the stop departed from, so use the scheduled last stop
+            "stop_id": last_stop.stop_id,
+            "stop_sequence": trip_state["stop_sequence"],
+            # Commuter Rail reports no carriages, so the consist is the cab car's label
+            "vehicle_label": trip_state.get("vehicle_consist"),
+            "event_type": "ARR",
+            "event_time": arrived_at,
+            "vehicle_consist": trip_state.get("vehicle_consist"),
+            "occupancy_status": trip_state.get("occupancy_status"),
+            "occupancy_percentage": trip_state.get("occupancy_percentage"),
+        }
+    )
+    trips_state.set_trip_state(
+        route_id,
+        trip_id,
+        {**trip_state, "event_type": "ARR", "updated_at": arrived_at, "terminal_arrival_written": True},
     )
 
 
@@ -208,7 +274,12 @@ def enrich_event(df: pd.DataFrame, gtfs_archive: gtfs.GtfsArchive):
     scheduled_trips_for_route = gtfs_archive.trips_by_route_id(route_id)
     scheduled_stop_times_for_route = gtfs_archive.stop_times_by_route_id(route_id)
 
-    headway_adjusted_df = gtfs.add_gtfs_headways(df, scheduled_trips_for_route, scheduled_stop_times_for_route)
+    if route_id in ROUTES_CR:
+        headway_adjusted_df = gtfs.add_cr_scheduled_values(
+            df, scheduled_trips_for_route, scheduled_stop_times_for_route, gtfs_archive.station_by_stop_id()
+        )
+    else:
+        headway_adjusted_df = gtfs.add_gtfs_headways(df, scheduled_trips_for_route, scheduled_stop_times_for_route)
     # future warning: returning a series is actually the correct future behavior of to_pydatetime(), can drop the
     # context manager later
     with warnings.catch_warnings():

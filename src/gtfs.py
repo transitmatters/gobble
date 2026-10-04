@@ -1,4 +1,5 @@
 import datetime
+import numpy as np
 import pandas as pd
 import pathlib
 import shutil
@@ -63,6 +64,10 @@ class GtfsArchive:
         self._trips_empty = _get_empty_df_with_same_columns(self.trips)
         self._stop_times_empty = _get_empty_df_with_same_columns(self.stop_times)
         self._trips_by_route_id = _group_df_by_column(self.trips, "route_id")
+        # Platform-level stop -> parent station, so a train on a different track than scheduled
+        # (or at a terminal the schedule lists without a track) still matches its scheduled stop
+        stations = self.stops.parent_station.where(self.stops.parent_station.notna(), self.stops.stop_id)
+        self._station_by_stop_id = dict(zip(self.stops.stop_id, stations))
         self._stop_times_by_route_id = {}
         for route_id in self._trips_by_route_id.keys():
             trip_ids_for_route = self._trips_by_route_id[route_id].trip_id
@@ -73,6 +78,9 @@ class GtfsArchive:
 
     def trips_by_route_id(self, route_id: str):
         return self._trips_by_route_id.get(route_id, self._trips_empty)
+
+    def station_by_stop_id(self) -> Dict[str, str]:
+        return self._station_by_stop_id
 
 
 @tracer.wrap()
@@ -453,6 +461,54 @@ def add_gtfs_headways(event_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops
         suffixes=["", "_gtfs"],
     )
 
+    return augmented_event
+
+
+def match_scheduled_cr_trip(trip_id: str, scheduled_trips: pd.DataFrame) -> Optional[str]:
+    """Commuter Rail realtime trip ids are the scheduled ones (ex. Route24Bridge-866598-6074), so match
+    exactly, falling back to the train number at the end of the id. None for trips not in the schedule."""
+    if trip_id in set(scheduled_trips.trip_id):
+        return trip_id
+    by_train_number = scheduled_trips[scheduled_trips.trip_short_name == trip_id.rsplit("-", 1)[-1]]
+    if len(by_train_number) == 1:
+        return by_train_number.trip_id.iloc[0]
+    return None
+
+
+@tracer.wrap()
+def add_cr_scheduled_values(
+    event_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops: pd.DataFrame, station_by_stop_id: Dict[str, str]
+) -> pd.DataFrame:
+    """
+    Commuter Rail version of add_gtfs_headways. Matching by time of day pairs express and local trains
+    with each other's schedules, so travel time benchmarks (the difference of two events' scheduled_tt)
+    come out wrong. Here every event uses its own train's schedule, compared at the station level.
+    Trips that aren't in the schedule fall back to add_gtfs_headways.
+    """
+    route_id = event_df.route_id.iloc[0]
+    trips = all_trips[all_trips.route_id == route_id]
+    scheduled_trip_id = match_scheduled_cr_trip(event_df.trip_id.iloc[0], trips)
+    if scheduled_trip_id is None:
+        return add_gtfs_headways(event_df, all_trips, all_stops)
+
+    gtfs_stops = all_stops.merge(trips[["trip_id", "direction_id"]], on="trip_id")
+    gtfs_stops["station"] = gtfs_stops.stop_id.map(station_by_stop_id).fillna(gtfs_stops.stop_id)
+    gtfs_stops = gtfs_stops.sort_values(by="arrival_time")
+    gtfs_stops["scheduled_headway"] = gtfs_stops.groupby(["direction_id", "station"]).arrival_time.diff().dt.seconds
+    trip_start_times = gtfs_stops.groupby("trip_id").arrival_time.transform("min")
+    gtfs_stops["scheduled_tt"] = (gtfs_stops.arrival_time - trip_start_times).dt.seconds
+
+    stop_id = event_df.stop_id.iloc[0]
+    station = station_by_stop_id.get(stop_id, stop_id)
+    scheduled = gtfs_stops[(gtfs_stops.trip_id == scheduled_trip_id) & (gtfs_stops.station == station)]
+
+    service_date = event_df.service_date.iloc[0]
+    augmented_event = event_df.copy()
+    augmented_event["arrival_time"] = event_df.event_time - pd.Timestamp(service_date).tz_localize(EASTERN_TIME)
+    augmented_event["scheduled_trip_id"] = scheduled_trip_id
+    # A stop the train isn't scheduled to make has no benchmark
+    augmented_event["scheduled_headway"] = scheduled.scheduled_headway.iloc[0] if len(scheduled) else np.nan
+    augmented_event["scheduled_tt"] = scheduled.scheduled_tt.iloc[0] if len(scheduled) else np.nan
     return augmented_event
 
 
