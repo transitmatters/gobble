@@ -106,6 +106,29 @@ class TestProcessEvents:
             # Verify process_event was called for each update in reset
             assert mock_process_event.call_count == 2
 
+    def test_process_events_passes_whole_second_removal_times(self):
+        """Removal times become terminal arrival event_times, which must not have microseconds"""
+        mock_client = MagicMock()
+        mock_trips_state = MagicMock()
+
+        mock_event = Mock()
+        mock_event.event = "remove"
+        mock_event.data = '{"id": "1823", "type": "vehicle"}'
+
+        def mock_events():
+            yield mock_event
+            return
+
+        mock_client.events = mock_events
+
+        with patch("gobble.process_remove") as mock_process_remove:
+            process_events(mock_client, mock_trips_state)
+
+            removal, _, removed_at = mock_process_remove.call_args[0]
+            assert removal == {"id": "1823", "type": "vehicle"}
+            assert removed_at.microsecond == 0
+            assert removed_at.tzinfo is not None
+
     def test_process_events_handles_add_events(self):
         """Test that process_events processes add events same as update"""
         mock_client = MagicMock()
