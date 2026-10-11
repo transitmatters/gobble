@@ -122,7 +122,9 @@ def process_events(client: sseclient.SSEClient, trips_state: TripsStateManager):
                 update = json.loads(event.data)
                 process_event(update, trips_state)
             if event.event == "remove":
-                process_remove(json.loads(event.data), trips_state, datetime.now(EASTERN_TIME))
+                # Whole seconds, like the feed's updated_at: the dashboard parses event_time without fractions
+                removed_at = datetime.now(EASTERN_TIME).replace(microsecond=0)
+                process_remove(json.loads(event.data), trips_state, removed_at)
             else:
                 continue
         except Exception:
