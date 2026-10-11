@@ -1,5 +1,6 @@
 import datetime
 import numpy as np
+import os
 import pandas as pd
 import pathlib
 import shutil
@@ -22,7 +23,8 @@ logger = set_up_logging(__name__)
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
 
 
-MAIN_DIR = pathlib.Path("./data/gtfs_archives/")
+# Set GTFS_DATA_DIR to share downloaded archives between repos when running locally
+MAIN_DIR = pathlib.Path(os.environ.get("GTFS_DATA_DIR", "./data")).expanduser() / "gtfs_archives"
 MAIN_DIR.mkdir(parents=True, exist_ok=True)
 
 GTFS_ARCHIVES_PREFIX = "https://cdn.mbta.com/archive/"
@@ -228,9 +230,18 @@ def get_gtfs_archive(dateint: int):
         # else we have to download it
         logger.info(f"Downloading GTFS archive for {dateint}: {archive_url}")
         zipfile, _ = urllib.request.urlretrieve(archive_url)
-        shutil.unpack_archive(zipfile, extract_dir=(MAIN_DIR / archive_name), format="zip")
+        # extract to a temp dir and rename into place so other processes never see a partial archive
+        tmp_dir = MAIN_DIR / f".{archive_name}.tmp-{os.getpid()}"
+        shutil.unpack_archive(zipfile, extract_dir=tmp_dir, format="zip")
         # remove temporary zipfile
         urllib.request.urlcleanup()
+        try:
+            tmp_dir.rename(MAIN_DIR / archive_name)
+        except OSError:
+            # another process extracted the same archive first
+            if not (MAIN_DIR / archive_name).exists():
+                raise
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
         return MAIN_DIR / archive_name
 
