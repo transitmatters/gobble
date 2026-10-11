@@ -19,6 +19,8 @@ Gobble is a service that reads the [MBTA V3 Streaming API](https://www.mbta.com/
 3. Run `uv run src/gobble.py` to start.
 4. Output will be in `data/` in your current working directory. Good luck!
 
+GTFS archives are downloaded to `data/gtfs_archives/` by default. Set `GTFS_DATA_DIR` to share them with other TransitMatters repos (they'll go in `$GTFS_DATA_DIR/gtfs_archives`). Note that gobble prunes archives older than `gtfs.archive_retention_days`, which also applies to a shared directory.
+
 ### Container
 
 You can also run Gobble inside a container using the following `docker build` and `docker run` commands
