@@ -34,8 +34,7 @@ def _update(trip_id, stop_id, sequence, status, at, vehicle_id="1823", route_id=
 
 
 @pytest.fixture
-def written():
-    """Events written to disk, with GTFS and trip state files stubbed out."""
+def archive():
     archive = Mock(spec=gtfs.GtfsArchive)
     archive.stops = pd.DataFrame([{"stop_id": "NEC-2287", "stop_name": "South Station"}])
     archive.trips_by_route_id.return_value = pd.DataFrame([{"trip_id": TRIP, "direction_id": 1}])
@@ -45,6 +44,12 @@ def written():
             {"trip_id": TRIP, "stop_id": "NEC-2287", "stop_sequence": 80},
         ]
     )
+    return archive
+
+
+@pytest.fixture
+def written(archive):
+    """Events written to disk, with GTFS and trip state files stubbed out."""
     events = []
     with (
         patch("event.gtfs.get_current_gtfs_archive", return_value=archive),
@@ -131,3 +136,32 @@ def test_stale_train_is_not_an_arrival(written):
 def test_unknown_vehicle_removal_is_ignored(written):
     process_remove({"id": "9999", "type": "vehicle"}, TripsStateManager(), datetime.now(EASTERN))
     assert written == []
+
+
+FERRY_TRIP = "Boat-F4-0630-Long-F4-A-Weekday-Fall-26"
+
+
+def test_ferry_removal_after_leaving_the_dock_is_an_arrival(archive, written):
+    archive.stops = pd.DataFrame([{"stop_id": "Boat-Charlestown", "stop_name": "Charlestown Navy Yard"}])
+    archive.trips_by_route_id.return_value = pd.DataFrame([{"trip_id": FERRY_TRIP, "direction_id": 0}])
+    archive.stop_times_by_route_id.return_value = pd.DataFrame(
+        [
+            {"trip_id": FERRY_TRIP, "stop_id": "Boat-Long-South", "stop_sequence": 0},
+            {"trip_id": FERRY_TRIP, "stop_id": "Boat-Charlestown", "stop_sequence": 1},
+        ]
+    )
+    trips_state = TripsStateManager()
+    start = datetime(2026, 10, 9, 6, 30, tzinfo=EASTERN)
+
+    def ferry_update(stop_id, sequence, status, at):
+        return _update(FERRY_TRIP, stop_id, sequence, status, at, vehicle_id="RITA", route_id="Boat-F4")
+
+    process_event(ferry_update("Boat-Long-South", 0, "STOPPED_AT", start), trips_state)
+    process_event(ferry_update("Boat-Charlestown", 1, "IN_TRANSIT_TO", start + timedelta(minutes=1)), trips_state)
+    arrived = start + timedelta(minutes=11)
+    process_remove({"id": "RITA", "type": "vehicle"}, trips_state, arrived)
+
+    [arrival] = _arrivals(written)
+    assert arrival["route_id"] == "Boat-F4"
+    assert arrival["stop_id"] == "Boat-Charlestown"
+    assert arrival["event_time"] == arrived
