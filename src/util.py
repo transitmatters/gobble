@@ -30,10 +30,10 @@ def output_dir_path(route_id: str, direction_id: str, stop_id: str, ts: datetime
     elif route_id in ROUTES_RAPID:
         stop_path = f"{stop_id}"
         mode = "rapid"
-    # ferry route and stop ids also have dashes, so use underscores like commuter rail
-    # ex, Boat-F4_0_Boat-Charlestown/
+    # ferry route and stop ids also have dashes, so use pipes to match the monthly ferry archive
+    # ex, Boat-F4|0|Boat-Charlestown/
     elif route_id in ROUTES_FERRY:
-        delimiter = "_"
+        delimiter = "|"
         stop_path = f"{route_id}{delimiter}{direction_id}{delimiter}{stop_id}"
         mode = "ferry"
     else:

@@ -207,17 +207,17 @@ def write_event(event: dict) -> None:
 
 @tracer.wrap()
 def process_remove(removal: dict, trips_state: TripsStateManager, removed_at: datetime) -> None:
-    """A vehicle left the feed. Commuter Rail trains do this at the end of a trip, often without
-    ever reporting STOPPED_AT their last stop, so this is when we learn they arrived."""
+    """A vehicle left the feed. Commuter Rail trains and ferries do this at the end of a trip, often
+    without ever reporting STOPPED_AT their last stop, so this is when we learn they arrived."""
     vehicle_trip = trips_state.pop_vehicle_trip(removal["id"])
     if vehicle_trip is not None:
         write_terminal_arrival_if_due(*vehicle_trip, trips_state, removed_at)
 
 
 def write_terminal_arrival_if_due(route_id: str, trip_id: str, trips_state: TripsStateManager, arrived_at: datetime):
-    """Record the arrival at a Commuter Rail trip's last stop when the train was last seen heading
-    there and then ended the trip (left the feed or started its next trip)."""
-    if route_id not in ROUTES_CR:
+    """Record the arrival at a Commuter Rail or ferry trip's last stop when the vehicle was last seen
+    heading there and then ended the trip (left the feed or started its next trip)."""
+    if route_id not in ROUTES_CR and route_id not in ROUTES_FERRY:
         return
     trip_state = trips_state.get_trip_state(route_id, trip_id)
     # The feed can drop a train, bring it back on the same trip and drop it again; keep the first arrival
@@ -245,7 +245,7 @@ def write_terminal_arrival_if_due(route_id: str, trip_id: str, trips_state: Trip
             # After a departure the trip state holds the stop departed from, so use the scheduled last stop
             "stop_id": last_stop.stop_id,
             "stop_sequence": trip_state["stop_sequence"],
-            # Commuter Rail reports no carriages, so the consist is the cab car's label
+            # Commuter Rail and ferries report no carriages, so the consist is the vehicle's label
             "vehicle_label": trip_state.get("vehicle_consist"),
             "event_type": "ARR",
             "event_time": arrived_at,
