@@ -113,7 +113,6 @@ class RouteTripsState:
         self.trips[trip_id] = trip_state
         write_trips_state_file(self.route_id, self)
 
-    @tracer.wrap()
     def get_trip_state(self, trip_id: str) -> Optional[TripState]:
         trip = self.trips.get(trip_id)
         if trip:
@@ -128,7 +127,6 @@ class RouteTripsState:
         self._cleanup_stale_trip_states()
         self._purge_trips_state_if_overnight()
 
-    @tracer.wrap()
     def _cleanup_stale_trip_states(self, max_age_hours: int = 5) -> None:
         """
         Clean up stale trip states to prevent memory/CPU issues

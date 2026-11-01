@@ -51,7 +51,6 @@ def arr_or_dep_event(
     return is_departure_event, is_arrival_event
 
 
-@tracer.wrap()
 def reduce_update_event(update: dict) -> Tuple:
     current_status = update["attributes"]["current_status"]
     event_type = EVENT_TYPE_MAP[current_status]

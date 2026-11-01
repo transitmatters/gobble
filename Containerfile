@@ -14,5 +14,7 @@ RUN uv sync
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app/src
+# Cap glibc malloc arenas so many threads don't each hold on to freed memory
+ENV MALLOC_ARENA_MAX=2
 
 ENTRYPOINT ["uv", "run", "python3", "src/gobble.py"]
