@@ -1,7 +1,6 @@
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 import os
-from ddtrace import tracer
 
 from constants import ROUTES_CR, ROUTES_FERRY, ROUTES_RAPID
 
@@ -50,7 +49,6 @@ def output_dir_path(route_id: str, direction_id: str, stop_id: str, ts: datetime
     )
 
 
-@tracer.wrap()
 def service_date(ts: datetime) -> date:
     # In practice a None TZ is UTC, but we want to be explicit
     # In many places we have an implied eastern
