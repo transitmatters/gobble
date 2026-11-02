@@ -1,9 +1,10 @@
+import json
 import unittest
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-from trip_state import RouteTripsState
+from trip_state import PERSIST_UPDATED_AT_EVERY, RouteTripsState, _without_updated_at, write_trips_state_file
 from util import EASTERN_TIME
 
 
@@ -306,3 +307,147 @@ class TestTripStateFilePersistence(unittest.TestCase):
                 self.assertEqual(loaded_trip["stop_id"], original_trip["stop_id"])
                 self.assertEqual(loaded_trip["event_type"], original_trip["event_type"])
                 # Note: updated_at will be datetime object after loading
+
+
+class TestTripStateWriteSkipping(unittest.TestCase):
+    """The state file is rewritten when anything but updated_at changes, and at least every
+    PERSIST_UPDATED_AT_EVERY when only updated_at does"""
+
+    def setUp(self):
+        import tempfile
+
+        self.temp_dir = tempfile.mkdtemp()
+        self.data_dir_patch = patch("trip_state.DATA_DIR", Path(self.temp_dir))
+        self.data_dir_patch.start()
+        self.now = datetime.now(EASTERN_TIME)
+
+    def tearDown(self):
+        import shutil
+
+        self.data_dir_patch.stop()
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def trip(self, seconds_after=0, **overrides):
+        return {
+            "stop_sequence": 5,
+            "stop_id": "123",
+            "updated_at": self.now + timedelta(seconds=seconds_after),
+            "event_type": "ARR",
+            "vehicle_consist": "1234",
+            "occupancy_status": None,
+            "occupancy_percentage": None,
+            "terminal_arrival_written": False,
+            **overrides,
+        }
+
+    def write_count(self, state, updates):
+        with patch("trip_state.write_trips_state_file", wraps=write_trips_state_file) as mock_write:
+            for trip_id, trip_state in updates:
+                state.set_trip_state(trip_id, trip_state)
+            return mock_write.call_count
+
+    def test_same_stop_within_interval_is_not_rewritten(self):
+        state = RouteTripsState("1")
+        state.set_trip_state("t1", self.trip())
+        self.assertEqual(self.write_count(state, [("t1", self.trip(seconds_after=s)) for s in (5, 10, 59)]), 0)
+        # Memory still has the latest updated_at
+        self.assertEqual(state.get_trip_state("t1")["updated_at"], self.now + timedelta(seconds=59))
+
+    def test_updated_at_is_rewritten_every_interval(self):
+        state = RouteTripsState("1")
+        state.set_trip_state("t1", self.trip())
+        self.assertEqual(self.write_count(state, [("t1", self.trip(seconds_after=60))]), 1)
+        self.assertEqual(self.write_count(state, [("t1", self.trip(seconds_after=90))]), 0)
+        self.assertEqual(self.write_count(state, [("t1", self.trip(seconds_after=120))]), 1)
+
+    def test_any_other_field_change_is_rewritten_right_away(self):
+        changes = [
+            {"stop_sequence": 6},
+            {"stop_id": "456"},
+            {"event_type": "DEP"},
+            {"vehicle_consist": "1234|5678"},
+            {"occupancy_status": "FEW_SEATS_AVAILABLE"},
+            {"occupancy_percentage": "40"},
+            {"terminal_arrival_written": True},
+        ]
+        for change in changes:
+            with self.subTest(change=change):
+                state = RouteTripsState(f"route-{list(change)[0]}")
+                state.set_trip_state("t1", self.trip())
+                self.assertEqual(self.write_count(state, [("t1", self.trip(seconds_after=1, **change))]), 1)
+
+    def test_new_trip_is_rewritten_right_away(self):
+        state = RouteTripsState("1")
+        state.set_trip_state("t1", self.trip())
+        self.assertEqual(self.write_count(state, [("t2", self.trip(seconds_after=1))]), 1)
+
+    def test_cleanup_removing_trips_is_rewritten(self):
+        state = RouteTripsState("1")
+        state.set_trip_state("t1", self.trip())
+        state.trips["old"] = self.trip(seconds_after=-6 * 3600)
+        self.assertEqual(self.write_count(state, [("t1", self.trip(seconds_after=1))]), 1)
+        with open(Path(self.temp_dir) / "trip_states" / "1.json") as f:
+            self.assertNotIn("old", json.load(f)["trip_states"])
+
+    def test_failed_write_is_retried_on_next_update(self):
+        state = RouteTripsState("1")
+        state.set_trip_state("t1", self.trip())
+        with patch("trip_state.write_trips_state_file", side_effect=OSError("disk full")):
+            with self.assertRaises(OSError):
+                state.set_trip_state("t1", self.trip(seconds_after=1, stop_id="456"))
+        # Same fields as memory now, but the file never got them
+        self.assertEqual(self.write_count(state, [("t1", self.trip(seconds_after=2, stop_id="456"))]), 1)
+        self.assertEqual(RouteTripsState("1").get_trip_state("t1")["stop_id"], "456")
+
+    def test_restart_loads_everything_but_at_most_interval_of_updated_at(self):
+        state = RouteTripsState("1")
+        updates = [
+            ("t1", self.trip()),
+            ("t1", self.trip(seconds_after=20)),
+            ("t2", self.trip(seconds_after=30, stop_id="9")),
+            ("t1", self.trip(seconds_after=45, event_type="DEP")),
+            ("t1", self.trip(seconds_after=80, event_type="DEP")),
+            ("t2", self.trip(seconds_after=100, stop_id="9")),
+            ("t1", self.trip(seconds_after=140, event_type="DEP", terminal_arrival_written=True)),
+            ("t2", self.trip(seconds_after=150, stop_id="9")),
+        ]
+        for trip_id, trip_state in updates:
+            state.set_trip_state(trip_id, trip_state)
+
+        restarted = RouteTripsState("1")
+        self.assertEqual(restarted.trips.keys(), state.trips.keys())
+        for trip_id, in_memory in state.trips.items():
+            loaded = restarted.get_trip_state(trip_id)
+            self.assertEqual(_without_updated_at(loaded), _without_updated_at(in_memory))
+            self.assertLess(in_memory["updated_at"] - loaded["updated_at"], PERSIST_UPDATED_AT_EVERY)
+
+
+class TestTripStateAtomicWrite(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+
+        self.temp_dir = tempfile.mkdtemp()
+        self.data_dir_patch = patch("trip_state.DATA_DIR", Path(self.temp_dir))
+        self.data_dir_patch.start()
+
+    def tearDown(self):
+        import shutil
+
+        self.data_dir_patch.stop()
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_interrupted_write_leaves_previous_file_intact(self):
+        """Before atomic writes, the file was truncated before the new contents were written"""
+        state = RouteTripsState("1")
+        state.set_trip_state(
+            "t1", {"stop_sequence": 1, "stop_id": "a", "updated_at": datetime.now(EASTERN_TIME), "event_type": "ARR"}
+        )
+        trip_file_path = Path(self.temp_dir) / "trip_states" / "1.json"
+        before = trip_file_path.read_text()
+
+        with patch("trip_state.json.dumps", side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                write_trips_state_file("1", state)
+
+        self.assertEqual(trip_file_path.read_text(), before)
+        self.assertEqual(RouteTripsState("1").get_trip_state("t1")["stop_id"], "a")

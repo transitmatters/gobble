@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import date, datetime, timedelta
 from dataclasses import dataclass
 from typing import Dict, TypedDict, Optional, Tuple
@@ -9,6 +10,10 @@ from disk import DATA_DIR
 from util import EASTERN_TIME, get_current_service_date
 
 logger = set_up_logging(__name__)
+
+# Write a trip's updated_at to disk at least this often, even if nothing else about the trip changed.
+# Everything else is written as soon as it changes, so a restart only ever loses this much of updated_at.
+PERSIST_UPDATED_AT_EVERY = timedelta(seconds=60)
 
 
 class TripState(TypedDict):
@@ -57,8 +62,11 @@ def write_trips_state_file(route_id: str, state: "RouteTripsState") -> None:
         "service_date": state.service_date.isoformat(),
         "trip_states": trip_states,
     }
-    with open(trip_file_path, "w") as trip_file:
+    # Write a temp file and rename it over the old one, so a crash mid-write never leaves a truncated file
+    tmp_file_path = trips_states_dir / f"{route_id}.json.tmp"
+    with open(tmp_file_path, "w") as trip_file:
         trip_file.write(json.dumps(file_contents))
+    os.replace(tmp_file_path, trip_file_path)
 
 
 def read_trips_state_file(route_id: str) -> Dict[str, TripState]:
@@ -96,22 +104,44 @@ class RouteTripsState:
     trips: Dict[str, TripState] = None
 
     def __post_init__(self):
+        # Whether memory holds changes the state file doesn't
+        self._unsaved_changes = False
         state_file = read_trips_state_file(self.route_id)
         if state_file:
             self.trips = state_file["trip_states"]
             self.service_date = state_file["service_date"]
-            self._cleanup_trip_states()
+            self._unsaved_changes = self._cleanup_trip_states()
         else:
             self.trips = {}
             self.service_date = get_current_service_date()
+        # Each trip's updated_at as of the last time the state file was written
+        self._persisted_updated_at = {trip_id: trip["updated_at"] for trip_id, trip in self.trips.items()}
 
     @tracer.wrap()
     def set_trip_state(self, trip_id: str, trip_state: TripState) -> None:
         # Do cleanup first, before adding the new trip
-        self._cleanup_trip_states()
+        if self._cleanup_trip_states():
+            self._unsaved_changes = True
         # Now add the new trip - it won't be cleared by purge
+        previous = self.trips.get(trip_id)
         self.trips[trip_id] = trip_state
-        write_trips_state_file(self.route_id, self)
+
+        # Most updates are a vehicle reporting the same stop again, which only moves updated_at.
+        # Write right away when anything else changes, and only every so often when just updated_at does.
+        if previous is None or _without_updated_at(previous) != _without_updated_at(trip_state):
+            self._unsaved_changes = True
+        else:
+            persisted_updated_at = self._persisted_updated_at.get(trip_id)
+            if persisted_updated_at is None or abs(trip_state["updated_at"] - persisted_updated_at) >= (
+                PERSIST_UPDATED_AT_EVERY
+            ):
+                self._unsaved_changes = True
+
+        if self._unsaved_changes:
+            write_trips_state_file(self.route_id, self)
+            # Only after a successful write, so a failed one is retried on the next update
+            self._persisted_updated_at = {trip_id: trip["updated_at"] for trip_id, trip in self.trips.items()}
+            self._unsaved_changes = False
 
     def get_trip_state(self, trip_id: str) -> Optional[TripState]:
         trip = self.trips.get(trip_id)
@@ -119,15 +149,17 @@ class RouteTripsState:
             return {**trip}
         return None
 
-    def _cleanup_trip_states(self) -> None:
+    def _cleanup_trip_states(self) -> bool:
         """
         Clean up trip states to prevent memory/CPU issues.
         We don't care about yesterday's trip states, or ones older than 5 hours.
+        Returns whether anything was removed.
         """
-        self._cleanup_stale_trip_states()
-        self._purge_trips_state_if_overnight()
+        removed_stale = self._cleanup_stale_trip_states()
+        purged = self._purge_trips_state_if_overnight()
+        return removed_stale or purged
 
-    def _cleanup_stale_trip_states(self, max_age_hours: int = 5) -> None:
+    def _cleanup_stale_trip_states(self, max_age_hours: int = 5) -> bool:
         """
         Clean up stale trip states to prevent memory/CPU issues
         We don't want to keep too many trip states around, so we'll clean them up periodically.
@@ -146,13 +178,20 @@ class RouteTripsState:
 
         if stale_trips:
             logger.info(f"Cleaned up {len(stale_trips)} stale trip states for route {self.route_id}")
+        return len(stale_trips) > 0
 
-    def _purge_trips_state_if_overnight(self) -> None:
+    def _purge_trips_state_if_overnight(self) -> bool:
         current_service_date = get_current_service_date()
         if self.service_date < current_service_date:
             logger.info(f"Purging trip state for route {self.route_id} on new service date {current_service_date}")
             self.service_date = current_service_date
             self.trips = {}
+            return True
+        return False
+
+
+def _without_updated_at(trip_state: TripState) -> dict:
+    return {key: value for key, value in trip_state.items() if key != "updated_at"}
 
 
 class TripsStateManager:
