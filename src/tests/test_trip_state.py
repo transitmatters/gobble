@@ -451,3 +451,14 @@ class TestTripStateAtomicWrite(unittest.TestCase):
 
         self.assertEqual(trip_file_path.read_text(), before)
         self.assertEqual(RouteTripsState("1").get_trip_state("t1")["stop_id"], "a")
+
+    def test_write_creates_missing_data_dir(self):
+        """A fresh install may not have data/ yet"""
+        missing_data_dir = Path(self.temp_dir) / "fresh" / "data"
+        with patch("trip_state.DATA_DIR", missing_data_dir):
+            state = RouteTripsState("1")
+            state.set_trip_state(
+                "t1",
+                {"stop_sequence": 1, "stop_id": "a", "updated_at": datetime.now(EASTERN_TIME), "event_type": "ARR"},
+            )
+            self.assertEqual(RouteTripsState("1").get_trip_state("t1")["stop_id"], "a")
