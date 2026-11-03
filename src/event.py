@@ -272,13 +272,22 @@ def enrich_event(df: pd.DataFrame, gtfs_archive: gtfs.GtfsArchive):
     route_id = df["route_id"].iloc[0]
     scheduled_trips_for_route = gtfs_archive.trips_by_route_id(route_id)
     scheduled_stop_times_for_route = gtfs_archive.stop_times_by_route_id(route_id)
+    # the route's schedule with headways and travel times, built once per archive
+    scheduled_stops_for_route = gtfs_archive.scheduled_stops_by_route_id(route_id)
 
     if route_id in ROUTES_CR:
         headway_adjusted_df = gtfs.add_cr_scheduled_values(
-            df, scheduled_trips_for_route, scheduled_stop_times_for_route, gtfs_archive.station_by_stop_id()
+            df,
+            scheduled_trips_for_route,
+            scheduled_stop_times_for_route,
+            gtfs_archive.station_by_stop_id(),
+            cr_gtfs_stops=gtfs_archive.cr_scheduled_stops_by_route_id(route_id),
+            gtfs_stops=scheduled_stops_for_route,
         )
     else:
-        headway_adjusted_df = gtfs.add_gtfs_headways(df, scheduled_trips_for_route, scheduled_stop_times_for_route)
+        headway_adjusted_df = gtfs.add_gtfs_headways(
+            df, scheduled_trips_for_route, scheduled_stop_times_for_route, scheduled_stops_for_route
+        )
     # future warning: returning a series is actually the correct future behavior of to_pydatetime(), can drop the
     # context manager later
     with warnings.catch_warnings():

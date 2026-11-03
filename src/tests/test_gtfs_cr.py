@@ -120,3 +120,49 @@ def test_unknown_trip_falls_back_to_time_matching():
 def test_archive_maps_stops_to_stations(stop_id, station):
     archive = gtfs.GtfsArchive(trips=TRIPS, stop_times=STOP_TIMES, stops=STOPS, service_date=SERVICE_DATE)
     assert archive.station_by_stop_id()[stop_id] == station
+
+
+@pytest.mark.parametrize(
+    "trip_id, stop_id, hour, minute",
+    [
+        (EXPRESS, "WML-0012-07", 7, 36),
+        (EXPRESS, "NEC-2287-03", 7, 40),
+        (LOCAL, "WML-0012-05", 7, 41),
+        (EXPRESS, "WML-0012-05", 7, 31),
+        (EXPRESS, "WML-0147-02", 7, 16),
+        ("ADDED-1", "WML-0012-05", 7, 39),
+    ],
+)
+def test_archive_cached_schedule_gives_same_result(trip_id, stop_id, hour, minute):
+    archive = gtfs.GtfsArchive(trips=TRIPS, stop_times=STOP_TIMES, stops=STOPS, service_date=SERVICE_DATE)
+    trips = archive.trips_by_route_id("CR-Worcester")
+    stop_times = archive.stop_times_by_route_id("CR-Worcester")
+
+    built_per_event = gtfs.add_cr_scheduled_values(_event(trip_id, stop_id, hour, minute), trips, stop_times, STATIONS)
+    cached = gtfs.add_cr_scheduled_values(
+        _event(trip_id, stop_id, hour, minute),
+        trips,
+        stop_times,
+        archive.station_by_stop_id(),
+        cr_gtfs_stops=archive.cr_scheduled_stops_by_route_id("CR-Worcester"),
+        gtfs_stops=archive.scheduled_stops_by_route_id("CR-Worcester"),
+    )
+    pd.testing.assert_frame_equal(cached, built_per_event)
+
+    # matching an event must not modify the cached schedules
+    pd.testing.assert_frame_equal(
+        archive.cr_scheduled_stops_by_route_id("CR-Worcester"),
+        gtfs.build_cr_scheduled_stops("CR-Worcester", trips, stop_times, STATIONS),
+    )
+    pd.testing.assert_frame_equal(
+        archive.scheduled_stops_by_route_id("CR-Worcester"),
+        gtfs.build_scheduled_stops("CR-Worcester", trips, stop_times),
+    )
+
+
+def test_archive_builds_each_route_schedule_once():
+    archive = gtfs.GtfsArchive(trips=TRIPS, stop_times=STOP_TIMES, stops=STOPS, service_date=SERVICE_DATE)
+    assert archive.scheduled_stops_by_route_id("CR-Worcester") is archive.scheduled_stops_by_route_id("CR-Worcester")
+    assert archive.cr_scheduled_stops_by_route_id("CR-Worcester") is archive.cr_scheduled_stops_by_route_id(
+        "CR-Worcester"
+    )
