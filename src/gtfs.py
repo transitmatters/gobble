@@ -74,6 +74,11 @@ class GtfsArchive:
         for route_id in self._trips_by_route_id.keys():
             trip_ids_for_route = self._trips_by_route_id[route_id].trip_id
             self._stop_times_by_route_id[route_id] = self.stop_times[self.stop_times.trip_id.isin(trip_ids_for_route)]
+        # Each route's scheduled stops with headways and travel times, built the first time the route has an event.
+        # They only depend on this archive, so there's no need to rebuild them for every event.
+        self._scheduled_stops_lock = Lock()
+        self._scheduled_stops_by_route_id: Dict[str, pd.DataFrame] = {}
+        self._cr_scheduled_stops_by_route_id: Dict[str, pd.DataFrame] = {}
 
     def stop_times_by_route_id(self, route_id: str):
         return self._stop_times_by_route_id.get(route_id, self._stop_times_empty)
@@ -83,6 +88,27 @@ class GtfsArchive:
 
     def station_by_stop_id(self) -> Dict[str, str]:
         return self._station_by_stop_id
+
+    def scheduled_stops_by_route_id(self, route_id: str) -> pd.DataFrame:
+        """build_scheduled_stops for a route, cached. Callers must not modify it."""
+        with self._scheduled_stops_lock:
+            if route_id not in self._scheduled_stops_by_route_id:
+                self._scheduled_stops_by_route_id[route_id] = build_scheduled_stops(
+                    route_id, self.trips_by_route_id(route_id), self.stop_times_by_route_id(route_id)
+                )
+            return self._scheduled_stops_by_route_id[route_id]
+
+    def cr_scheduled_stops_by_route_id(self, route_id: str) -> pd.DataFrame:
+        """build_cr_scheduled_stops for a route, cached. Callers must not modify it."""
+        with self._scheduled_stops_lock:
+            if route_id not in self._cr_scheduled_stops_by_route_id:
+                self._cr_scheduled_stops_by_route_id[route_id] = build_cr_scheduled_stops(
+                    route_id,
+                    self.trips_by_route_id(route_id),
+                    self.stop_times_by_route_id(route_id),
+                    self._station_by_stop_id,
+                )
+            return self._cr_scheduled_stops_by_route_id[route_id]
 
 
 @tracer.wrap()
@@ -397,28 +423,9 @@ def batch_add_gtfs_headways(events_df: pd.DataFrame, trips: pd.DataFrame, stop_t
     return pd.concat(results)
 
 
-@tracer.wrap()
-def add_gtfs_headways(event_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops: pd.DataFrame) -> pd.DataFrame:
-    """
-    This will calculate scheduled headway and traveltime information
-    from gtfs for the routes we care about, and then match our actual
-    events to the scheduled values. This matching is done based on
-    time-of-day, so is not an excact match. Luckily, pandas helps us out
-    with merge_asof.
-    https://pandas.pydata.org/docs/reference/api/pandas.merge_asof.html
-    This function is ADAPTED from historical bus headway calculations
-    https://github.com/transitmatters/t-performance-dash/blob/ebecaca071b39d8140296545f2e5b287915bc60d/server/bus/gtfs_archive.py#L90
-
-    NB 1: event times are converted to pd timestamps in this fuction for pandas merge manipulation,
-    but will be converted back into datetime.datetime for serialization purposes. careful!
-    NB 2: ensure that all times are in US/Eastern!
-    """
-    # TODO: I think we need to worry about 114/116/117 headways?
-    if len(event_df) > 1:
-        return batch_add_gtfs_headways(event_df, all_trips, all_stops)
-
-    service_date = event_df.service_date.iloc[0]
-    route_id = event_df.route_id.iloc[0]
+def build_scheduled_stops(route_id: str, all_trips: pd.DataFrame, all_stops: pd.DataFrame) -> pd.DataFrame:
+    """Every scheduled stop on a route, sorted by arrival time, with its scheduled headway and travel time.
+    add_gtfs_headways matches events against these."""
     # filter out the trips of interest
     relevant_trips = all_trips[all_trips.route_id == route_id]
 
@@ -436,6 +443,39 @@ def add_gtfs_headways(event_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops
     # calculate gtfs traveltimes
     trip_start_times = gtfs_stops.groupby("trip_id").arrival_time.transform("min")
     gtfs_stops["scheduled_tt"] = (gtfs_stops.arrival_time - trip_start_times).dt.seconds
+    return gtfs_stops
+
+
+@tracer.wrap()
+def add_gtfs_headways(
+    event_df: pd.DataFrame,
+    all_trips: pd.DataFrame,
+    all_stops: pd.DataFrame,
+    gtfs_stops: Optional[pd.DataFrame] = None,
+) -> pd.DataFrame:
+    """
+    This will calculate scheduled headway and traveltime information
+    from gtfs for the routes we care about, and then match our actual
+    events to the scheduled values. This matching is done based on
+    time-of-day, so is not an excact match. Luckily, pandas helps us out
+    with merge_asof.
+    https://pandas.pydata.org/docs/reference/api/pandas.merge_asof.html
+    This function is ADAPTED from historical bus headway calculations
+    https://github.com/transitmatters/t-performance-dash/blob/ebecaca071b39d8140296545f2e5b287915bc60d/server/bus/gtfs_archive.py#L90
+
+    NB 1: event times are converted to pd timestamps in this fuction for pandas merge manipulation,
+    but will be converted back into datetime.datetime for serialization purposes. careful!
+    NB 2: ensure that all times are in US/Eastern!
+    NB 3: gtfs_stops is build_scheduled_stops for the event's route; it's built here if not passed in.
+    """
+    # TODO: I think we need to worry about 114/116/117 headways?
+    if len(event_df) > 1:
+        return batch_add_gtfs_headways(event_df, all_trips, all_stops)
+
+    service_date = event_df.service_date.iloc[0]
+    route_id = event_df.route_id.iloc[0]
+    if gtfs_stops is None:
+        gtfs_stops = build_scheduled_stops(route_id, all_trips, all_stops)
 
     # assign each actual timepoint a scheduled headway
     # merge_asof 'backward' matches the previous scheduled value of 'arrival_time'
@@ -486,32 +526,50 @@ def match_scheduled_cr_trip(trip_id: str, scheduled_trips: pd.DataFrame) -> Opti
     return None
 
 
-@tracer.wrap()
-def add_cr_scheduled_values(
-    event_df: pd.DataFrame, all_trips: pd.DataFrame, all_stops: pd.DataFrame, station_by_stop_id: Dict[str, str]
+def build_cr_scheduled_stops(
+    route_id: str, all_trips: pd.DataFrame, all_stops: pd.DataFrame, station_by_stop_id: Dict[str, str]
 ) -> pd.DataFrame:
-    """
-    Commuter Rail version of add_gtfs_headways. Matching by time of day pairs express and local trains
-    with each other's schedules, so travel time benchmarks (the difference of two events' scheduled_tt)
-    come out wrong. Here every event uses its own train's schedule, compared at the station level.
-    Trips that aren't in the schedule fall back to add_gtfs_headways.
-    """
-    route_id = event_df.route_id.iloc[0]
+    """Every scheduled stop on a Commuter Rail route, sorted by arrival time, with its station and its scheduled
+    headway (by direction and station) and travel time. add_cr_scheduled_values matches events against these."""
     trips = all_trips[all_trips.route_id == route_id]
-    scheduled_trip_id = match_scheduled_cr_trip(event_df.trip_id.iloc[0], trips)
-    if scheduled_trip_id is None:
-        return add_gtfs_headways(event_df, all_trips, all_stops)
-
     gtfs_stops = all_stops.merge(trips[["trip_id", "direction_id"]], on="trip_id")
     gtfs_stops["station"] = gtfs_stops.stop_id.map(station_by_stop_id).fillna(gtfs_stops.stop_id)
     gtfs_stops = gtfs_stops.sort_values(by="arrival_time")
     gtfs_stops["scheduled_headway"] = gtfs_stops.groupby(["direction_id", "station"]).arrival_time.diff().dt.seconds
     trip_start_times = gtfs_stops.groupby("trip_id").arrival_time.transform("min")
     gtfs_stops["scheduled_tt"] = (gtfs_stops.arrival_time - trip_start_times).dt.seconds
+    return gtfs_stops
+
+
+@tracer.wrap()
+def add_cr_scheduled_values(
+    event_df: pd.DataFrame,
+    all_trips: pd.DataFrame,
+    all_stops: pd.DataFrame,
+    station_by_stop_id: Dict[str, str],
+    cr_gtfs_stops: Optional[pd.DataFrame] = None,
+    gtfs_stops: Optional[pd.DataFrame] = None,
+) -> pd.DataFrame:
+    """
+    Commuter Rail version of add_gtfs_headways. Matching by time of day pairs express and local trains
+    with each other's schedules, so travel time benchmarks (the difference of two events' scheduled_tt)
+    come out wrong. Here every event uses its own train's schedule, compared at the station level.
+    Trips that aren't in the schedule fall back to add_gtfs_headways.
+    cr_gtfs_stops and gtfs_stops are build_cr_scheduled_stops and build_scheduled_stops for the event's route;
+    they're built here if not passed in.
+    """
+    route_id = event_df.route_id.iloc[0]
+    trips = all_trips[all_trips.route_id == route_id]
+    scheduled_trip_id = match_scheduled_cr_trip(event_df.trip_id.iloc[0], trips)
+    if scheduled_trip_id is None:
+        return add_gtfs_headways(event_df, all_trips, all_stops, gtfs_stops)
+
+    if cr_gtfs_stops is None:
+        cr_gtfs_stops = build_cr_scheduled_stops(route_id, all_trips, all_stops, station_by_stop_id)
 
     stop_id = event_df.stop_id.iloc[0]
     station = station_by_stop_id.get(stop_id, stop_id)
-    scheduled = gtfs_stops[(gtfs_stops.trip_id == scheduled_trip_id) & (gtfs_stops.station == station)]
+    scheduled = cr_gtfs_stops[(cr_gtfs_stops.trip_id == scheduled_trip_id) & (cr_gtfs_stops.station == station)]
 
     service_date = event_df.service_date.iloc[0]
     augmented_event = event_df.copy()

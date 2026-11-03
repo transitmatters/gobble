@@ -355,3 +355,43 @@ class TestCleanupOldGtfsArchives:
 
         assert deleted == 1
         assert (temp_gtfs_dir / gtfs.GTFS_ARCHIVES_FILENAME).exists()
+
+
+class TestPrecomputedScheduledStops:
+    """add_gtfs_headways with the cached schedule must give exactly what it gives when building it per event"""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, gtfs_test_data):
+        self.stop_times = gtfs_test_data["stop_times"]
+        self.all_trips = gtfs_test_data["all_trips"]
+
+    @pytest.mark.parametrize(
+        "hour, minute",
+        [(4, 45), (5, 9), (5, 11), (5, 26), (12, 0), (23, 59)],
+    )
+    def test_same_result_as_building_per_event(self, hour, minute):
+        def event_df():
+            return pd.DataFrame(
+                [
+                    {
+                        "service_date": datetime.date(2024, 1, 4),
+                        "route_id": "1",
+                        "trip_id": "60063977",
+                        "direction_id": 0,
+                        "stop_id": "10003",
+                        "stop_sequence": 5,
+                        "vehicle_id": "0",
+                        "vehicle_label": "catbus",
+                        "event_type": "ARR",
+                        "event_time": datetime.datetime(2024, 1, 4, hour, minute, 45, tzinfo=ZoneInfo("US/Eastern")),
+                    }
+                ],
+                index=[0],
+            )
+
+        scheduled_stops = gtfs.build_scheduled_stops("1", self.all_trips, self.stop_times)
+        built_per_event = gtfs.add_gtfs_headways(event_df(), self.all_trips, self.stop_times)
+        precomputed = gtfs.add_gtfs_headways(event_df(), self.all_trips, self.stop_times, scheduled_stops)
+        pd.testing.assert_frame_equal(precomputed, built_per_event)
+        # matching an event must not modify the cached schedule
+        pd.testing.assert_frame_equal(scheduled_stops, gtfs.build_scheduled_stops("1", self.all_trips, self.stop_times))
