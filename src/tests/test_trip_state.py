@@ -4,7 +4,13 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-from trip_state import PERSIST_UPDATED_AT_EVERY, RouteTripsState, _without_updated_at, write_trips_state_file
+from trip_state import (
+    PERSIST_UPDATED_AT_EVERY,
+    RouteTripsState,
+    _without_updated_at,
+    read_trips_state_file,
+    write_trips_state_file,
+)
 from util import EASTERN_TIME
 
 
@@ -462,3 +468,40 @@ class TestTripStateAtomicWrite(unittest.TestCase):
                 {"stop_sequence": 1, "stop_id": "a", "updated_at": datetime.now(EASTERN_TIME), "event_type": "ARR"},
             )
             self.assertEqual(RouteTripsState("1").get_trip_state("t1")["stop_id"], "a")
+
+
+class TestTripStateConcurrentWrites(unittest.TestCase):
+    def test_two_threads_writing_one_route(self):
+        """A vehicle that switches routes keeps reporting on its old stream, so two threads can each hold state
+        for the same route and write its file at the same time. Neither write may fail or corrupt the file."""
+        import tempfile
+        import threading
+
+        with tempfile.TemporaryDirectory() as temp_dir, patch("trip_state.DATA_DIR", Path(temp_dir)):
+            states = [RouteTripsState("746"), RouteTripsState("746")]
+            for i, state in enumerate(states):
+                state.trips[f"trip_{i}"] = {
+                    "stop_sequence": 1,
+                    "stop_id": "74611",
+                    "updated_at": datetime.now(EASTERN_TIME),
+                    "event_type": "ARR",
+                }
+            errors = []
+
+            def write_repeatedly(state):
+                for _ in range(300):
+                    try:
+                        write_trips_state_file("746", state)
+                    except Exception as e:
+                        errors.append(e)
+
+            threads = [threading.Thread(target=write_repeatedly, args=(state,)) for state in states]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+
+            self.assertEqual(errors, [])
+            trip_states_dir = Path(temp_dir) / "trip_states"
+            self.assertEqual([p.name for p in trip_states_dir.iterdir()], ["746.json"])
+            self.assertIsNotNone(read_trips_state_file("746"))
