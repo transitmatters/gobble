@@ -1,5 +1,6 @@
 import json
 import os
+import threading
 from datetime import date, datetime, timedelta
 from dataclasses import dataclass
 from typing import Dict, TypedDict, Optional, Tuple
@@ -62,11 +63,17 @@ def write_trips_state_file(route_id: str, state: "RouteTripsState") -> None:
         "service_date": state.service_date.isoformat(),
         "trip_states": trip_states,
     }
-    # Write a temp file and rename it over the old one, so a crash mid-write never leaves a truncated file
-    tmp_file_path = trips_states_dir / f"{route_id}.json.tmp"
-    with open(tmp_file_path, "w") as trip_file:
-        trip_file.write(json.dumps(file_contents))
-    os.replace(tmp_file_path, trip_file_path)
+    # Write a temp file and rename it over the old one, so a crash mid-write never leaves a truncated file.
+    # The temp file is unique to this thread: a vehicle that switches routes (like Silver Line buses between
+    # 741-743 and 746) keeps reporting on its old stream, so two threads can write the same route at once.
+    tmp_file_path = trips_states_dir / f"{route_id}.json.{os.getpid()}-{threading.get_ident()}.tmp"
+    try:
+        with open(tmp_file_path, "w") as trip_file:
+            trip_file.write(json.dumps(file_contents))
+        os.replace(tmp_file_path, trip_file_path)
+    except BaseException:
+        tmp_file_path.unlink(missing_ok=True)
+        raise
 
 
 def read_trips_state_file(route_id: str) -> Dict[str, TripState]:
