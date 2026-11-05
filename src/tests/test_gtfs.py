@@ -5,7 +5,7 @@ import pandas as pd
 import pathlib
 import shutil
 from zoneinfo import ZoneInfo
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 import pytest
 from util import to_dateint
 
@@ -395,3 +395,36 @@ class TestPrecomputedScheduledStops:
         pd.testing.assert_frame_equal(precomputed, built_per_event)
         # matching an event must not modify the cached schedule
         pd.testing.assert_frame_equal(scheduled_stops, gtfs.build_scheduled_stops("1", self.all_trips, self.stop_times))
+
+
+class TestReleaseFreedMemory:
+    def test_released_after_loading_a_new_archive(self):
+        new_archive = Mock(service_date=datetime.date(2024, 1, 5))
+        with (
+            patch("gtfs.current_gtfs_archive", Mock(service_date=datetime.date(2024, 1, 4))),
+            patch("gtfs.util.service_date", return_value=datetime.date(2024, 1, 5)),
+            patch("gtfs.read_gtfs", return_value=new_archive),
+            patch("gtfs.release_freed_memory") as mock_release,
+        ):
+            gtfs.update_current_gtfs_archive_if_necessary()
+            assert gtfs.current_gtfs_archive is new_archive
+            mock_release.assert_called_once()
+
+    def test_not_released_when_archive_is_current(self):
+        with (
+            patch("gtfs.current_gtfs_archive", Mock(service_date=datetime.date(2024, 1, 5))),
+            patch("gtfs.util.service_date", return_value=datetime.date(2024, 1, 5)),
+            patch("gtfs.read_gtfs") as mock_read,
+            patch("gtfs.release_freed_memory") as mock_release,
+        ):
+            gtfs.update_current_gtfs_archive_if_necessary()
+            mock_read.assert_not_called()
+            mock_release.assert_not_called()
+
+    def test_no_op_without_glibc(self):
+        with patch("gtfs.ctypes.CDLL", side_effect=OSError("libc.so.6: cannot open shared object file")):
+            gtfs.release_freed_memory()
+
+    def test_runs_where_available(self):
+        # On Linux (production, CI) this really calls malloc_trim; elsewhere it's a no-op
+        gtfs.release_freed_memory()
