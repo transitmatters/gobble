@@ -76,11 +76,12 @@
         daemon_reload: true
         name: gobble
 
+    # flock -n skips a run if the previous one is still going; the skipped run's files go up with the next run
     - name: upload events to s3
       ansible.builtin.cron:
         name: upload todays events to s3
         minute: "0,30"
-        job: "cd /home/ubuntu/gobble && DD_VERSION={{ git_sha }} DD_GIT_COMMIT_SHA={{ git_sha }} DD_SERVICE=gobble DD_ENV=prod /home/ubuntu/.local/bin/uv run ddtrace-run python3 src/s3_upload.py"
+        job: "cd /home/ubuntu/gobble && DD_VERSION={{ git_sha }} DD_GIT_COMMIT_SHA={{ git_sha }} DD_SERVICE=gobble DD_ENV=prod flock -n /run/lock/gobble-s3-upload.lock /home/ubuntu/.local/bin/uv run ddtrace-run python3 src/s3_upload.py"
 
   vars:
     datadog_api_key: "{{ lookup('env', 'DD_API_KEY') }}"

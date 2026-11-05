@@ -1,6 +1,9 @@
 from unittest.mock import patch, mock_open
 import datetime
 import gzip
+import json
+import os
+import time
 from pathlib import Path
 from io import BytesIO
 import pytest
@@ -101,155 +104,162 @@ class TestCompressAndUploadFile:
 
 
 class TestUploadTodaysEventsToS3:
-    """Test upload_todays_events_to_s3 function"""
+    """Test upload_todays_events_to_s3 against a temporary data directory"""
 
-    @patch("s3_upload._compress_and_upload_file")
-    @patch("s3_upload.glob.glob")
-    @patch("s3_upload.service_date")
-    @patch("s3_upload.datetime")
-    def test_upload_todays_events_basic(self, mock_datetime, mock_service_date, mock_glob, mock_compress_and_upload):
-        """Test basic upload of today's events"""
-        # Mock current time
-        mock_now = datetime.datetime(2024, 1, 15, 14, 30, 0, tzinfo=EASTERN_TIME)
-        mock_datetime.datetime.now.return_value = mock_now
+    TODAY = datetime.date(2024, 1, 15)
+    YESTERDAY = datetime.date(2024, 1, 14)
 
-        # Mock service date
-        mock_service_date.return_value = datetime.date(2024, 1, 15)
+    @pytest.fixture
+    def data_dir(self, tmp_path):
+        with (
+            patch(
+                "s3_upload.LOCAL_DATA_TEMPLATE",
+                str(tmp_path / "daily-*/*/Year={year}/Month={month}/Day={day}/events.csv"),
+            ),
+            patch("s3_upload.UPLOAD_STATE_PATH", tmp_path / "s3_upload_state.json"),
+            patch("s3_upload.service_date", return_value=self.TODAY),
+        ):
+            yield tmp_path
 
-        # Mock glob to return some files
-        test_files = [
-            "data/daily-rapid/Red-0/Year=2024/Month=1/Day=15/events.csv",
-            "data/daily-rapid/Red-1/Year=2024/Month=1/Day=15/events.csv",
-            "data/daily-bus/1-0/Year=2024/Month=1/Day=15/events.csv",
-        ]
-        mock_glob.return_value = test_files
+    @pytest.fixture
+    def upload(self):
+        with patch("s3_upload._compress_and_upload_file") as mock_upload:
+            yield mock_upload
 
-        s3_upload.upload_todays_events_to_s3()
+    @pytest.fixture
+    def cleanup(self):
+        with (
+            patch("s3_upload.cleanup_old_files") as mock_cleanup_files,
+            patch("s3_upload.cleanup_old_gtfs_archives") as mock_cleanup_gtfs,
+        ):
+            yield mock_cleanup_files, mock_cleanup_gtfs
 
-        # Verify service_date was called with current time
-        mock_service_date.assert_called_once_with(mock_now)
+    @staticmethod
+    def make_file(data_dir: Path, date: datetime.date, stop: str, age_seconds: float) -> str:
+        path = data_dir / "daily-bus-data" / stop / f"Year={date.year}" / f"Month={date.month}" / f"Day={date.day}"
+        path.mkdir(parents=True)
+        fp = path / "events.csv"
+        fp.write_text("service_date,route_id\n")
+        mtime = time.time() - age_seconds
+        os.utime(fp, (mtime, mtime))
+        return str(fp)
 
-        # Verify glob was called with correct pattern
-        mock_glob.assert_called_once()
-        glob_pattern = mock_glob.call_args[0][0]
-        assert "Year=2024" in glob_pattern
-        assert "Month=1" in glob_pattern
-        assert "Day=15" in glob_pattern
+    @staticmethod
+    def uploaded(upload) -> set:
+        return {call.args[0] for call in upload.call_args_list}
 
-        # Verify each file was uploaded
-        assert mock_compress_and_upload.call_count == 3
-        for test_file in test_files:
-            mock_compress_and_upload.assert_any_call(test_file)
+    @staticmethod
+    def write_state(data_dir: Path, state: dict):
+        (data_dir / "s3_upload_state.json").write_text(json.dumps(state))
 
-    @patch("s3_upload._compress_and_upload_file")
-    @patch("s3_upload.glob.glob")
-    @patch("s3_upload.service_date")
-    @patch("s3_upload.datetime")
-    def test_upload_todays_events_no_files(self, mock_datetime, mock_service_date, mock_glob, mock_compress_and_upload):
-        """Test upload when no files exist for today"""
-        # Mock current time
-        mock_now = datetime.datetime(2024, 1, 15, 14, 30, 0, tzinfo=EASTERN_TIME)
-        mock_datetime.datetime.now.return_value = mock_now
+    @staticmethod
+    def read_state(data_dir: Path) -> dict:
+        return json.loads((data_dir / "s3_upload_state.json").read_text())
 
-        # Mock service date
-        mock_service_date.return_value = datetime.date(2024, 1, 15)
-
-        # Mock glob to return empty list
-        mock_glob.return_value = []
-
-        s3_upload.upload_todays_events_to_s3()
-
-        # Should not attempt any uploads
-        mock_compress_and_upload.assert_not_called()
-
-    @patch("s3_upload._compress_and_upload_file")
-    @patch("s3_upload.glob.glob")
-    @patch("s3_upload.service_date")
-    @patch("s3_upload.datetime")
-    def test_upload_todays_events_overnight_service(
-        self, mock_datetime, mock_service_date, mock_glob, mock_compress_and_upload
-    ):
-        """Test upload during overnight service (after midnight but still previous service day)"""
-        # Mock current time - 2 AM (after midnight)
-        mock_now = datetime.datetime(2024, 1, 16, 2, 0, 0, tzinfo=EASTERN_TIME)
-        mock_datetime.datetime.now.return_value = mock_now
-
-        # service_date should return previous day for overnight service
-        mock_service_date.return_value = datetime.date(2024, 1, 15)
-
-        # Mock glob to return files from previous service day
-        test_files = ["data/daily-rapid/Red-0/Year=2024/Month=1/Day=15/events.csv"]
-        mock_glob.return_value = test_files
+    def test_first_run_uploads_everything_for_both_service_dates(self, data_dir, upload, cleanup):
+        today = self.make_file(data_dir, self.TODAY, "1-0-64", age_seconds=3 * 3600)
+        yesterday = self.make_file(data_dir, self.YESTERDAY, "1-0-64", age_seconds=24 * 3600)
+        self.make_file(data_dir, datetime.date(2024, 1, 13), "1-0-64", age_seconds=48 * 3600)
+        before = time.time()
 
         s3_upload.upload_todays_events_to_s3()
 
-        # Verify glob used the service date (not calendar date)
-        glob_pattern = mock_glob.call_args[0][0]
-        assert "Year=2024" in glob_pattern
-        assert "Month=1" in glob_pattern
-        assert "Day=15" in glob_pattern  # Service day, not calendar day (16)
+        assert self.uploaded(upload) == {today, yesterday}
+        assert before <= self.read_state(data_dir)["last_uploaded_at"] <= time.time()
 
-        # Verify upload was called
-        mock_compress_and_upload.assert_called_once_with(test_files[0])
+    def test_only_files_changed_since_last_run_are_uploaded(self, data_dir, upload, cleanup):
+        self.write_state(data_dir, {"last_uploaded_at": time.time() - 1800, "last_cleanup_service_date": "2024-01-15"})
+        self.make_file(data_dir, self.TODAY, "1-0-64", age_seconds=3600)
+        changed = self.make_file(data_dir, self.TODAY, "1-0-2", age_seconds=60)
+        # Modified just before the last run started, inside the safety margin
+        in_margin = self.make_file(data_dir, self.TODAY, "1-0-3", age_seconds=1800 + 60)
 
-    @patch("s3_upload._compress_and_upload_file", side_effect=Exception("S3 upload failed"))
-    @patch("s3_upload.glob.glob")
-    @patch("s3_upload.service_date")
-    @patch("s3_upload.datetime")
-    def test_upload_todays_events_upload_failure(
-        self, mock_datetime, mock_service_date, mock_glob, mock_compress_and_upload
-    ):
-        """Test that upload failure raises exception"""
-        # Mock current time
-        mock_now = datetime.datetime(2024, 1, 15, 14, 30, 0, tzinfo=EASTERN_TIME)
-        mock_datetime.datetime.now.return_value = mock_now
+        s3_upload.upload_todays_events_to_s3()
 
-        # Mock service date
-        mock_service_date.return_value = datetime.date(2024, 1, 15)
+        assert self.uploaded(upload) == {changed, in_margin}
 
-        # Mock glob to return one file
-        mock_glob.return_value = ["data/daily-rapid/Red-0/Year=2024/Month=1/Day=15/events.csv"]
+    def test_late_events_for_previous_service_date_are_uploaded(self, data_dir, upload, cleanup):
+        """Events written between the 02:30 run and the 03:00 rollover belong to the previous service date"""
+        self.write_state(data_dir, {"last_uploaded_at": time.time() - 1800, "last_cleanup_service_date": "2024-01-15"})
+        late = self.make_file(data_dir, self.YESTERDAY, "111-0-5629", age_seconds=10 * 60)
+        self.make_file(data_dir, self.YESTERDAY, "111-0-5620", age_seconds=3600)
 
-        # Should raise the exception from compress_and_upload
-        with pytest.raises(Exception) as context:
+        s3_upload.upload_todays_events_to_s3()
+
+        assert self.uploaded(upload) == {late}
+
+    def test_failed_upload_keeps_marker_so_files_are_retried(self, data_dir, upload, cleanup):
+        last_uploaded_at = time.time() - 1800
+        self.write_state(data_dir, {"last_uploaded_at": last_uploaded_at, "last_cleanup_service_date": "2024-01-15"})
+        fp = self.make_file(data_dir, self.TODAY, "1-0-64", age_seconds=60)
+        upload.side_effect = Exception("S3 upload failed")
+
+        with pytest.raises(Exception, match="S3 upload failed"):
             s3_upload.upload_todays_events_to_s3()
 
-        assert "S3 upload failed" in str(context.value)
+        assert self.read_state(data_dir)["last_uploaded_at"] == last_uploaded_at
 
-    @patch("s3_upload._compress_and_upload_file")
-    @patch("s3_upload.glob.glob")
-    @patch("s3_upload.service_date")
-    @patch("s3_upload.datetime")
-    def test_upload_todays_events_multiple_routes(
-        self, mock_datetime, mock_service_date, mock_glob, mock_compress_and_upload
-    ):
-        """Test upload with files from multiple routes and directions"""
-        # Mock current time
-        mock_now = datetime.datetime(2024, 6, 20, 10, 0, 0, tzinfo=EASTERN_TIME)
-        mock_datetime.datetime.now.return_value = mock_now
+        upload.reset_mock(side_effect=True)
+        s3_upload.upload_todays_events_to_s3()
+        assert self.uploaded(upload) == {fp}
 
-        # Mock service date
-        mock_service_date.return_value = datetime.date(2024, 6, 20)
-
-        # Mock glob to return files from various routes
-        test_files = [
-            "data/daily-rapid/Red-0/Year=2024/Month=6/Day=20/events.csv",
-            "data/daily-rapid/Red-1/Year=2024/Month=6/Day=20/events.csv",
-            "data/daily-rapid/Orange-0/Year=2024/Month=6/Day=20/events.csv",
-            "data/daily-rapid/Orange-1/Year=2024/Month=6/Day=20/events.csv",
-            "data/daily-rapid/Blue-0/Year=2024/Month=6/Day=20/events.csv",
-            "data/daily-bus/1-0/Year=2024/Month=6/Day=20/events.csv",
-            "data/daily-bus/28-1/Year=2024/Month=6/Day=20/events.csv",
-            "data/daily-cr/CR-Fitchburg-0/Year=2024/Month=6/Day=20/events.csv",
-        ]
-        mock_glob.return_value = test_files
+    @pytest.mark.parametrize("contents", ["{not json", "[]", '{"last_uploaded_at": "yesterday"}'])
+    def test_unreadable_state_uploads_everything(self, data_dir, upload, cleanup, contents):
+        (data_dir / "s3_upload_state.json").write_text(contents)
+        old = self.make_file(data_dir, self.TODAY, "1-0-64", age_seconds=6 * 3600)
 
         s3_upload.upload_todays_events_to_s3()
 
-        # Verify all 8 files were uploaded
-        assert mock_compress_and_upload.call_count == 8
-        for test_file in test_files:
-            mock_compress_and_upload.assert_any_call(test_file)
+        assert self.uploaded(upload) == {old}
+        assert isinstance(self.read_state(data_dir)["last_uploaded_at"], float)
+
+    def test_no_files(self, data_dir, upload, cleanup):
+        s3_upload.upload_todays_events_to_s3()
+
+        upload.assert_not_called()
+        assert "last_uploaded_at" in self.read_state(data_dir)
+
+    def test_cleanup_runs_once_per_service_date(self, data_dir, upload, cleanup):
+        cleanup_files, cleanup_gtfs = cleanup
+
+        s3_upload.upload_todays_events_to_s3()
+        s3_upload.upload_todays_events_to_s3()
+        assert cleanup_files.call_count == 1
+        assert cleanup_gtfs.call_count == 1
+        assert self.read_state(data_dir)["last_cleanup_service_date"] == "2024-01-15"
+
+        with patch("s3_upload.service_date", return_value=datetime.date(2024, 1, 16)):
+            s3_upload.upload_todays_events_to_s3()
+        assert cleanup_files.call_count == 2
+        assert cleanup_gtfs.call_count == 2
+        assert self.read_state(data_dir)["last_cleanup_service_date"] == "2024-01-16"
+
+    def test_failed_cleanup_is_retried_but_uploads_are_not(self, data_dir, upload, cleanup):
+        cleanup_files, _ = cleanup
+        cleanup_files.side_effect = OSError("disk error")
+        fp = self.make_file(data_dir, self.TODAY, "1-0-64", age_seconds=3600)
+
+        with pytest.raises(OSError):
+            s3_upload.upload_todays_events_to_s3()
+        assert self.uploaded(upload) == {fp}
+        assert "last_cleanup_service_date" not in self.read_state(data_dir)
+
+        upload.reset_mock()
+        cleanup_files.side_effect = None
+        s3_upload.upload_todays_events_to_s3()
+        upload.assert_not_called()
+        assert cleanup_files.call_count == 2
+
+    @patch("s3_upload.datetime")
+    def test_service_date_uses_eastern_time(self, mock_datetime, data_dir, upload, cleanup):
+        mock_now = datetime.datetime(2024, 1, 16, 2, 0, 0, tzinfo=EASTERN_TIME)
+        mock_datetime.datetime.now.return_value = mock_now
+        mock_datetime.timedelta = datetime.timedelta
+
+        s3_upload.upload_todays_events_to_s3()
+
+        mock_datetime.datetime.now.assert_any_call(EASTERN_TIME)
+        s3_upload.service_date.assert_called_once_with(mock_now)
 
 
 class TestS3UploadConstants:
