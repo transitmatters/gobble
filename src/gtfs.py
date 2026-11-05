@@ -1,4 +1,6 @@
+import ctypes
 import datetime
+import gc
 import numpy as np
 import os
 import pandas as pd
@@ -585,6 +587,21 @@ current_gtfs_archive = None
 write_gtfs_archive_lock = Lock()
 
 
+@tracer.wrap()
+def release_freed_memory() -> None:
+    """
+    Hand memory that Python has freed back to the OS.
+    Loading a GTFS archive briefly needs a lot of memory (read_gtfs reads all of stop_times.txt). glibc keeps
+    what's freed afterward for reuse instead of returning it, so every daily reload left gobble ~100 MB bigger.
+    Does nothing where glibc isn't available (macOS, musl).
+    """
+    gc.collect()
+    try:
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except (OSError, AttributeError):
+        pass
+
+
 def update_current_gtfs_archive_if_necessary():
     global current_gtfs_archive
     global write_gtfs_archive_lock
@@ -597,6 +614,8 @@ def update_current_gtfs_archive_if_necessary():
             else:
                 logger.info(f"Updating GTFS archive from {current_gtfs_archive.service_date} to {gtfs_service_date}")
             current_gtfs_archive = read_gtfs(gtfs_service_date, routes_filter=ALL_ROUTES)
+            # the previous archive and read_gtfs's temporary DataFrames are freed by now
+            release_freed_memory()
 
 
 def get_current_gtfs_archive() -> GtfsArchive:
