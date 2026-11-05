@@ -30,6 +30,9 @@ aws cloudformation deploy --stack-name $STACK_NAME \
 
 # Look up the physical ID of the EC2 instance currently associated with the stack
 INSTANCE_PHYSICAL_ID=$(aws cloudformation list-stack-resources --stack-name $STACK_NAME --query "StackResourceSummaries[?LogicalResourceId=='GBLEInstance'].PhysicalResourceId" --output text)
+# A replaced instance (e.g. a new ImageId) can still be booting when CloudFormation finishes; wait until it
+# passes its status checks so ansible can connect. Returns immediately for an instance that's already up.
+aws ec2 wait instance-status-ok --instance-ids $INSTANCE_PHYSICAL_ID
 # Look up the hostname of the instance by physical ID
 INSTANCE_HOSTNAME=$(aws ec2 describe-instances --instance-ids $INSTANCE_PHYSICAL_ID --query "Reservations[*].Instances[*].PublicDnsName" --output text)
 

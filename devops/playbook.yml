@@ -8,7 +8,7 @@
       git:
         repo: https://github.com/transitmatters/gobble.git
         dest: /home/ubuntu/gobble
-        version: main
+        version: "{{ gobble_branch }}"
         force: yes
 
     - name: Install uv
@@ -32,19 +32,16 @@
         src: systemd.conf
         dest: /etc/systemd/system/gobble.service
 
-    - name: add python ppa for apt repo
-      become: yes
-      become_user: root
-      apt_repository:
-        repo: ppa:deadsnakes/ppa
-        update_cache: yes
-
-    - name: install python3.14
+    # Ubuntu 26.04's own Python is 3.14, so there's no need for the deadsnakes PPA
+    - name: install python3.14 and cron
       become: yes
       become_user: root
       apt:
-        name: python3.14
+        name:
+          - python3.14
+          - cron
         state: latest
+        update_cache: yes
 
     - name: install rust toolchain
       become: yes
@@ -76,13 +73,18 @@
         daemon_reload: true
         name: gobble
 
+    # Only production uploads to the S3 bucket the Data Dashboard reads
     - name: upload events to s3
+      when: dd_env == "prod"
       ansible.builtin.cron:
         name: upload todays events to s3
         minute: "0,30"
         job: "cd /home/ubuntu/gobble && DD_VERSION={{ git_sha }} DD_GIT_COMMIT_SHA={{ git_sha }} DD_SERVICE=gobble DD_ENV=prod /home/ubuntu/.local/bin/uv run ddtrace-run python3 src/s3_upload.py"
 
   vars:
+    # devops/dry_run.sh overrides these to test-provision a throwaway instance; production uses the defaults
+    dd_env: prod
+    gobble_branch: main
     datadog_api_key: "{{ lookup('env', 'DD_API_KEY') }}"
     datadog_site: "datadoghq.com"
     git_sha: "{{ lookup('env', 'GIT_SHA') }}"
