@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timedelta
-from typing import Tuple
+from typing import Optional, Set, Tuple
 import pandas as pd
 from ddtrace import tracer
 import warnings
@@ -101,8 +101,13 @@ def reduce_update_event(update: dict) -> Tuple:
 
 
 @tracer.wrap()
-def process_event(update, trips_state: TripsStateManager):
-    """Process a single event from the MBTA's realtime API."""
+def process_event(update, trips_state: TripsStateManager, routes: Optional[Set[str]] = None):
+    """Process a single event from the MBTA's realtime API.
+
+    routes: the routes the update's stream subscribed to. A stream also carries trips of other routes: every
+    route 746 trip is also a 741, 742 and 743 trip (MBTA multi-route trips). That route's own stream carries
+    the same updates, so updates for other routes are skipped, or each stream would write the same events.
+    """
     (
         current_status,
         event_type,
@@ -117,6 +122,9 @@ def process_event(update, trips_state: TripsStateManager):
         occupancy_status,
         occupancy_percentage,
     ) = reduce_update_event(update)
+
+    if routes is not None and route_id not in routes:
+        return
 
     # Skip events where the vehicle has no stop associated
     if stop_id is None:
