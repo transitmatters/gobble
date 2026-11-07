@@ -7,6 +7,7 @@ from unittest.mock import patch
 from trip_state import (
     PERSIST_UPDATED_AT_EVERY,
     RouteTripsState,
+    TripsStateManager,
     _without_updated_at,
     read_trips_state_file,
     write_trips_state_file,
@@ -472,8 +473,8 @@ class TestTripStateAtomicWrite(unittest.TestCase):
 
 class TestTripStateConcurrentWrites(unittest.TestCase):
     def test_two_threads_writing_one_route(self):
-        """A vehicle that switches routes keeps reporting on its old stream, so two threads can each hold state
-        for the same route and write its file at the same time. Neither write may fail or corrupt the file."""
+        """Two writers of one route's state file at once (e.g. an old and a new process during a restart) may
+        not fail or corrupt the file."""
         import tempfile
         import threading
 
@@ -505,3 +506,18 @@ class TestTripStateConcurrentWrites(unittest.TestCase):
             trip_states_dir = Path(temp_dir) / "trip_states"
             self.assertEqual([p.name for p in trip_states_dir.iterdir()], ["746.json"])
             self.assertIsNotNone(read_trips_state_file("746"))
+
+
+class TestTripsStateManagerRestart(unittest.TestCase):
+    def test_first_trip_after_restart_gets_its_saved_state(self):
+        """Before, the first trip looked up on each route after a restart started from scratch, so a stop change
+        across the restart was missed for it, unlike the route's other trips."""
+        import tempfile
+
+        trip = {"stop_sequence": 3, "stop_id": "64", "updated_at": datetime.now(EASTERN_TIME), "event_type": "ARR"}
+        with tempfile.TemporaryDirectory() as temp_dir, patch("trip_state.DATA_DIR", Path(temp_dir)):
+            TripsStateManager().set_trip_state("1", "t1", trip)
+
+            restarted = TripsStateManager()
+            self.assertEqual(restarted.get_trip_state("1", "t1")["stop_sequence"], 3)
+            self.assertIsNone(restarted.get_trip_state("1", "t2"))

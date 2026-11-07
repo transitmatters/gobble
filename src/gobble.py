@@ -4,7 +4,7 @@ import threading
 import time
 import traceback
 from datetime import datetime
-from typing import Set
+from typing import Optional, Set
 
 import requests
 import sseclient
@@ -89,7 +89,7 @@ def client_thread(routes: Set[str]):
         client = None
         try:
             client = sseclient.SSEClient(connect(routes))  # type: ignore
-            process_events(client, trips_state)
+            process_events(client, trips_state, routes)
         except requests.exceptions.ChunkedEncodingError:
             # Keep track of how long into connections this occurs, in case it's consistent (a timeout?)
             elapsed = time.time() - start_at
@@ -108,19 +108,20 @@ def client_thread(routes: Set[str]):
             time.sleep(0.5)  # Just in case something is borked, to avoid hammering. It doesn't GIL!
 
 
-def process_events(client: sseclient.SSEClient, trips_state: TripsStateManager):
+def process_events(client: sseclient.SSEClient, trips_state: TripsStateManager, routes: Optional[Set[str]] = None):
+    """routes: the routes this stream subscribed to; updates for other routes are skipped (see process_event)"""
     for event in client.events():
         try:
             if event.event == "update":
                 update = json.loads(event.data)
-                process_event(update, trips_state)
+                process_event(update, trips_state, routes)
             if event.event == "reset":
                 updates = json.loads(event.data)
                 for update in updates:
-                    process_event(update, trips_state)
+                    process_event(update, trips_state, routes)
             if event.event == "add":
                 update = json.loads(event.data)
-                process_event(update, trips_state)
+                process_event(update, trips_state, routes)
             if event.event == "remove":
                 # Whole seconds, like the feed's updated_at: the dashboard parses event_time without fractions
                 removed_at = datetime.now(EASTERN_TIME).replace(microsecond=0)

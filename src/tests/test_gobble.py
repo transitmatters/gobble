@@ -150,6 +150,24 @@ class TestProcessEvents:
             # Verify process_event was called for add event
             mock_process_event.assert_called_once()
 
+    def test_process_events_passes_the_streams_routes(self):
+        """process_event skips updates for routes the stream didn't subscribe to, so it needs the routes"""
+        mock_client = MagicMock()
+        mock_trips_state = MagicMock()
+        update_event, reset_event = Mock(), Mock()
+        update_event.event, update_event.data = "update", '{"id": "y1"}'
+        reset_event.event, reset_event.data = "reset", '[{"id": "y2"}]'
+        mock_client.events = lambda: iter([update_event, reset_event])
+        routes = {"741", "742"}
+
+        with patch("gobble.process_event") as mock_process_event:
+            process_events(mock_client, mock_trips_state, routes)
+
+        assert [c.args for c in mock_process_event.call_args_list] == [
+            ({"id": "y1"}, mock_trips_state, routes),
+            ({"id": "y2"}, mock_trips_state, routes),
+        ]
+
 
 class TestClientThread:
     """Test the client_thread function"""
@@ -181,8 +199,9 @@ class TestClientThread:
         # Verify SSE client was created
         mock_sse_client.assert_called_with(mock_response)
 
-        # Verify process_events was called
+        # Verify process_events was called with the stream's routes
         mock_process_events.assert_called_once()
+        assert mock_process_events.call_args[0][2] == routes
 
     @patch("gobble.sseclient.SSEClient")
     @patch("gobble.connect")
