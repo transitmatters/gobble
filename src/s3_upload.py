@@ -2,6 +2,7 @@ import argparse
 import datetime
 import glob
 import gzip
+import json
 import logging
 import os
 import time
@@ -26,6 +27,12 @@ S3_BUCKET = "tm-mbta-performance"
 LOCAL_DATA_TEMPLATE = str(DATA_DIR / "daily-*/*/Year={year}/Month={month}/Day={day}/events.csv")
 S3_DATA_TEMPLATE = "Events-live/{relative_path}.gz"
 
+# Remembers when the last fully successful upload run started, and the last service date old files were cleaned up
+UPLOAD_STATE_PATH = DATA_DIR / "s3_upload_state.json"
+# A file is re-uploaded if it was modified after this long before the last successful run started. The margin
+# covers clock adjustments between runs; re-uploading a few unchanged files is harmless.
+MTIME_MARGIN_SECONDS = 5 * 60
+
 
 @tracer.wrap()
 def _compress_and_upload_file(fp: str):
@@ -44,31 +51,74 @@ def _compress_and_upload_file(fp: str):
         )
 
 
+def _read_upload_state() -> dict:
+    """Read the upload state file. Returns {} if it's missing or unreadable, which makes the run upload everything."""
+    try:
+        with open(UPLOAD_STATE_PATH) as f:
+            state = json.load(f)
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError) as e:
+        logger.warning(f"Ignoring unreadable {UPLOAD_STATE_PATH}: {e}")
+        return {}
+    return state if isinstance(state, dict) else {}
+
+
+def _write_upload_state(state: dict):
+    tmp_path = UPLOAD_STATE_PATH.with_name(f"{UPLOAD_STATE_PATH.name}.tmp")
+    with open(tmp_path, "w") as f:
+        json.dump(state, f)
+    os.replace(tmp_path, UPLOAD_STATE_PATH)
+
+
+def _files_for_service_date(date: datetime.date) -> list[str]:
+    return glob.glob(LOCAL_DATA_TEMPLATE.format(year=date.year, month=date.month, day=date.day))
+
+
 @tracer.wrap(service="gobble")
 def upload_todays_events_to_s3():
-    """Upload today's events to the TM s3 bucket."""
+    """Upload events written since the last successful run to the TM s3 bucket, then clean up once a day."""
     start_time = time.time()
     start_datetime = datetime.datetime.now()
 
     logger.info("Beginning upload of recent events to s3.")
+    state = _read_upload_state()
     pull_date = service_date(datetime.datetime.now(EASTERN_TIME))
 
-    # get files updated for this service date
-    # TODO: only update modified files? cant imagine much of a difference if we partition live data by day
-    files_updated_today = glob.glob(
-        LOCAL_DATA_TEMPLATE.format(year=pull_date.year, month=pull_date.month, day=pull_date.day)
+    # Include the previous service date: its last events are written after the run before the 03:00 rollover
+    candidate_files = _files_for_service_date(pull_date - datetime.timedelta(days=1)) + _files_for_service_date(
+        pull_date
     )
 
+    last_uploaded_at = state.get("last_uploaded_at")
+    if isinstance(last_uploaded_at, (int, float)):
+        cutoff = last_uploaded_at - MTIME_MARGIN_SECONDS
+        files_to_upload = [fp for fp in candidate_files if os.path.getmtime(fp) >= cutoff]
+    else:
+        # No record of a successful run, so upload everything for both service dates
+        files_to_upload = candidate_files
+
     # upload them to s3, gzipped
-    for fp in files_updated_today:
+    for fp in files_to_upload:
         _compress_and_upload_file(fp)
 
-    end_time = time.time()
-    logger.info(f"Uploaded {len(files_updated_today)} files to s3, took {end_time - start_time} seconds.")
+    # Only advance the marker once every upload succeeded, so a failed run's files are retried next time.
+    # Files written while this run was reading have a later mtime than start_time and are picked up next run.
+    state["last_uploaded_at"] = start_time
+    _write_upload_state(state)
 
-    # cleanup old files and GTFS archives, free up disk space
-    cleanup_old_files(reference_time=start_datetime)
-    cleanup_old_gtfs_archives(reference_time=start_datetime)
+    end_time = time.time()
+    logger.info(
+        f"Uploaded {len(files_to_upload)} files to s3 ({len(candidate_files)} for the last two service dates), "
+        f"took {end_time - start_time} seconds."
+    )
+
+    # cleanup old files and GTFS archives once per service date, free up disk space
+    if state.get("last_cleanup_service_date") != pull_date.isoformat():
+        cleanup_old_files(reference_time=start_datetime)
+        cleanup_old_gtfs_archives(reference_time=start_datetime)
+        state["last_cleanup_service_date"] = pull_date.isoformat()
+        _write_upload_state(state)
 
 
 @tracer.wrap(service="gobble")
