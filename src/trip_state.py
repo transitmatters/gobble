@@ -64,8 +64,7 @@ def write_trips_state_file(route_id: str, state: "RouteTripsState") -> None:
         "trip_states": trip_states,
     }
     # Write a temp file and rename it over the old one, so a crash mid-write never leaves a truncated file.
-    # The temp file is unique to this thread: a vehicle that switches routes (like Silver Line buses between
-    # 741-743 and 746) keeps reporting on its old stream, so two threads can write the same route at once.
+    # The temp file is unique to this process and thread, so writers can never collide on it.
     tmp_file_path = trips_states_dir / f"{route_id}.json.{os.getpid()}-{threading.get_ident()}.tmp"
     try:
         with open(tmp_file_path, "w") as trip_file:
@@ -227,6 +226,8 @@ class TripsStateManager:
         self.route_states[route_id].set_trip_state(trip_id, trip_state)
 
     def get_trip_state(self, route_id: str, trip_id: str) -> Optional[TripState]:
+        # Load the route's state file the first time the route comes up, so after a restart the first trip seen
+        # on each route picks up where it left off, like every other trip on the route
         if route_id not in self.route_states:
-            return None
+            self.route_states[route_id] = RouteTripsState(route_id)
         return self.route_states[route_id].get_trip_state(trip_id)

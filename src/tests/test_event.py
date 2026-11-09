@@ -403,6 +403,44 @@ class TestProcessEvent:
         self.mock_trips_state = Mock(spec=TripsStateManager)
         self.mock_trips_state.get_trip_state.return_value = None
 
+    @staticmethod
+    def silver_line_way_update():
+        """A route 746 trip, which the MBTA also publishes on the 741, 742 and 743 streams (multi-route trip)"""
+        return {
+            "id": "y1339",
+            "attributes": {
+                "current_status": "IN_TRANSIT_TO",
+                "updated_at": "2026-11-05T18:02:49-05:00",
+                "current_stop_sequence": 4,
+                "direction_id": 0,
+                "label": "1339",
+                "carriages": [],
+                "occupancy_status": None,
+            },
+            "relationships": {
+                "stop": {"data": {"id": "74614"}},
+                "route": {"data": {"id": "746"}},
+                "trip": {"data": {"id": "78592137"}},
+            },
+        }
+
+    @patch("event.write_event")
+    def test_process_event_skips_routes_the_stream_did_not_subscribe_to(self, mock_write_event):
+        process_event(self.silver_line_way_update(), self.mock_trips_state, routes={"741", "77", "1"})
+
+        mock_write_event.assert_not_called()
+        self.mock_trips_state.set_vehicle_trip.assert_not_called()
+        self.mock_trips_state.get_trip_state.assert_not_called()
+        self.mock_trips_state.set_trip_state.assert_not_called()
+
+    @patch("event.write_event")
+    def test_process_event_handles_the_streams_own_routes(self, mock_write_event):
+        self.mock_trips_state.vehicle_trip.return_value = None
+        process_event(self.silver_line_way_update(), self.mock_trips_state, routes={"746", "77", "1"})
+
+        self.mock_trips_state.set_vehicle_trip.assert_called_once_with("y1339", "746", "78592137")
+        self.mock_trips_state.set_trip_state.assert_called_once()
+
     @patch("event.gtfs.get_current_gtfs_archive")
     @patch("event.disk.write_event")
     def test_process_event_first_departure(self, mock_write_event, mock_get_gtfs):
