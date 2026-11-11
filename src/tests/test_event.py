@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
 
 import pandas as pd
+import pytest
 
 import gtfs
 from event import (
@@ -96,7 +97,7 @@ class TestArrOrDepEvent:
         assert not is_arr, "Should not be an arrival event"
 
     def test_departure_with_stopped_at_status(self):
-        """Test that STOPPED_AT status but at new stop doesn't create arrival if prev was ARR"""
+        """Stopped at one stop, then at the next with no update in between: left the first, reached the second"""
         prev = {"stop_id": "70001", "stop_sequence": 5, "event_type": "ARR"}
         current_status = "STOPPED_AT"
         current_stop_sequence = 6
@@ -107,8 +108,16 @@ class TestArrOrDepEvent:
 
         # Different stop with increased sequence = departure
         assert is_dep, "Should be a departure event"
-        # STOPPED_AT but prev was ARR not DEP = no arrival
-        assert not is_arr, "Should not be an arrival event"
+        # Stopped at a later stop = arrival there, even though we never saw the vehicle in transit
+        assert is_arr, "Should be an arrival event"
+
+    def test_stopped_again_at_an_earlier_stop_is_not_an_arrival(self):
+        prev = {"stop_id": "70002", "stop_sequence": 6, "event_type": "ARR"}
+
+        is_dep, is_arr = arr_or_dep_event(prev, "STOPPED_AT", 5, "ARR", "70001")
+
+        assert not is_dep
+        assert not is_arr
 
 
 class TestReduceUpdateEvent:
@@ -504,9 +513,8 @@ class TestProcessEvent:
             assert call_args[0][0] == "Red"  # route_id
             assert call_args[0][1] == "trip_123"  # trip_id
             assert call_args[0][2]["stop_sequence"] == 2
-            # Note: Due to line 144 in event.py, stop_id gets reassigned to prev stop for departures
-            # This affects both the event written AND the trip state update
-            assert call_args[0][2]["stop_id"] == "70001"
+            # The departure is written for the previous stop, but the trip state keeps the stop it's heading to
+            assert call_args[0][2]["stop_id"] == "70002"
 
     @patch("event.gtfs.get_current_gtfs_archive")
     @patch("event.disk.write_event")
@@ -718,6 +726,126 @@ class TestProcessEvent:
 
         # First time seeing a trip with no state change - no event written
         self.mock_trips_state.set_trip_state.assert_called_once()
+
+
+class TestProcessEventSequence:
+    """Events written for a trip's run of updates, with the trip state carried from one update to the next"""
+
+    @pytest.fixture(autouse=True)
+    def written(self):
+        self.events = []
+        with (
+            patch("event.write_event", side_effect=self.events.append),
+            patch("trip_state.write_trips_state_file"),
+            patch("trip_state.read_trips_state_file", return_value=None),
+        ):
+            yield
+
+    def run(self, updates, route_id="Red"):
+        """Process (status, stop_id, stop_sequence, "HH:MM") updates for one trip and return what was written"""
+        trips_state = TripsStateManager()
+        for status, stop_id, stop_sequence, at in updates:
+            hour, minute = at.split(":")
+            update = {
+                "id": "vehicle",
+                "attributes": {
+                    "current_status": status,
+                    "updated_at": f"2026-11-10T{hour}:{minute}:00-05:00",
+                    "current_stop_sequence": stop_sequence,
+                    "direction_id": 0,
+                    "label": "1234",
+                    "carriages": [],
+                    "occupancy_status": None,
+                },
+                "relationships": {
+                    "stop": {"data": {"id": stop_id}},
+                    "route": {"data": {"id": route_id}},
+                    "trip": {"data": {"id": "trip"}},
+                },
+            }
+            process_event(update, trips_state)
+        return [
+            (e["stop_id"], e["stop_sequence"], e["event_type"], e["event_time"].strftime("%H:%M")) for e in self.events
+        ]
+
+    def test_every_stop_reported(self):
+        written = self.run(
+            [
+                ("STOPPED_AT", "A", 1, "10:00"),
+                ("IN_TRANSIT_TO", "B", 2, "10:01"),
+                ("IN_TRANSIT_TO", "B", 2, "10:02"),
+                ("STOPPED_AT", "B", 2, "10:03"),
+                ("STOPPED_AT", "B", 2, "10:04"),
+                ("IN_TRANSIT_TO", "C", 3, "10:05"),
+            ]
+        )
+
+        assert written == [("A", 1, "DEP", "10:01"), ("B", 2, "ARR", "10:03"), ("B", 2, "DEP", "10:05")]
+
+    def test_departure_from_a_stop_never_reported_stopped_at(self):
+        written = self.run(
+            [
+                ("STOPPED_AT", "A", 1, "10:00"),
+                ("IN_TRANSIT_TO", "B", 2, "10:01"),
+                ("STOPPED_AT", "B", 2, "10:02"),
+                ("IN_TRANSIT_TO", "C", 3, "10:03"),
+                ("IN_TRANSIT_TO", "D", 4, "10:04"),
+                ("STOPPED_AT", "D", 4, "10:05"),
+            ]
+        )
+
+        assert written == [
+            ("A", 1, "DEP", "10:01"),
+            ("B", 2, "ARR", "10:02"),
+            ("B", 2, "DEP", "10:03"),
+            ("C", 3, "DEP", "10:04"),
+            ("D", 4, "ARR", "10:05"),
+        ]
+
+    def test_stopped_at_the_next_stop_with_no_update_in_between(self):
+        written = self.run(
+            [
+                ("STOPPED_AT", "A", 1, "10:00"),
+                ("STOPPED_AT", "B", 2, "10:05"),
+                ("IN_TRANSIT_TO", "C", 3, "10:06"),
+            ]
+        )
+
+        # We never saw it leave A, so the departure is when we first saw it had: on arrival at B
+        assert written == [("A", 1, "DEP", "10:05"), ("B", 2, "ARR", "10:05"), ("B", 2, "DEP", "10:06")]
+
+    def test_stopped_past_the_stop_it_was_heading_to(self):
+        written = self.run(
+            [
+                ("STOPPED_AT", "A", 1, "10:00"),
+                ("IN_TRANSIT_TO", "B", 2, "10:01"),
+                ("STOPPED_AT", "C", 3, "10:03"),
+                ("IN_TRANSIT_TO", "D", 4, "10:04"),
+            ]
+        )
+
+        assert written == [
+            ("A", 1, "DEP", "10:01"),
+            ("B", 2, "DEP", "10:03"),
+            ("C", 3, "ARR", "10:03"),
+            ("C", 3, "DEP", "10:04"),
+        ]
+
+    def test_bus_departure_from_a_recorded_stop_to_one_that_is_not(self):
+        import constants
+
+        with patch.dict(constants.BUS_STOPS, {"1": {"188"}}):
+            written = self.run(
+                [
+                    ("IN_TRANSIT_TO", "188", 10, "09:45"),
+                    ("STOPPED_AT", "188", 10, "09:46"),
+                    ("STOPPED_AT", "10590", 11, "09:47"),
+                    ("IN_TRANSIT_TO", "10591", 12, "09:48"),
+                ],
+                route_id="1",
+            )
+
+        assert written == [("188", 10, "ARR", "09:46"), ("188", 10, "DEP", "09:47")]
 
 
 class TestEventTypeMap:
