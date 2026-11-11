@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from io import BytesIO
 import pytest
+from botocore.exceptions import ClientError
 
 import s3_upload
 from util import EASTERN_TIME
@@ -260,6 +261,154 @@ class TestUploadTodaysEventsToS3:
 
         mock_datetime.datetime.now.assert_any_call(EASTERN_TIME)
         s3_upload.service_date.assert_called_once_with(mock_now)
+
+
+class FakeS3:
+    """Just enough of the S3 client for a restore: listing stop directories and getting gzipped objects"""
+
+    def __init__(self, files: dict[str, str], last_modified: datetime.datetime):
+        self.objects = {f"Events-live/{rp}.gz": gzip.compress(contents.encode()) for rp, contents in files.items()}
+        self.last_modified = last_modified
+        self.errors: dict[str, Exception] = {}
+
+    def get_paginator(self, operation):
+        assert operation == "list_objects_v2"
+        return self
+
+    def paginate(self, Bucket, Prefix, Delimiter):
+        prefixes = sorted(
+            {
+                Prefix + key.removeprefix(Prefix).split(Delimiter)[0] + Delimiter
+                for key in self.objects
+                if key.startswith(Prefix)
+            }
+        )
+        # One stop per page, then a page without CommonPrefixes, like the last page of an empty listing
+        for prefix in prefixes:
+            yield {"CommonPrefixes": [{"Prefix": prefix}]}
+        yield {"KeyCount": 0}
+
+    def get_object(self, Bucket, Key):
+        if Key in self.errors:
+            raise self.errors[Key]
+        if Key not in self.objects:
+            raise ClientError({"Error": {"Code": "NoSuchKey", "Message": "Not found"}}, "GetObject")
+        return {"Body": BytesIO(self.objects[Key]), "LastModified": self.last_modified}
+
+
+class TestRestoreRecentEventsFromS3:
+    """Test restore_recent_events_from_s3 against a temporary data directory and a fake bucket"""
+
+    TODAY = datetime.date(2024, 1, 15)
+    YESTERDAY = datetime.date(2024, 1, 14)
+    UPLOADED_AT = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=1)
+
+    @pytest.fixture
+    def data_dir(self, tmp_path):
+        with (
+            patch("s3_upload.DATA_DIR", tmp_path),
+            patch(
+                "s3_upload.LOCAL_DATA_TEMPLATE",
+                str(tmp_path / "daily-*/*/Year={year}/Month={month}/Day={day}/events.csv"),
+            ),
+            patch("s3_upload.UPLOAD_STATE_PATH", tmp_path / "s3_upload_state.json"),
+            patch("s3_upload.service_date", return_value=self.TODAY),
+            patch("s3_upload.CONFIG", {"modes": ["cr", "bus"]}),
+        ):
+            yield tmp_path
+
+    @staticmethod
+    def rp(mode: str, stop: str, date: datetime.date) -> str:
+        return f"daily-{mode}-data/{stop}/Year={date.year}/Month={date.month}/Day={date.day}/events.csv"
+
+    def bucket(self, files: dict[str, str]):
+        """Returns a patch that swaps in a fake bucket holding these files, and the fake"""
+        fake = FakeS3(files, self.UPLOADED_AT)
+        return patch("s3_upload.s3", fake), fake
+
+    def test_restores_both_service_dates_for_enabled_modes(self, data_dir):
+        today = self.rp("bus", "1-0-64", self.TODAY)
+        yesterday = self.rp("cr", "CR-Fairmount_0_DB-2205-01", self.YESTERDAY)
+        older = self.rp("bus", "1-0-64", datetime.date(2024, 1, 13))
+        # A stop with nothing for these dates, so its keys aren't in S3
+        stale = self.rp("bus", "1-0-1", datetime.date(2023, 12, 14))
+        disabled_mode = self.rp("rapid", "70061", self.TODAY)
+        patched, _ = self.bucket(
+            {today: "a\n1\n", yesterday: "a\n2\n", older: "a\n3\n", stale: "a\n4\n", disabled_mode: "a\n5\n"}
+        )
+
+        with patched:
+            s3_upload.restore_recent_events_from_s3()
+
+        assert (data_dir / today).read_text() == "a\n1\n"
+        assert (data_dir / yesterday).read_text() == "a\n2\n"
+        assert os.path.getmtime(data_dir / today) == self.UPLOADED_AT.timestamp()
+        for not_restored in (older, stale, disabled_mode):
+            assert not (data_dir / not_restored).exists()
+        assert not list(data_dir.rglob("*.tmp"))
+
+    def test_never_overwrites_a_local_file(self, data_dir):
+        local = self.rp("bus", "1-0-64", self.TODAY)
+        missing = self.rp("bus", "1-0-2", self.TODAY)
+        (data_dir / local).parent.mkdir(parents=True)
+        (data_dir / local).write_text("a\nlocal\n")
+        patched, _ = self.bucket({local: "a\nfrom s3\n", missing: "a\nfrom s3\n"})
+
+        with patched:
+            s3_upload.restore_recent_events_from_s3()
+
+        assert (data_dir / local).read_text() == "a\nlocal\n"
+        assert (data_dir / missing).read_text() == "a\nfrom s3\n"
+        # The local file may not be in S3 yet, so the next upload still uploads everything
+        assert not (data_dir / "s3_upload_state.json").exists()
+
+    def test_next_upload_only_sends_what_gobble_changes_after_a_restore(self, data_dir):
+        appended = self.rp("bus", "1-0-64", self.TODAY)
+        untouched = self.rp("bus", "1-0-2", self.TODAY)
+        patched, _ = self.bucket({appended: "a\n1\n", untouched: "a\n2\n", self.rp("cr", "x", self.YESTERDAY): "a\n"})
+        with patched:
+            s3_upload.restore_recent_events_from_s3()
+
+        # gobble appends to a restored file and starts a new one
+        with open(data_dir / appended, "a") as f:
+            f.write("3\n")
+        new = self.rp("bus", "1-0-3", self.TODAY)
+        (data_dir / new).parent.mkdir(parents=True)
+        (data_dir / new).write_text("a\n4\n")
+
+        with (
+            patch("s3_upload._compress_and_upload_file") as upload,
+            patch("s3_upload.cleanup_old_files"),
+            patch("s3_upload.cleanup_old_gtfs_archives"),
+        ):
+            s3_upload.upload_todays_events_to_s3()
+
+        assert {call.args[0] for call in upload.call_args_list} == {str(data_dir / appended), str(data_dir / new)}
+        assert (data_dir / appended).read_text() == "a\n1\n3\n"
+
+    def test_restores_the_rest_then_raises_when_a_download_fails(self, data_dir):
+        failing = self.rp("bus", "1-0-64", self.TODAY)
+        ok = self.rp("bus", "1-0-2", self.TODAY)
+        patched, fake = self.bucket({failing: "a\n1\n", ok: "a\n2\n"})
+        fake.errors[f"Events-live/{failing}.gz"] = ClientError({"Error": {"Code": "SlowDown"}}, "GetObject")
+        before = time.time()
+
+        with patched, pytest.raises(RuntimeError, match="Couldn't restore 1 of 4 files"):
+            s3_upload.restore_recent_events_from_s3()
+
+        assert not (data_dir / failing).exists()
+        assert (data_dir / ok).read_text() == "a\n2\n"
+        # The failed file isn't on disk, so advancing the marker can't make the next upload skip it
+        state = json.loads((data_dir / "s3_upload_state.json").read_text())
+        assert before <= state["last_uploaded_at"] <= time.time()
+
+    def test_empty_bucket(self, data_dir):
+        patched, _ = self.bucket({})
+
+        with patched:
+            s3_upload.restore_recent_events_from_s3()
+
+        assert "last_uploaded_at" in json.loads((data_dir / "s3_upload_state.json").read_text())
 
 
 class TestS3UploadConstants:
