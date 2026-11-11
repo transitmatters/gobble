@@ -628,8 +628,15 @@ def get_current_gtfs_archive() -> GtfsArchive:
 
 def update_gtfs_thread():
     while True:
-        update_current_gtfs_archive_if_necessary()
-        time.sleep(60)
+        delay = 60
+        try:
+            update_current_gtfs_archive_if_necessary()
+        except Exception:
+            # If this thread died, event threads would keep the last archive, and so the wrong day's schedule,
+            # until gobble restarted. A failed read may have parsed most of the archive, so wait longer to retry.
+            logger.exception("Failed to update the GTFS archive; retrying in 10 minutes")
+            delay = 10 * 60
+        time.sleep(delay)
 
 
 def start_watching_gtfs():

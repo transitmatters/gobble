@@ -106,6 +106,26 @@ class TestProcessEvents:
             # Verify process_event was called for each update in reset
             assert mock_process_event.call_count == 2
 
+    def test_process_events_keeps_processing_a_reset_after_a_bad_vehicle(self):
+        """One vehicle raising mustn't skip the rest of the reset, or the events after it"""
+        mock_client = MagicMock()
+        mock_trips_state = MagicMock()
+        reset_event, update_event = Mock(), Mock()
+        reset_event.event = "reset"
+        reset_event.data = '[{"id": "G0"}, {"id": "BAD"}, {"id": "G1"}, {"id": "G2"}]'
+        update_event.event, update_event.data = "update", '{"id": "G3"}'
+        mock_client.events = lambda: iter([reset_event, update_event])
+
+        def process_event(update, trips_state, routes):
+            if update["id"] == "BAD":
+                raise KeyError("current_status")
+
+        with patch("gobble.process_event", side_effect=process_event) as mock_process_event:
+            process_events(mock_client, mock_trips_state)
+
+        processed = [c.args[0]["id"] for c in mock_process_event.call_args_list]
+        assert processed == ["G0", "BAD", "G1", "G2", "G3"]
+
     def test_process_events_passes_whole_second_removal_times(self):
         """Removal times become terminal arrival event_times, which must not have microseconds"""
         mock_client = MagicMock()

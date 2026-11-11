@@ -397,6 +397,26 @@ class TestPrecomputedScheduledStops:
         pd.testing.assert_frame_equal(scheduled_stops, gtfs.build_scheduled_stops("1", self.all_trips, self.stop_times))
 
 
+class TestUpdateGtfsThread:
+    def test_retries_after_an_exception(self, caplog):
+        """A failed update is logged and retried later, instead of ending the thread"""
+        with (
+            patch(
+                "gtfs.update_current_gtfs_archive_if_necessary",
+                side_effect=[FileNotFoundError("calendar.txt"), None],
+            ) as mock_update,
+            # KeyboardInterrupt isn't an Exception, so it ends the loop on the second sleep
+            patch("gtfs.time.sleep", side_effect=[None, KeyboardInterrupt]) as mock_sleep,
+            pytest.raises(KeyboardInterrupt),
+        ):
+            gtfs.update_gtfs_thread()
+
+        assert mock_update.call_count == 2
+        assert [c.args[0] for c in mock_sleep.call_args_list] == [600, 60]
+        assert "Failed to update the GTFS archive" in caplog.text
+        assert "calendar.txt" in caplog.text
+
+
 class TestReleaseFreedMemory:
     def test_released_after_loading_a_new_archive(self):
         new_archive = Mock(service_date=datetime.date(2024, 1, 5))

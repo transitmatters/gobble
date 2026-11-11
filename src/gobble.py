@@ -118,7 +118,11 @@ def process_events(client: sseclient.SSEClient, trips_state: TripsStateManager, 
             if event.event == "reset":
                 updates = json.loads(event.data)
                 for update in updates:
-                    process_event(update, trips_state, routes)
+                    # A reset holds every vehicle on the stream, so one bad vehicle mustn't skip the rest
+                    try:
+                        process_event(update, trips_state, routes)
+                    except Exception:
+                        log_event_exception()
             if event.event == "add":
                 update = json.loads(event.data)
                 process_event(update, trips_state, routes)
@@ -129,11 +133,15 @@ def process_events(client: sseclient.SSEClient, trips_state: TripsStateManager, 
             else:
                 continue
         except Exception:
-            if tracer.enabled:
-                logger.exception("Encountered an exception when processing an event", stack_info=True, exc_info=True)
-            else:
-                traceback.print_exc()
+            log_event_exception()
             continue
+
+
+def log_event_exception():
+    if tracer.enabled:
+        logger.exception("Encountered an exception when processing an event", stack_info=True, exc_info=True)
+    else:
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
