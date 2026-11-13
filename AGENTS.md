@@ -24,5 +24,6 @@ uv run src/gobble.py                                      # Run locally (needs a
 - `src/config.py` reads `config/local.json` at import time, so tests fail without it. It's gitignored because it holds the API key; never commit it.
 - The `events.csv` columns (`CSV_FIELDS` in `src/disk.py`) and the `data/daily-*` path layout (`src/util.py`) are a contract with the Data Dashboard, which reads the files `src/s3_upload.py` uploads to S3. Don't change them without a matching change in t-performance-dash.
 - Production is one `t4g.small` instance with a 32 GB disk, running gobble under systemd plus a cron job for `s3_upload.py` (`devops/playbook.yml`). Watch memory, CPU, and disk use; old event files and GTFS archives are pruned by the retention settings in the config.
+- Each upload replaces whole files in S3, so local files must hold the whole day. When CloudFormation replaces the instance, the old one uploads once more as it shuts down (`devops/systemd-s3-flush.conf`). The new one runs `s3_upload.py --restore` before gobble first starts, gated on `data/` not existing yet.
 - Unset `GTFS_DATA_DIR` when running tests; two GTFS tests expect the default `data/gtfs_archives/` path.
 - If you change the `Containerfile`, CI builds it and checks that the container starts.

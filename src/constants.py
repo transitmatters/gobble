@@ -2016,3 +2016,6 @@ ROUTES_FERRY = {
 }
 
 ALL_ROUTES = ROUTES_BUS.union(ROUTES_CR).union(ROUTES_RAPID).union(ROUTES_FERRY)
+
+# The modes gobble streams when the config doesn't list them. Each writes to data/daily-{mode}-data/ (see util.py).
+ALL_MODES = ["rapid", "cr", "bus", "ferry"]

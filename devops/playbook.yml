@@ -32,6 +32,13 @@
         src: systemd.conf
         dest: /etc/systemd/system/gobble.service
 
+    - name: copy s3 flush service file
+      become: yes
+      become_user: root
+      template:
+        src: systemd-s3-flush.conf
+        dest: /etc/systemd/system/gobble-s3-flush.service
+
     - name: add python ppa for apt repo
       become: yes
       become_user: root
@@ -59,6 +66,27 @@
       shell: /home/ubuntu/.local/bin/uv sync --python 3.14
       args:
         chdir: /home/ubuntu/gobble
+
+    # Only a new instance has no data directory. Pull the current and previous service dates' events down before
+    # gobble first starts, so it adds to them, and its first upload doesn't replace each file in S3 with only the
+    # events written since. gobble still starts if this fails.
+    - name: restore recent events from s3 on a new instance
+      shell: /home/ubuntu/.local/bin/uv run python3 src/s3_upload.py --restore
+      args:
+        chdir: /home/ubuntu/gobble
+        creates: /home/ubuntu/gobble/data
+      ignore_errors: true
+
+    # Starting it does nothing. Stopping it, when the instance shuts down or is terminated, uploads what gobble wrote
+    # since the last cron run.
+    - name: upload events to s3 when the instance shuts down
+      become: yes
+      become_user: root
+      ansible.builtin.systemd_service:
+        state: started
+        daemon_reload: true
+        name: gobble-s3-flush
+        enabled: true
 
     - name: Make sure a service unit is running and enabled
       become: yes

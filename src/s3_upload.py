@@ -6,13 +6,17 @@ import json
 import logging
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import BytesIO
 
 import boto3
+from botocore.config import Config
+from botocore.exceptions import ClientError
 from ddtrace import tracer
 
 from config import CONFIG
-from disk import DATA_DIR, cleanup_old_files
+from constants import ALL_MODES
+from disk import CSV_FILENAME, DATA_DIR, cleanup_old_files
 from gtfs import cleanup_old_gtfs_archives
 from logger import set_up_logging
 from util import EASTERN_TIME, service_date
@@ -20,12 +24,16 @@ from util import EASTERN_TIME, service_date
 logging.basicConfig(level=logging.INFO, filename="s3_upload.log")
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
 
-s3 = boto3.client("s3")
+# A restore checks a few thousand keys, almost all of it waiting on S3, so it runs this many requests at once
+RESTORE_WORKERS = 16
+
+s3 = boto3.client("s3", config=Config(max_pool_connections=RESTORE_WORKERS))
 
 S3_BUCKET = "tm-mbta-performance"
 
 LOCAL_DATA_TEMPLATE = str(DATA_DIR / "daily-*/*/Year={year}/Month={month}/Day={day}/events.csv")
-S3_DATA_TEMPLATE = "Events-live/{relative_path}.gz"
+S3_DATA_PREFIX = "Events-live/"
+S3_DATA_TEMPLATE = S3_DATA_PREFIX + "{relative_path}.gz"
 
 # Remembers when the last fully successful upload run started, and the last service date old files were cleaned up
 UPLOAD_STATE_PATH = DATA_DIR / "s3_upload_state.json"
@@ -121,6 +129,85 @@ def upload_todays_events_to_s3():
         _write_upload_state(state)
 
 
+def _list_stop_dirs(mode: str) -> list[str]:
+    """Every stop directory in S3 for a mode, relative to DATA_DIR, e.g. daily-bus-data/1-0-64/"""
+    pages = s3.get_paginator("list_objects_v2").paginate(
+        Bucket=S3_BUCKET, Prefix=f"{S3_DATA_PREFIX}daily-{mode}-data/", Delimiter="/"
+    )
+    return [p["Prefix"].removeprefix(S3_DATA_PREFIX) for page in pages for p in page.get("CommonPrefixes", [])]
+
+
+def _restore_file(relative_path: str) -> bool:
+    """Download one event file from S3, unless it's already on disk or not in S3. Returns whether it was written."""
+    local_path = DATA_DIR / relative_path
+    if local_path.exists():
+        return False
+    try:
+        obj = s3.get_object(Bucket=S3_BUCKET, Key=S3_DATA_TEMPLATE.format(relative_path=relative_path))
+    except ClientError as e:
+        if e.response.get("Error", {}).get("Code") == "NoSuchKey":
+            return False
+        raise
+    contents = gzip.decompress(obj["Body"].read())
+
+    local_path.parent.mkdir(parents=True, exist_ok=True)
+    # Rename into place, so an interrupted restore never leaves a partial file for gobble to append to
+    tmp_path = local_path.with_name(f"{local_path.name}.tmp")
+    tmp_path.write_bytes(contents)
+    # Keep the upload time as the mtime, so the next upload knows S3 already has this version
+    uploaded_at = obj["LastModified"].timestamp()
+    os.utime(tmp_path, (uploaded_at, uploaded_at))
+    os.replace(tmp_path, local_path)
+    return True
+
+
+@tracer.wrap(service="gobble")
+def restore_recent_events_from_s3():
+    """
+    Download the current and previous service dates' event files from S3 that aren't on disk. Run this on a new
+    instance before gobble first starts. Otherwise gobble starts those files over, and the next upload replaces
+    everything already uploaded for the day with only the events written since. Never overwrites a local file.
+    """
+    start_time = time.time()
+    pull_date = service_date(datetime.datetime.now(EASTERN_TIME))
+    dates = [pull_date - datetime.timedelta(days=1), pull_date]
+    had_local_files = any(_files_for_service_date(date) for date in dates)
+
+    logger.info(f"Beginning restore of events for {dates[0]} and {dates[1]} from s3.")
+    stop_dirs = [stop_dir for mode in CONFIG.get("modes", ALL_MODES) for stop_dir in _list_stop_dirs(mode)]
+    relative_paths = [
+        f"{stop_dir}Year={date.year}/Month={date.month}/Day={date.day}/{CSV_FILENAME}"
+        for stop_dir in stop_dirs
+        for date in dates
+    ]
+
+    restored = failed = 0
+    with ThreadPoolExecutor(max_workers=RESTORE_WORKERS) as pool:
+        futures = {pool.submit(_restore_file, rp): rp for rp in relative_paths}
+        for future in as_completed(futures):
+            try:
+                restored += future.result()
+            except Exception:
+                failed += 1
+                logger.exception(f"Couldn't restore {futures[future]} from s3")
+
+    # Everything on disk for these dates now matches S3, so the next upload only needs the files gobble changes
+    # from here on. Files that failed to download aren't on disk, so this doesn't skip them. If there were already
+    # files, some may have changed since the last upload, so the marker is left alone.
+    if not had_local_files:
+        UPLOAD_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        state = _read_upload_state()
+        state["last_uploaded_at"] = start_time
+        _write_upload_state(state)
+
+    logger.info(
+        f"Restored {restored} files from s3 ({len(stop_dirs)} stops checked for 2 service dates), "
+        f"took {time.time() - start_time:.2f} seconds."
+    )
+    if failed:
+        raise RuntimeError(f"Couldn't restore {failed} of {len(relative_paths)} files from s3")
+
+
 @tracer.wrap(service="gobble")
 def backfill_events_to_s3(start_date: datetime.date):
     """
@@ -176,17 +263,27 @@ if __name__ == "__main__":
     logger = set_up_logging(__file__)
 
     parser = argparse.ArgumentParser(
-        description="Upload MBTA events to S3. Run without arguments for daily upload, or with --start-date for backfill."
+        description="Upload MBTA events to S3. Run without arguments for daily upload, with --start-date for backfill, "
+        "or with --restore to download recent events onto a new instance."
     )
-    parser.add_argument(
+    action = parser.add_mutually_exclusive_group()
+    action.add_argument(
         "--start-date",
         type=str,
         help="Start date for backfill in format MM-DD-YYYY (e.g., 01-28-2026). Will backfill from this date to today.",
     )
+    action.add_argument(
+        "--restore",
+        action="store_true",
+        help="Download the current and previous service dates' events from S3 that aren't on disk. Run on a new "
+        "instance before gobble first starts, so the next upload adds to the day's files instead of replacing them.",
+    )
 
     args = parser.parse_args()
 
-    if args.start_date:
+    if args.restore:
+        restore_recent_events_from_s3()
+    elif args.start_date:
         # Parse the date string
         try:
             start_date = datetime.datetime.strptime(args.start_date, "%m-%d-%Y").date()

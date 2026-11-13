@@ -12,7 +12,7 @@ from ddtrace import tracer
 
 import gtfs
 from config import CONFIG
-from constants import ROUTES_BUS, ROUTES_CR, ROUTES_FERRY, ROUTES_RAPID
+from constants import ALL_MODES, ROUTES_BUS, ROUTES_CR, ROUTES_FERRY, ROUTES_RAPID
 from event import process_event, process_remove
 from logger import set_up_logging
 from trip_state import TripsStateManager
@@ -30,7 +30,7 @@ def main():
     gtfs.start_watching_gtfs()
 
     # Get enabled modes from config, default to all modes if not specified
-    enabled_modes = CONFIG.get("modes", ["rapid", "cr", "bus", "ferry"])
+    enabled_modes = CONFIG.get("modes", ALL_MODES)
 
     threads: list[threading.Thread] = []
 
