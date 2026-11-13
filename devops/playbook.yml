@@ -8,7 +8,7 @@
       git:
         repo: https://github.com/transitmatters/gobble.git
         dest: /home/ubuntu/gobble
-        version: main
+        version: "{{ gobble_branch }}"
         force: yes
 
     - name: Install uv
@@ -33,25 +33,23 @@
         dest: /etc/systemd/system/gobble.service
 
     - name: copy s3 flush service file
+      when: dd_env == "prod"
       become: yes
       become_user: root
       template:
         src: systemd-s3-flush.conf
         dest: /etc/systemd/system/gobble-s3-flush.service
 
-    - name: add python ppa for apt repo
-      become: yes
-      become_user: root
-      apt_repository:
-        repo: ppa:deadsnakes/ppa
-        update_cache: yes
-
-    - name: install python3.14
+    # Ubuntu 26.04's own Python is 3.14, so there's no need for the deadsnakes PPA
+    - name: install python3.14 and cron
       become: yes
       become_user: root
       apt:
-        name: python3.14
+        name:
+          - python3.14
+          - cron
         state: latest
+        update_cache: yes
 
     - name: install rust toolchain
       become: yes
@@ -71,6 +69,7 @@
     # gobble first starts, so it adds to them, and its first upload doesn't replace each file in S3 with only the
     # events written since. gobble still starts if this fails.
     - name: restore recent events from s3 on a new instance
+      when: dd_env == "prod"
       shell: /home/ubuntu/.local/bin/uv run python3 src/s3_upload.py --restore
       args:
         chdir: /home/ubuntu/gobble
@@ -80,6 +79,7 @@
     # Starting it does nothing. Stopping it, when the instance shuts down or is terminated, uploads what gobble wrote
     # since the last cron run.
     - name: upload events to s3 when the instance shuts down
+      when: dd_env == "prod"
       become: yes
       become_user: root
       ansible.builtin.systemd_service:
@@ -104,14 +104,19 @@
         daemon_reload: true
         name: gobble
 
+    # Only production uploads to the S3 bucket the Data Dashboard reads.
     # flock -n skips a run if the previous one is still going; the skipped run's files go up with the next run
     - name: upload events to s3
+      when: dd_env == "prod"
       ansible.builtin.cron:
         name: upload todays events to s3
         minute: "0,30"
         job: "cd /home/ubuntu/gobble && DD_VERSION={{ git_sha }} DD_GIT_COMMIT_SHA={{ git_sha }} DD_SERVICE=gobble DD_ENV=prod flock -n /run/lock/gobble-s3-upload.lock /home/ubuntu/.local/bin/uv run ddtrace-run python3 src/s3_upload.py"
 
   vars:
+    # devops/dry_run.sh overrides these to test-provision a throwaway instance; production uses the defaults
+    dd_env: prod
+    gobble_branch: main
     datadog_api_key: "{{ lookup('env', 'DD_API_KEY') }}"
     datadog_site: "datadoghq.com"
     git_sha: "{{ lookup('env', 'GIT_SHA') }}"
