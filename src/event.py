@@ -46,8 +46,15 @@ def get_stop_name(stops_df: pd.DataFrame, stop_id: str) -> str:
 def arr_or_dep_event(
     prev: dict, current_status: str, current_stop_sequence: int, event_type: str, stop_id: str
 ) -> Tuple[bool, bool]:
+    """Whether an update is a departure from the trip's previous stop, and whether it's an arrival at its new one.
+
+    prev is the trip's state: the stop the vehicle was last at or heading to. One update can be both, when the
+    vehicle reached a later stop with no update in between.
+    """
     is_departure_event = prev["stop_id"] != stop_id and prev["stop_sequence"] < current_stop_sequence
-    is_arrival_event = current_status == "STOPPED_AT" and prev.get("event_type", event_type) == "DEP"
+    is_arrival_event = current_status == "STOPPED_AT" and (
+        prev.get("event_type", event_type) == "DEP" or is_departure_event
+    )
     return is_departure_event, is_arrival_event
 
 
@@ -158,28 +165,26 @@ def process_event(update, trips_state: TripsStateManager, routes: Optional[Set[s
         stop_id=stop_id,
     )
 
-    if is_departure_event or is_arrival_event:
-        if is_departure_event:
-            stop_id = prev_trip_state["stop_id"]
+    event = {
+        "route_id": route_id,
+        "trip_id": trip_id,
+        "direction_id": direction_id,
+        "vehicle_label": vehicle_label,
+        "event_time": updated_at,
+        "vehicle_consist": vehicle_consist,
+        "occupancy_status": occupancy_status,
+        "occupancy_percentage": occupancy_percentage,
+    }
+    # A departure is from the stop the vehicle was last at or heading to. When we never saw it leave (it's already
+    # at a later stop), this update is the first sign it had, so it's the closest time we have.
+    if is_departure_event:
+        departed = {"stop_id": prev_trip_state["stop_id"], "stop_sequence": prev_trip_state["stop_sequence"]}
+        write_event_if_recorded({**event, **departed, "event_type": "DEP"})
+    if is_arrival_event:
+        arrived = {"stop_id": stop_id, "stop_sequence": current_stop_sequence}
+        write_event_if_recorded({**event, **arrived, "event_type": "ARR"})
 
-        # store all commuter rail/subway/ferry stops, but only some bus stops
-        if route_id in ROUTES_CR.union(ROUTES_RAPID).union(ROUTES_FERRY) or stop_id in BUS_STOPS.get(route_id, {}):
-            write_event(
-                {
-                    "route_id": route_id,
-                    "trip_id": trip_id,
-                    "direction_id": direction_id,
-                    "stop_id": stop_id,
-                    "stop_sequence": current_stop_sequence,
-                    "vehicle_label": vehicle_label,
-                    "event_type": event_type,
-                    "event_time": updated_at,
-                    "vehicle_consist": vehicle_consist,
-                    "occupancy_status": occupancy_status,
-                    "occupancy_percentage": occupancy_percentage,
-                }
-            )
-
+    # Keep the stop the vehicle is at or heading to, which its next departure will be from
     trips_state.set_trip_state(
         route_id,
         trip_id,
@@ -194,6 +199,16 @@ def process_event(update, trips_state: TripsStateManager, routes: Optional[Set[s
             "terminal_arrival_written": prev_trip_state.get("terminal_arrival_written", False),
         },
     )
+
+
+def write_event_if_recorded(event: dict) -> None:
+    """Write the event if it's at a stop we record: every Commuter Rail, rapid transit and ferry stop, but only
+    some bus stops."""
+    route_id = event["route_id"]
+    if route_id in ROUTES_CR or route_id in ROUTES_RAPID or route_id in ROUTES_FERRY:
+        write_event(event)
+    elif event["stop_id"] in BUS_STOPS.get(route_id, set()):
+        write_event(event)
 
 
 def write_event(event: dict) -> None:
@@ -249,7 +264,8 @@ def write_terminal_arrival_if_due(route_id: str, trip_id: str, trips_state: Trip
             "route_id": route_id,
             "trip_id": trip_id,
             "direction_id": int(scheduled_trip.direction_id.iloc[0]),
-            # After a departure the trip state holds the stop departed from, so use the scheduled last stop
+            # The scheduled last stop, which the trip state's stop_sequence matched above. Trip states saved by
+            # gobble before #167 hold the stop departed from rather than this one.
             "stop_id": last_stop.stop_id,
             "stop_sequence": trip_state["stop_sequence"],
             # Commuter Rail and ferries report no carriages, so the consist is the vehicle's label
