@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
 
 import pandas as pd
+import pytest
 
 import gtfs
 from event import (
@@ -244,6 +245,42 @@ class TestReduceUpdateEvent:
         assert result[9] == "0801|0802"  # vehicle_consist
         assert result[10] is None  # occupancy_status should be None
         assert result[11] is None  # occupancy_percentage should be None
+
+    @pytest.mark.parametrize(
+        "first, second, expected_status",
+        [
+            ((None, None), ("FEW_SEATS_AVAILABLE", 75), None),
+            (("MANY_SEATS_AVAILABLE", 25), (None, None), None),
+            (("MANY_SEATS_AVAILABLE", None), ("FEW_SEATS_AVAILABLE", 75), "MANY_SEATS_AVAILABLE|FEW_SEATS_AVAILABLE"),
+        ],
+    )
+    def test_reduce_update_event_carriages_with_partial_occupancy(self, first, second, expected_status):
+        """Occupancy is left empty unless every carriage reports it"""
+        carriages = [
+            {"label": label, "occupancy_status": status, "occupancy_percentage": percentage}
+            for label, (status, percentage) in zip(["0801", "0802"], [first, second])
+        ]
+        update = {
+            "attributes": {
+                "current_status": "IN_TRANSIT_TO",
+                "updated_at": "2024-01-15T10:30:00-05:00",
+                "current_stop_sequence": 3,
+                "direction_id": 0,
+                "label": "9999",
+                "carriages": carriages,
+            },
+            "relationships": {
+                "stop": {"data": {"id": "70003"}},
+                "route": {"data": {"id": "Blue"}},
+                "trip": {"data": {"id": "trip_789"}},
+            },
+        }
+
+        result = reduce_update_event(update)
+
+        assert result[9] == "0801|0802"  # vehicle_consist
+        assert result[10] == expected_status  # occupancy_status
+        assert result[11] is None  # occupancy_percentage, which no case reports for every carriage
 
     def test_reduce_update_event_missing_stop(self):
         """Test event reduction when stop data is missing"""

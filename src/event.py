@@ -57,21 +57,14 @@ def reduce_update_event(update: dict) -> Tuple:
     updated_at = datetime.fromisoformat(update["attributes"]["updated_at"])
     # ferries have no label, but their vehicle id is the boat name (ex, "RUTH E HUGHES")
     vehicle_label = update["attributes"]["label"] or update.get("id")
-    if len(update["attributes"]["carriages"]) > 0:
-        vehicle_consist = "|".join([carriage["label"] for carriage in update["attributes"]["carriages"]])
-        if update["attributes"]["carriages"][0]["occupancy_status"] is not None:
-            occupancy_status = "|".join(
-                [carriage["occupancy_status"] for carriage in update["attributes"]["carriages"]]
-            )
-        else:
-            occupancy_status = None
-
-        if update["attributes"]["carriages"][0]["occupancy_percentage"] is not None:
-            occupancy_percentage = "|".join(
-                [str(carriage["occupancy_percentage"]) for carriage in update["attributes"]["carriages"]]
-            )
-        else:
-            occupancy_percentage = None
+    carriages = update["attributes"]["carriages"]
+    if len(carriages) > 0:
+        vehicle_consist = "|".join([carriage["label"] for carriage in carriages])
+        # Occupancy is written only when every carriage reports it, so each value lines up with its carriage
+        statuses = [carriage["occupancy_status"] for carriage in carriages]
+        occupancy_status = "|".join(statuses) if None not in statuses else None
+        percentages = [carriage["occupancy_percentage"] for carriage in carriages]
+        occupancy_percentage = "|".join(str(p) for p in percentages) if None not in percentages else None
     else:
         vehicle_consist = vehicle_label
         occupancy_status = update["attributes"]["occupancy_status"]
