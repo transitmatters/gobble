@@ -11,6 +11,15 @@
         version: "{{ gobble_branch }}"
         force: yes
 
+    # Ubuntu 26.04 creates /home/ubuntu as 0750, which stops the Datadog Agent (dd-agent) from reaching gobble's
+    # log files. o+x lets it pass through to them without being able to list the home directory.
+    - name: let the Datadog Agent reach gobble's logs
+      become: yes
+      become_user: root
+      file:
+        path: /home/ubuntu
+        mode: o+x
+
     - name: Install uv
       shell: curl -LsSf https://astral.sh/uv/install.sh | sh
 
