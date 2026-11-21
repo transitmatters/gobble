@@ -1,4 +1,3 @@
-import json
 from datetime import datetime, timedelta
 from typing import Optional, Set, Tuple
 import pandas as pd
@@ -74,7 +73,11 @@ def reduce_update_event(update: dict) -> Tuple:
         # The vehicle’s current (when current_status is STOPPED_AT) or next stop.
         stop_id = update["relationships"]["stop"]["data"]["id"]
     except (TypeError, KeyError):
-        logger.error(f"Encountered degenerate stop information. This event will be skipped: {json.dumps(update)}")
+        # Expected for some vehicles (#51), so it's a warning, and logs IDs rather than the whole payload
+        relationships = update.get("relationships") or {}
+        route_id = ((relationships.get("route") or {}).get("data") or {}).get("id")
+        trip_id = ((relationships.get("trip") or {}).get("data") or {}).get("id")
+        logger.warning(f"Skipping an update with no stop: vehicle={update.get('id')} route={route_id} trip={trip_id}")
         stop_id = None
 
     return (
@@ -194,7 +197,8 @@ def write_event(event: dict) -> None:
     gtfs_archive = gtfs.get_current_gtfs_archive()
     event_time = event["event_time"]
     stop_name = get_stop_name(gtfs_archive.stops, event["stop_id"])
-    logger.info(
+    # DEBUG: one line per event was ~87% of log volume, and the event counts are already in the S3 files
+    logger.debug(
         f"[{event_time.isoformat()}] Event: route={event['route_id']} trip_id={event['trip_id']} "
         f"{event['event_type']} stop={stop_name}"
     )

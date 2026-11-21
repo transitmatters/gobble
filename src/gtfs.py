@@ -34,7 +34,7 @@ GTFS_ARCHIVES_FILENAME = "archived_feeds.txt"
 
 # Number of days to retain downloaded GTFS archives before cleanup.
 # The most recent archive is always kept regardless of age.
-GTFS_ARCHIVE_RETENTION_DAYS = CONFIG["gtfs"].get("archive_retention_days", 90)
+GTFS_ARCHIVE_RETENTION_DAYS = CONFIG["gtfs"].get("archive_retention_days", 30)
 
 # defining these columns in particular becasue we use them everywhere
 RTE_DIR_STOP = ["route_id", "direction_id", "stop_id"]

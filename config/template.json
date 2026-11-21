@@ -5,7 +5,7 @@
   "gtfs": {
     "dir": null,
     "refresh_interval_days": 7,
-    "archive_retention_days": 90
+    "archive_retention_days": 30
   },
   "DATADOG_TRACE_ENABLED": false,
   "file_retention_days": 180,

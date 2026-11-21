@@ -3,7 +3,6 @@ import datetime
 import glob
 import gzip
 import json
-import logging
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -18,10 +17,9 @@ from config import CONFIG
 from constants import ALL_MODES
 from disk import CSV_FILENAME, DATA_DIR, cleanup_old_files
 from gtfs import cleanup_old_gtfs_archives
-from logger import set_up_logging
+from logger import configure_logging, set_up_logging
 from util import EASTERN_TIME, service_date
 
-logging.basicConfig(level=logging.INFO, filename="s3_upload.log")
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
 
 # A restore checks a few thousand keys, almost all of it waiting on S3, so it runs this many requests at once
@@ -260,6 +258,7 @@ def backfill_events_to_s3(start_date: datetime.date):
 
 
 if __name__ == "__main__":
+    configure_logging("s3_upload.log")
     logger = set_up_logging(__file__)
 
     parser = argparse.ArgumentParser(

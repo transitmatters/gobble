@@ -149,6 +149,35 @@ class TestReduceUpdateEvent:
         assert result[10] == "MANY_SEATS_AVAILABLE"  # occupancy_status
         assert result[11] is None  # occupancy_percentage
 
+    def test_reduce_update_event_no_stop_warns_with_ids(self, caplog):
+        """An update with no stop is expected (#51): it's skipped with a warning naming its IDs, not the payload"""
+        update = {
+            "id": "y1234",
+            "attributes": {
+                "current_status": "IN_TRANSIT_TO",
+                "updated_at": "2024-01-15T10:30:00-05:00",
+                "current_stop_sequence": 5,
+                "direction_id": 0,
+                "label": "1234",
+                "carriages": [],
+                "occupancy_status": None,
+            },
+            "relationships": {
+                "stop": {"data": None},
+                "route": {"data": {"id": "1"}},
+                "trip": {"data": {"id": "trip_123"}},
+            },
+        }
+
+        with caplog.at_level("WARNING", logger="event"):
+            result = reduce_update_event(update)
+
+        assert result[5] is None  # stop_id
+        [record] = [r for r in caplog.records if r.name == "event"]
+        assert record.levelname == "WARNING"
+        assert "vehicle=y1234 route=1 trip=trip_123" in record.getMessage()
+        assert "attributes" not in record.getMessage()
+
     def test_reduce_update_event_ferry_null_label(self):
         """Test that ferries with no label fall back to the vehicle id (the boat name)"""
         update = {
