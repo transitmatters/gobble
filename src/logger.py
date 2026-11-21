@@ -13,6 +13,9 @@ class DatadogJsonFormatter(jsonlogger.JsonFormatter):
         # rename_fields can't do this one: it raises KeyError on records without a traceback
         if "exc_info" in log_record:
             log_record["error.stack"] = log_record.pop("exc_info")
+        # Python 3.12+ sets taskName on every record (None outside asyncio), which this version doesn't skip
+        if log_record.get("taskName") is None:
+            log_record.pop("taskName", None)
         return log_record
 
 
@@ -34,20 +37,24 @@ def json_formatter() -> jsonlogger.JsonFormatter:
     )
 
 
-def configure_logging(filename: str | os.PathLike, level: int = logging.INFO) -> None:
-    """Send every logger's records to a rotating JSON file, which the Datadog Agent tails, and to stderr, which
-    goes to the journal. Call once, from an entry point."""
+def configure_logging(filename: str | os.PathLike, level: int | str = logging.INFO) -> None:
+    """Send every logger's records at `level` (a number or a name like "DEBUG") and up to a rotating JSON file,
+    which the Datadog Agent tails. Warnings and errors also go to stderr, which goes to the journal (or cron), so
+    it shows what went wrong without repeating every line. Call once, from an entry point."""
     root = logging.getLogger()
-    root.setLevel(level)
+    root.setLevel(level.upper() if isinstance(level, str) else level)
     formatter = json_formatter()
 
     file_handler = logging.handlers.RotatingFileHandler(
         filename, maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT, encoding="utf-8"
     )
+    file_handler.setFormatter(formatter)
+    root.addHandler(file_handler)
+
     stream_handler = logging.StreamHandler()
-    for handler in (file_handler, stream_handler):
-        handler.setFormatter(formatter)
-        root.addHandler(handler)
+    stream_handler.setLevel(logging.WARNING)
+    stream_handler.setFormatter(formatter)
+    root.addHandler(stream_handler)
 
 
 def set_up_logging(name: str) -> logging.Logger:

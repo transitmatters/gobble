@@ -258,7 +258,7 @@ def backfill_events_to_s3(start_date: datetime.date):
 
 
 if __name__ == "__main__":
-    configure_logging("s3_upload.log")
+    configure_logging("s3_upload.log", CONFIG.get("log_level", "INFO"))
     logger = set_up_logging(__file__)
 
     parser = argparse.ArgumentParser(

@@ -143,7 +143,7 @@ def log_event_exception():
 
 
 if __name__ == "__main__":
-    configure_logging("gobble.log")
+    configure_logging("gobble.log", CONFIG.get("log_level", "INFO"))
     logger = set_up_logging(__file__)
     main()
 else:

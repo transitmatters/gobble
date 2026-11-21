@@ -9,5 +9,6 @@
   },
   "DATADOG_TRACE_ENABLED": false,
   "file_retention_days": 180,
+  "log_level": "INFO",
   "modes": ["rapid", "cr", "bus", "ferry"]
 }
