@@ -1,5 +1,6 @@
 import csv
 import datetime
+import os
 import pathlib
 import pytest
 
@@ -277,6 +278,49 @@ class TestWriteEvent:
             # CSV writes None as empty string
             assert rows[0]["scheduled_headway"] == ""
             assert rows[0]["occupancy_status"] == ""
+
+
+class TestCleanupOldFiles:
+    """Test cleanup_old_files removes old CSVs and the directories they leave empty"""
+
+    @staticmethod
+    def _make_csv(root: pathlib.Path, rel: str, mtime: datetime.datetime) -> pathlib.Path:
+        path = root / rel / disk.CSV_FILENAME
+        path.parent.mkdir(parents=True)
+        path.write_text("header\n")
+        ts = mtime.timestamp()
+        os.utime(path, (ts, ts))
+        return path
+
+    def test_removes_directories_emptied_by_deletion(self, temp_disk_dir):
+        now = datetime.datetime(2026, 11, 21, 3, 0)
+        old = now - datetime.timedelta(days=disk.FILE_RETENTION_DAYS + 1)
+        new = now - datetime.timedelta(days=1)
+        stop = temp_disk_dir / "daily-rapid-data" / "70001"
+        self._make_csv(stop, "Year=2026/Month=5/Day=1", old)
+        self._make_csv(stop, "Year=2026/Month=5/Day=2", old)
+        kept = self._make_csv(stop, "Year=2026/Month=11/Day=20", new)
+        # A stop that only had old events ends up with nothing left
+        self._make_csv(temp_disk_dir / "daily-rapid-data" / "70099", "Year=2026/Month=5/Day=1", old)
+
+        disk.cleanup_old_files(now)
+
+        assert kept.exists()
+        assert not (stop / "Year=2026" / "Month=5").exists()
+        assert (stop / "Year=2026" / "Month=11" / "Day=20").is_dir()
+        assert not (temp_disk_dir / "daily-rapid-data" / "70099").exists()
+        assert (temp_disk_dir / "daily-rapid-data").is_dir()
+        assert temp_disk_dir.is_dir()
+
+    def test_leaves_directories_nothing_was_deleted_from(self, temp_disk_dir):
+        """An empty directory gobble just created, but hasn't written to yet, isn't removed"""
+        now = datetime.datetime(2026, 11, 21, 3, 0)
+        empty = temp_disk_dir / "daily-rapid-data" / "70001" / "Year=2026" / "Month=11" / "Day=21"
+        empty.mkdir(parents=True)
+
+        disk.cleanup_old_files(now)
+
+        assert empty.is_dir()
 
 
 class TestDiskConstants:

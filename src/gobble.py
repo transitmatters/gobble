@@ -1,5 +1,4 @@
 import json
-import logging
 import threading
 import time
 import traceback
@@ -14,11 +13,10 @@ import gtfs
 from config import CONFIG
 from constants import ALL_MODES, ROUTES_BUS, ROUTES_CR, ROUTES_FERRY, ROUTES_RAPID
 from event import process_event, process_remove
-from logger import set_up_logging
+from logger import configure_logging, set_up_logging
 from trip_state import TripsStateManager
 from util import EASTERN_TIME
 
-logging.basicConfig(level=logging.INFO, filename="gobble.log")
 tracer.enabled = CONFIG["DATADOG_TRACE_ENABLED"]
 
 API_KEY = CONFIG["mbta"]["v3_api_key"]
@@ -145,6 +143,7 @@ def log_event_exception():
 
 
 if __name__ == "__main__":
+    configure_logging("gobble.log", CONFIG.get("log_level", "INFO"))
     logger = set_up_logging(__file__)
     main()
 else:

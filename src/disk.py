@@ -59,6 +59,10 @@ def write_event(event: dict):
 def _scan_and_cleanup(path: pathlib.Path, cutoff: datetime) -> int:
     """Recursively scan directory and delete CSV files older than cutoff.
 
+    A subdirectory that a deletion leaves empty is removed too, so old Day=N/ directories don't pile up. Only
+    directories something was deleted from are removed, and only when empty: they hold old dates, which gobble
+    no longer writes to.
+
     Args:
         path: Directory path to scan
         cutoff: Datetime cutoff - files modified before this will be deleted
@@ -71,7 +75,13 @@ def _scan_and_cleanup(path: pathlib.Path, cutoff: datetime) -> int:
         for entry in it:
             try:
                 if entry.is_dir(follow_symlinks=False):
-                    deleted += _scan_and_cleanup(entry.path, cutoff)
+                    deleted_below = _scan_and_cleanup(entry.path, cutoff)
+                    deleted += deleted_below
+                    if deleted_below:
+                        try:
+                            os.rmdir(entry.path)
+                        except OSError:
+                            pass  # Not empty: it still holds newer files
                 elif entry.is_file(follow_symlinks=False) and entry.name == CSV_FILENAME:
                     if datetime.fromtimestamp(entry.stat().st_mtime) < cutoff:
                         os.unlink(entry.path)

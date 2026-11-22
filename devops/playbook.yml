@@ -120,7 +120,7 @@
       ansible.builtin.cron:
         name: upload todays events to s3
         minute: "0,30"
-        job: "cd /home/ubuntu/gobble && DD_VERSION={{ git_sha }} DD_GIT_COMMIT_SHA={{ git_sha }} DD_SERVICE=gobble DD_ENV=prod flock -n /run/lock/gobble-s3-upload.lock /home/ubuntu/.local/bin/uv run ddtrace-run python3 src/s3_upload.py"
+        job: "cd /home/ubuntu/gobble && DD_VERSION={{ git_sha }} DD_GIT_COMMIT_SHA={{ git_sha }} DD_SERVICE=gobble DD_ENV=prod DD_LOGS_INJECTION=true flock -n /run/lock/gobble-s3-upload.lock /home/ubuntu/.local/bin/uv run ddtrace-run python3 src/s3_upload.py"
 
   vars:
     # devops/dry_run.sh overrides these to test-provision a throwaway instance; production uses the defaults
